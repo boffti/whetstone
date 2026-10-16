@@ -79,6 +79,7 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
             "tests",
             "-q",
             "--tb=short",
+            "--color=no",  # the app shows output as text; a FORCE_COLOR in the environment would leak escape codes
             "-p",
             "no:cacheprovider",
             "-o",
@@ -87,7 +88,8 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
             str(tmp),
             f"--junitxml={junit}",
         ]
-        env = {**os.environ, "PYTHONPATH": str(tmp), "PYTHONDONTWRITEBYTECODE": "1", "REDIS_URL": settings.redis_url}
+        env = {k: v for k, v in os.environ.items() if k not in ("FORCE_COLOR", "PY_COLORS")}
+        env |= {"PYTHONPATH": str(tmp), "PYTHONDONTWRITEBYTECODE": "1", "REDIS_URL": settings.redis_url, "NO_COLOR": "1"}
         started = time.monotonic()
         try:
             proc = subprocess.run(cmd, cwd=tmp, env=env, capture_output=True, text=True, timeout=timeout)
