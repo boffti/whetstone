@@ -10,7 +10,7 @@ A self-hosted practice dojo where your own AI agent builds the lessons. Pick a s
 
 This repo is the shell: the app, the CLI your agent drives, and a shared catalog of systems and real interview reports. Everything written for you stays on your machine, in `my/`, and is never committed.
 
-<p align="center"><img src="docs/demo.gif" width="420" alt="Whetstone in a narrow side pane: the Practice home, a question with the problem first, a failing test run, a hint that unlocks after the next run, a passing submit, then the Paths and Catalog pages."></p>
+<p align="center"><img src="docs/demo.gif" width="420" alt="Whetstone in a narrow side pane: a personal dashboard with skill edges, practice calendar and numbers; a write-the-tests question where one test misses four hidden bugs; a note from your AI agent over the editor; all bugs caught after better tests; then the Paths and Catalog pages."></p>
 
 ## Quick start
 
