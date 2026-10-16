@@ -1,0 +1,24 @@
+title: Six pressures of system design
+goal: Meet the six pressures every system faces (too many reads, too many writes, real-time updates,
+  slow jobs, failure, and read/write contention) and the new problem each fix creates, from stale
+  caches and replication lag to duplicate deliveries, retry storms and lagging read models.
+domain: Foundations
+modules:
+# Too many reads: indexes, caches, replicas
+- query-engine
+- lru-ttl-cache
+- http-cache
+- leader-follower-replication
+# Too many writes: batching, sharding
+- request-batching
+- sharded-counters
+# Real-time: long polling, SSE, WebSockets
+- realtime-push
+# Slow jobs: queue plus workers
+- task-queue-workers
+- bounded-queue-backpressure
+# Failure: retries with backoff and a breaker, then idempotency for the duplicates they cause
+- retry-backoff
+- idempotent-api
+# Read/write contention: CQRS
+- cqrs-read-model
