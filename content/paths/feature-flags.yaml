@@ -1,0 +1,16 @@
+title: Build a feature-flag and configuration service
+goal: Store versioned config with access control and an audit log, assign users to experiments, roll changes
+  out in stages, and notify subscribers.
+domain: AI & developer platforms
+companies:
+- JioHotstar
+- Tesla
+- Meta
+modules:
+- versioned-kv-store
+- access-control
+- audit-log
+- experiment-assignment
+- staged-rollout
+- release-rollout
+- webhook-delivery

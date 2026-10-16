@@ -1,0 +1,16 @@
+title: Build a durable workflow engine like Temporal
+goal: 'Run long-lived workflows that survive crashes: queued activities, retries, idempotent steps, event-history
+  replay and leased workers.'
+domain: Data & infrastructure
+companies:
+- Temporal
+- OpenAI
+- DigitalOcean
+modules:
+- task-queue-workers
+- retry-backoff
+- idempotent-api
+- event-log-replay
+- durable-workflow
+- workflow-engine
+- leader-election-leases

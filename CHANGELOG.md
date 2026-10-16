@@ -7,7 +7,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ### Added
 - Web app: catalog of interview problems, learning paths by domain, and a practice view with an editor and pytest grading. It also works in a narrow pane next to your AI agent.
 - CLI (`bin/whetstone`) for AI agents: `path`, `module`, `question`, `catalog`, `progress`, `draft` and `test` commands, with `AGENTS.md`.
-- Shared content: about 250 modules with paraphrased interview reports, and 71 learning paths modelled on big-tech systems.
+- Shared content: about 260 modules with about 620 paraphrased interview reports, and 78 learning paths modelled on big-tech systems.
+- Catalog research from r/InterviewCoderHQ: 188 reports added with thin-source confidence, 8 new modules (incident triage, live data migration, joins under a memory limit, profiler events, a data-source gateway, a REST take-home, longest-prefix routing, a Conv2D forward pass) and 6 new paths (production operations, a Temporal-style workflow engine, Ramp-style spend management, a Retool-style tools builder, a Cursor-style editor backend, a feature-flag service).
 - Personal content in a git-ignored `my/` folder: profile, built questions, own paths and progress.
 - Interface: IBM Plex type, slate and wet-stone colors in dark and light, keyboard hints on Run tests and Submit, and a per-test edge meter after each run.
 - Teaching: five agent skills (curate, author, tutor, review, interview) built on `docs/PEDAGOGY.md`. Questions now have a type (build, predict, fix, review), problem-first lessons, a four-rung hint ladder and spaced variants. `progress` reports clean or assisted solves, mastery and review dates.

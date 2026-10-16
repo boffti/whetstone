@@ -6,7 +6,7 @@ Whetstone is a self-hosted practice dojo. The learner works in the web app at ht
 
 - A **question** is one exercise: a lesson, a problem, hints, starter code, a reference solution, and tests.
 - A **module** is a topic made of ordered questions, each a step up from the last. An example is `rate-limiter`.
-- A **learning path** is an ordered list of modules toward one goal, usually a system to build: a payment processor, a taxi service, an LLM gateway like OpenRouter, a high-frequency trading system. About 70 paths ship, grouped by domain and modelled on the systems of about 90 companies.
+- A **learning path** is an ordered list of modules toward one goal, usually a system to build: a payment processor, a taxi service, an LLM gateway like OpenRouter, a high-frequency trading system. About 80 paths ship, grouped by domain and modelled on the systems of about 100 companies.
 - The **catalog** (`content/catalog.yaml`) defines every module: its id, title and summary, plus any interview reports from real companies. Most path modules start as **placeholders**: they are defined in the catalog, but no questions exist yet. You build them when the learner reaches them.
 
 Run every command from this folder. When the Docker app is up, `bin/whetstone` runs inside the container.

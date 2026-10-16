@@ -55,8 +55,8 @@ Whetstone never calls an AI itself. Your agent does the thinking, and the CLI cr
 | Folder | Committed | What is in it |
 |---|---|---|
 | `whetstone/`, `bin/`, `scripts/`, `tests/` | yes | The app, the CLI, and their tests |
-| `content/catalog.yaml` | yes | About 250 modules (one topic each), with about 430 paraphrased interview reports from real companies |
-| `content/paths/` | yes | About 70 learning paths: systems to build, modelled on the products of about 90 companies |
+| `content/catalog.yaml` | yes | About 260 modules (one topic each), with about 620 paraphrased interview reports from more than 90 companies |
+| `content/paths/` | yes | About 80 learning paths: systems to build, modelled on the products of about 100 companies |
 | `content/profile.example.md` | yes | The template your agent fills in |
 | `examples/` | yes | Finished questions that show the format and quality bar: `memoize` (build) and `retry-tests` (write the tests) |
 | `my/` | **never** | Your profile, the questions your agent built for you, your own paths, your progress, your drafts |

@@ -1,0 +1,16 @@
+title: Build an AI code editor backend like Cursor
+goal: Edit large files fast, index a codebase for retrieval, route requests to models, stream completions,
+  and apply AI edits as clean diffs.
+domain: AI & developer platforms
+companies:
+- Cursor
+- Anthropic
+- OpenAI
+modules:
+- text-buffer
+- parsers-codecs
+- hybrid-retrieval
+- provider-routing
+- streaming-responses
+- diff-merge
+- ai-assisted-build

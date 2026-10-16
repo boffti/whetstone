@@ -1,0 +1,15 @@
+title: Build a low-code internal tools builder like Retool
+goal: Let teams drag components onto a canvas, wire them to databases and APIs through a safe gateway,
+  and share apps with the right permissions.
+domain: Enterprise software
+companies:
+- Retool
+- Notion
+modules:
+- scene-graph
+- editor-undo
+- access-control
+- data-source-gateway
+- api-integration
+- lru-ttl-cache
+- tenant-isolation

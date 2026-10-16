@@ -1,0 +1,19 @@
+title: Operate a production service
+goal: 'Find and fix live incidents: read the metrics, form hypotheses, roll out safely, and migrate data
+  without downtime.'
+domain: Foundations
+companies:
+- Google
+- Anthropic
+- Spotify
+- Notion
+modules:
+- bug-squash
+- incident-triage
+- time-window-metrics
+- alert-rules
+- trace-assembly
+- retry-backoff
+- admission-control
+- staged-rollout
+- live-data-migration

@@ -1,0 +1,17 @@
+title: Build a corporate card and spend platform like Ramp
+goal: Issue cards, approve and authorise spend against policy, post it to a ledger, catch fraud and reconcile
+  with the bank.
+domain: Payments & fintech
+companies:
+- Ramp
+- Square
+- Stripe
+modules:
+- kyc-onboarding
+- bank-account-system
+- payment-lifecycle
+- approval-chains
+- rules-engine
+- ledger
+- fraud-scoring
+- reconciliation-matching
