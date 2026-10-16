@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=8">
+  <link rel="stylesheet" href="/static/app.css?v=9">
 </head>
 <body>
   <header class="topbar">
@@ -50,10 +50,14 @@
         <select id="f-company"><option value="">All companies</option></select>
       </label>
       <div class="chips" id="f-rounds" role="group" aria-label="Round type"></div>
-      <label class="filter-check"><input type="checkbox" id="f-tracked"> Ready to practise</label>
+      <div class="chips" id="f-status" role="group" aria-label="Status">
+        <button type="button" class="chip" data-status="" aria-pressed="true">All</button>
+        <button type="button" class="chip" data-status="ready" aria-pressed="false">Ready to practise</button>
+        <button type="button" class="chip" data-status="none" aria-pressed="false">Not built yet</button>
+      </div>
     </div>
-    <p class="catalog-count" id="catalog-count" aria-live="polite"></p>
-    <ul class="grid" id="catalog-grid"></ul>
+    <p class="catalog-count"><span id="catalog-count" aria-live="polite"></span> <span class="keys-hint">Press <kbd>/</kbd> to search, <kbd>j</kbd> and <kbd>k</kbd> to move, <kbd>Enter</kbd> to open.</span></p>
+    <ol class="rows" id="catalog-grid"></ol>
   </main>
 
   <main class="paths" id="paths" hidden aria-labelledby="paths-title">
@@ -68,6 +72,7 @@
       </label>
       <div class="chips" id="p-domains" role="group" aria-label="Domain"></div>
     </div>
+    <section class="paths-yours" id="paths-yours" aria-label="Your paths"></section>
     <p class="catalog-count" id="paths-count" aria-live="polite"></p>
     <ul class="grid" id="paths-list"></ul>
   </main>
@@ -231,6 +236,6 @@
     window.MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/app.js?v=13"></script>
 </body>
 </html>

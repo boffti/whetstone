@@ -23,7 +23,7 @@ const state = {
   catalog: [],
   paths: [],
   pathFilter: { q: "", domain: "" },
-  filters: { q: "", company: "", round: "", tracked: false },
+  filters: { q: "", company: "", round: "", status: "" },
 };
 
 /* ---------- Utilities ---------- */
@@ -690,7 +690,11 @@ function initCatalog() {
   $("#f-rounds").replaceChildren(chip("", "All rounds"), ...Object.entries(ROUNDS).map(([v, l]) => chip(v, l)));
   $("#f-search").addEventListener("input", (e) => { state.filters.q = e.target.value.trim().toLowerCase(); renderCatalog(); });
   $("#f-company").addEventListener("change", (e) => { state.filters.company = e.target.value; renderCatalog(); });
-  $("#f-tracked").addEventListener("change", (e) => { state.filters.tracked = e.target.checked; renderCatalog(); });
+  $$("#f-status .chip").forEach((c) => c.addEventListener("click", () => {
+    state.filters.status = c.dataset.status;
+    $$("#f-status .chip").forEach((x) => x.setAttribute("aria-pressed", x === c ? "true" : "false"));
+    renderCatalog();
+  }));
   const dialog = $("#problem-dialog");
   $("#problem-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
@@ -729,14 +733,19 @@ function renderCatalog() {
   const f = state.filters;
   const rows = state.catalog
     .map((p) => ({ p, hits: p.reports.filter(reportMatches) }))
-    .filter(({ p, hits }) => hits.length && (!f.tracked || p.links.length) && (!f.q || searchText(p).includes(f.q)))
+    .filter(({ p, hits }) => hits.length && statusMatches(p) && (!f.q || searchText(p).includes(f.q)))
     .sort((a, b) => b.hits.length - a.hits.length || a.p.title.localeCompare(b.p.title));
   const max = Math.max(1, ...rows.map((r) => r.hits.length));
   const n = rows.reduce((s, r) => s + r.hits.length, 0);
   $("#catalog-count").textContent = rows.length
     ? `Showing ${plural(rows.length, "problem")} and ${plural(n, "report")}, most asked first.`
     : "Nothing matches. Clear a filter or try another word.";
-  $("#catalog-grid").replaceChildren(...rows.map(({ p, hits }) => el("li", {}, card(p, hits, max))));
+  $("#catalog-grid").replaceChildren(...rows.map(({ p, hits }) => el("li", {}, catalogRow(p, hits, max))));
+}
+
+function statusMatches(p) {
+  const s = state.filters.status;
+  return !s || (s === "ready" ? p.links.length > 0 : !p.links.length && p.format !== "design");
 }
 
 function problemStatus(p) {
@@ -749,21 +758,20 @@ function problemStatus(p) {
     : { kind: "ready", text: `${plural(total, "question")} ready` };
 }
 
-function card(p, hits, max) {
+/** One problem as a compact row: what it is, who asks it, how often, and whether it is ready. */
+function catalogRow(p, hits, max) {
   const companies = [...new Set(hits.map((r) => r.company))];
-  const shown = companies.slice(0, 4).join(", ") + (companies.length > 4 ? ` and ${companies.length - 4} more` : "");
+  const shown = companies.slice(0, 3).join(", ") + (companies.length > 3 ? ` and ${companies.length - 3} more` : "");
   const rounds = [...new Set(hits.map((r) => r.round))].map((r) => ROUNDS[r] || r).join(", ");
   const st = problemStatus(p);
-  return el("button", { type: "button", class: "card", onclick: () => openProblem(p.id) },
-    el("span", { class: "wear", style: `--w:${Math.round((hits.length / max) * 100)}%`, "aria-hidden": "true" }),
-    el("span", { class: "card-top" },
-      el("span", { class: "card-title", text: p.title }),
-      el("span", { class: "card-count" }, el("strong", { text: hits.length }), hits.length === 1 ? " report" : " reports")),
-    el("span", { class: "card-summary", text: p.summary }),
-    el("span", { class: "card-companies", text: shown }),
-    el("span", { class: "card-foot" },
-      el("span", { class: "card-rounds", text: rounds }),
-      el("span", { class: "status", "data-s": st.kind, text: st.text })));
+  return el("button", { type: "button", class: "row", title: rounds, onclick: () => openProblem(p.id) },
+    el("span", { class: "row-main" },
+      el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), el("span", { class: "row-cos", text: shown })),
+      el("span", { class: "row-sub", text: p.summary })),
+    el("span", { class: "row-asked" },
+      el("span", { class: "freq", style: `--w:${Math.round((hits.length / max) * 100)}%`, "aria-hidden": "true" }),
+      el("span", {}, el("strong", { text: hits.length }), hits.length === 1 ? " report" : " reports")),
+    el("span", { class: "status", "data-s": st.kind, text: st.text }));
 }
 
 function safeUrl(u) {
@@ -783,9 +791,19 @@ function reportItem(r) {
       el("span", { class: "conf", "data-c": r.confidence, text: CONFIDENCE[r.confidence] || r.confidence })),
     el("p", { class: "report-q", text: r.question }),
     r.follow_ups.length ? el("ul", { class: "report-follow", "aria-label": "Follow-ups" }, r.follow_ups.map((f) => el("li", { text: f }))) : null,
-    links.length ? el("p", { class: "report-src" }, "Sources: ",
-      ...links.flatMap((u, i) => [i ? ", " : null,
-        el("a", { href: u.href, target: "_blank", rel: "noopener noreferrer", text: u.hostname.replace(/^www\./, "") })])) : null);
+    links.length ? el("p", { class: "report-src" }, "Sources: ", ...sourceLinks(links)) : null);
+}
+
+/** "prachub.com 1 2 3, 1point3acres.com": one name per site, with numbered links when it repeats. */
+function sourceLinks(links) {
+  const byHost = new Map();
+  for (const u of links) {
+    const host = u.hostname.replace(/^www\./, "");
+    byHost.set(host, [...(byHost.get(host) || []), u]);
+  }
+  const a = (u, text) => el("a", { href: u.href, target: "_blank", rel: "noopener noreferrer", text });
+  return [...byHost].flatMap(([host, urls], i) => [i ? ", " : null,
+    urls.length === 1 ? a(urls[0], host) : el("span", {}, `${host} `, ...urls.flatMap((u, n) => [n ? " " : null, a(u, String(n + 1))]))]);
 }
 
 function openProblem(id) {
@@ -908,29 +926,53 @@ function pathText(p) {
 
 function renderPaths() {
   const f = state.pathFilter;
+  const filtering = Boolean(f.q || f.domain);
+  const started = (p) => p.mine || pathStats(p).solved > 0;
+  // Your paths sit in their own list above the grid, unless you are searching.
+  const yours = filtering ? [] : state.paths.filter(started);
   const rows = state.paths
-    .filter((p) => (!f.domain || (p.domain || "Other") === f.domain) && (!f.q || pathText(p).includes(f.q)))
+    .filter((p) => (filtering || !started(p)) && (!f.domain || (p.domain || "Other") === f.domain) && (!f.q || pathText(p).includes(f.q)))
     .map((p) => ({ p, st: pathStats(p) }))
-    // Paths you have started come first, then the ones with the most built, then A to Z.
-    .sort((x, y) => y.p.mine - x.p.mine || (y.st.solved > 0) - (x.st.solved > 0) || y.st.built - x.st.built || x.p.title.localeCompare(y.p.title));
-  $("#paths-count").textContent = rows.length ? `Showing ${plural(rows.length, "path")}.` : "";
+    // The ones with the most built come first, then A to Z.
+    .sort((x, y) => y.st.built - x.st.built || x.p.title.localeCompare(y.p.title));
+  $("#paths-yours").replaceChildren(...(yours.length ? [el("h2", { text: "Your paths" }), el("ul", { class: "home-list" }, yours.map(yourPathRow))] : []));
+  $("#paths-count").textContent = rows.length ? `${yours.length ? "More paths: " : "Showing "}${plural(rows.length, "path")}.` : "";
   $("#paths-list").replaceChildren(...(rows.length ? rows.map(({ p, st }) => el("li", {}, pathTile(p, st))) : [el("li", { class: "agent-ask" },
     el("p", { class: "note", text: state.paths.length ? "Nothing matches. Clear a filter, or ask your agent for a new path:" : "No learning paths yet. Open this folder in Claude Code, Codex, Cursor or another coding agent and ask:" }),
     el("p", { class: "ask-line" }, el("code", { text: "Make me a Whetstone learning path to build …" })))]));
 }
 
+/** A path as a strip of modules: solved, built, or not built yet. */
+function routeStrip(p) {
+  return el("span", { class: "route", "aria-hidden": "true" }, p.modules.map((m) =>
+    el("span", { class: "route-seg", title: m.title, "data-s": m.built && m.questions && m.solved === m.questions ? "done" : m.built ? "built" : "none" })));
+}
+
+function pathSummary(p, st) {
+  return `${st.built} of ${plural(p.modules.length, "module")} built` + (st.total ? `, ${st.solved} of ${plural(st.total, "question")} solved` : "");
+}
+
+function yourPathRow(p) {
+  const st = pathStats(p);
+  const m = p.modules.find((x) => !x.built || x.solved < x.questions);
+  const action = !m ? el("button", { type: "button", class: "btn btn-quiet", onclick: () => openPath(p.id) }, "Review")
+    : m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, m.solved ? `Continue: ${m.title}` : `Start: ${m.title}`)
+      : copyButton(`Build the first Whetstone question for the ${m.module} module.`, `Copy request: ${m.title}`);
+  return el("li", { class: "home-row" },
+    el("button", { type: "button", class: "home-text link-like", onclick: () => openPath(p.id) },
+      el("span", { class: "home-title", text: p.title }),
+      routeStrip(p),
+      el("span", { class: "home-sub", text: pathSummary(p, st) })),
+    action);
+}
+
 function pathTile(p, st) {
-  const pct = st.total ? Math.round((st.solved / st.total) * 100) : 0;
-  const status = st.solved ? `${st.solved} of ${plural(st.total, "question")} solved` : `${st.built} of ${plural(p.modules.length, "module")} built`;
   return el("button", { type: "button", class: "card path-tile", onclick: () => openPath(p.id) },
-    el("span", { class: "wear", style: `--w:${pct}%`, "aria-hidden": "true" }),
     el("span", { class: "path-domain" }, p.domain || "Other", p.mine ? el("span", { class: "tag-mine", text: "Yours" }) : null),
     el("span", { class: "card-title", text: p.title }),
     p.goal ? el("span", { class: "card-summary", text: p.goal }) : null,
     p.companies.length ? el("span", { class: "card-companies", text: p.companies.slice(0, 4).join(", ") + (p.companies.length > 4 ? ` and ${p.companies.length - 4} more` : "") }) : null,
-    el("span", { class: "card-foot" },
-      el("span", { class: "card-rounds", text: p.modules.map((m) => m.title).slice(0, 3).join(" → ") + (p.modules.length > 3 ? " → …" : "") }),
-      el("span", { class: "status", "data-s": st.solved ? "progress" : st.built ? "ready" : "none", text: status })));
+    el("span", { class: "card-foot path-foot" }, routeStrip(p), el("span", { class: "card-rounds", text: pathSummary(p, st) })));
 }
 
 function openPath(id) {
@@ -950,7 +992,10 @@ function pathCard(p) {
     p.companies.length ? el("p", { class: "path-companies", text: p.companies.join(", ") }) : null,
     el("h2", { id: `path-${p.id}`, text: p.title }),
     p.goal ? el("p", { class: "path-goal", text: p.goal }) : null,
-    el("p", { class: "path-sum", text: `${st.solved} of ${plural(st.total, "question")} solved. ${st.built} of ${plural(p.modules.length, "module")} built.` }),
+    el("p", { class: "path-sum", text: `${pathSummary(p, st)}.` }),
+    p.modules.some((m) => !m.built) ? el("div", { class: "agent-ask fill-ask" },
+      el("p", { class: "note", text: `${plural(p.modules.filter((m) => !m.built).length, "module")} not built yet. Ask your agent to build the first question of each:` }),
+      askLine(`Fill in my ${p.id} Whetstone path.`)) : null,
     p.modules.length
       ? el("ol", { class: "path-line" }, p.modules.map((m, i) => moduleStep(m, i, i === current)))
       : el("p", { class: "path-sum" }, "No modules yet. Ask your agent to add some, or run ", el("code", { text: `bin/whetstone path add ${p.id} <module>` })));
@@ -963,13 +1008,11 @@ function moduleStep(m, i, isCurrent) {
     action = el("a", { class: `btn ${isCurrent ? "btn-primary" : "btn-secondary"}`, href: `#/${m.module}/${m.next}`, onclick: () => $("#path-dialog").close() },
       { ready: "Start", progress: "Continue", done: "Review" }[kind]);
   } else {
-    const ask = `Build the first Whetstone question for the ${m.module} module.`;
-    const copy = el("button", { type: "button", class: "btn btn-quiet", onclick: () => copyText(ask, copy) }, "Copy request");
-    action = el("p", { class: "ask-line" }, el("code", { text: ask }), copy);
+    action = copyButton(`Build the first Whetstone question for the ${m.module} module.`, "Copy request");
   }
   const sub = m.built
     ? `${m.solved} of ${plural(m.questions, "question")} solved`
-    : `Not built yet${m.reports ? `, seen in ${plural(m.reports, "interview report")}` : ""}. Ask your agent:`;
+    : `Not built yet${m.reports ? `, seen in ${plural(m.reports, "interview report")}` : ""}.`;
   return el("li", { class: "path-step", "data-s": kind, "aria-current": isCurrent ? "step" : null },
     el("span", { class: "notch", "aria-hidden": "true" }, kind === "done" ? "✓" : String(i + 1)),
     el("div", { class: "path-step-body" },
@@ -1198,6 +1241,26 @@ function copyButton(text, label) {
   return btn;
 }
 
+/* ---------- Keyboard on list pages ---------- */
+function listKeys(e) {
+  if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector("dialog[open]")) return;
+  if (e.target.closest("input, textarea, select, [contenteditable='true'], .monaco-editor")) return;
+  const view = !$("#catalog").hidden ? "catalog" : !$("#paths").hidden ? "paths" : null;
+  if (!view) return;
+  if (e.key === "/") {
+    e.preventDefault();
+    $(view === "catalog" ? "#f-search" : "#p-search").focus();
+  } else if (view === "catalog" && (e.key === "j" || e.key === "k")) {
+    const rows = $$("#catalog-grid .row");
+    if (!rows.length) return;
+    const i = rows.indexOf(document.activeElement);
+    const next = rows[i < 0 ? 0 : Math.max(0, Math.min(rows.length - 1, i + (e.key === "j" ? 1 : -1)))];
+    e.preventDefault();
+    next.focus();
+    next.scrollIntoView({ block: "nearest" });
+  }
+}
+
 /* ---------- Routing ---------- */
 function showView(view) {
   $("#home").hidden = view !== "home";
@@ -1263,6 +1326,7 @@ async function boot() {
   PHONE.addEventListener("change", onLayoutChange);
   initPaths();
   initPair();
+  document.addEventListener("keydown", listKeys);
 
   const [config] = await Promise.all([api("/api/config"), initEditor(), loadTracks()]);
   state.config = config;
