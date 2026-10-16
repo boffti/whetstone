@@ -408,7 +408,8 @@ async function run(mode) {
   clearTimeout(state.saveTimer);
   const runBtn = $("#run-btn"), subBtn = $("#submit-btn");
   runBtn.disabled = subBtn.disabled = true;
-  (mode === "run" ? runBtn : subBtn).textContent = mode === "run" ? "Running…" : "Submitting…";
+  // Set only the leading text node, so the shortcut hint inside the button survives.
+  (mode === "run" ? runBtn : subBtn).firstChild.nodeValue = mode === "run" ? "Running… " : "Submitting… ";
   showResults("running", "Running…");
   $("#results").replaceChildren(el("p", { class: "results-empty", text: mode === "run" ? "Running the visible tests…" : "Running all tests, including hidden ones…" }));
   try {
@@ -423,8 +424,8 @@ async function run(mode) {
   } finally {
     state.running = false;
     runBtn.disabled = subBtn.disabled = false;
-    runBtn.textContent = "Run tests";
-    subBtn.textContent = "Submit";
+    runBtn.firstChild.nodeValue = "Run tests ";
+    subBtn.firstChild.nodeValue = "Submit ";
   }
 }
 
