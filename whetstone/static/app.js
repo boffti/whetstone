@@ -25,7 +25,7 @@ const state = {
   running: false,
   catalog: [],
   paths: [],
-  pathFilter: { q: "", domain: "" },
+  pathFilter: { q: "", foryou: false, ready: false, domain: "", company: "", module: "", sort: "" },
   filters: { q: "", company: "", round: "", status: "" },
 };
 
@@ -370,7 +370,7 @@ async function openChallenge(trackId, cid) {
 /* ---------- Agent inbox ---------- */
 // Build buttons queue a request; the learner's own agent, watching with `whetstone watch`,
 // claims it and reports back. Whetstone never starts an agent itself.
-const REQUEST_LABEL = { build: "Build", variant: "Build review variant", "fill-path": "Build all missing modules", review: "Ask for a review", profile: "Set up my profile" };
+const REQUEST_LABEL = { build: "Prepare", variant: "Prepare review variant", "fill-path": "Prepare all missing modules", review: "Ask for a review", profile: "Set up my profile" };
 const RECENT_MS = 10 * 60 * 1000;
 
 function requestButton(kind, target, label) {
@@ -392,11 +392,11 @@ function renderRequest(wrap) {
     nodes = [el("span", { class: "req-state", text: state.agent.connected ? "Queued for your agent" : "Waiting for your agent" }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "claimed") {
-    nodes = [el("span", { class: "req-state working", text: "Your agent is building…" })];
+    nodes = [el("span", { class: "req-state working", text: "Your agent is preparing it…" })];
   } else if (r.status === "done") {
     nodes = r.result && r.result.includes("/") ? [el("a", { class: "btn btn-primary", href: `#/${r.result}` }, "Start")] : [el("span", { class: "req-state done", text: "Done" })];
   } else {
-    nodes = [el("span", { class: "req-state failed", text: `Not built: ${r.result || "your agent could not do it."}` }),
+    nodes = [el("span", { class: "req-state failed", text: `Not prepared: ${r.result || "your agent could not do it."}` }),
       button("Try again", "btn-text", () => sendRequest(kind, target))];
   }
   wrap.replaceChildren(...nodes);
@@ -449,7 +449,7 @@ function renderAgentStatus() {
   const box = $("#agent-status");
   box.dataset.connected = String(Boolean(state.agent.connected));
   box.title = state.agent.connected
-    ? "Your agent is watching Whetstone. Build buttons go straight to it."
+    ? "Your agent is watching Whetstone. Prepare buttons go straight to it."
     : "No agent is watching. Start your agent in this folder and say: watch Whetstone";
   box.replaceChildren(el("span", { class: "agent-dot", "aria-hidden": "true" }), el("span", { class: "agent-label", text: state.agent.connected ? "Agent connected" : "No agent" }));
 }
@@ -966,7 +966,7 @@ function forYou(p) {
 
 function problemStatus(p) {
   if (p.format === "design") return { kind: "design", text: "Discussion only" };
-  if (!p.links.length) return { kind: "none", text: "Not built yet" };
+  if (!p.links.length) return { kind: "none", text: "Not ready yet" };
   const total = p.links.reduce((s, l) => s + l.total, 0);
   const solved = p.links.reduce((s, l) => s + l.solved, 0);
   return solved
@@ -1061,11 +1061,11 @@ function renderProblemActions(p) {
   } else if (state.config && state.config.generator_enabled) {
     nodes.push(el("button", {
       type: "button", class: `btn ${p.links.length ? "btn-quiet" : "btn-primary"}`, id: "build-btn", onclick: () => buildProblem(p),
-    }, `Build ${own ? "the next" : "a"} question`));
+    }, `Prepare ${own ? "the next" : "a"} question`));
   } else {
     nodes.push(el("div", { class: "agent-ask" },
-      el("p", { class: "note", text: `Your agent builds ${own ? "the next" : "a"} question for you on your own AI subscription, and Whetstone checks it before it appears here.` }),
-      requestButton("build", p.id, own ? "Build the next question" : "Build a question")));
+      el("p", { class: "note", text: `Your agent writes ${own ? "the next" : "a"} question for you on your own AI subscription, and Whetstone checks it before it appears here.` }),
+      requestButton("build", p.id, own ? "Prepare the next question" : "Prepare a question")));
   }
   $("#problem-actions").replaceChildren(...nodes);
 }
@@ -1104,11 +1104,43 @@ async function buildProblem(p) {
 /* ---------- Paths ---------- */
 // A path is a system to build (a payment processor, a taxi service, an LLM gateway), made of
 // modules in order. Modules that are not built yet are placeholders the learner's agent fills in.
+// The filters live in the URL (#/paths?company=Stripe&module=ledger), so reload and Back keep them.
+const PATH_FILTERS = ["q", "foryou", "ready", "domain", "company", "module", "sort"];
+const PATH_SORTS = { match: "best match first", asked: "most asked first", ready: "readiest first", az: "A to Z" };
+const STOP_TEXT = { done: "solved", built: "ready to practise", none: "your agent prepares it" };
+
 function initPaths() {
-  $("#p-search").addEventListener("input", (e) => { state.pathFilter.q = e.target.value.trim().toLowerCase(); renderPaths(); });
+  $("#p-search").addEventListener("input", (e) => setPathFilter({ q: e.target.value.trim() }));
+  $("#p-sort").addEventListener("change", (e) => setPathFilter({ sort: e.target.value }));
+  $("#p-domain").addEventListener("change", (e) => setPathFilter({ domain: e.target.value }));
+  $("#p-company").addEventListener("change", (e) => setPathFilter({ company: e.target.value }));
+  $("#p-foryou").addEventListener("click", () => setPathFilter({ foryou: !state.pathFilter.foryou }));
+  $("#p-ready").addEventListener("click", () => setPathFilter({ ready: !state.pathFilter.ready }));
+  $("#p-clear").addEventListener("click", () => setPathFilter({ q: "", foryou: false, ready: false, domain: "", company: "", module: "" }));
   const dialog = $("#path-dialog");
   $("#path-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
+}
+
+function readPathFilter() {
+  const q = new URLSearchParams(location.hash.split("?")[1] || "");
+  state.pathFilter = {
+    q: q.get("q") || "", foryou: q.has("foryou"), ready: q.has("ready"),
+    domain: q.get("domain") || "", company: q.get("company") || "", module: q.get("module") || "", sort: q.get("sort") || "",
+  };
+}
+
+// replaceState, not a hash change: a filter must not reload the page or add a history step per keystroke.
+function setPathFilter(patch) {
+  Object.assign(state.pathFilter, patch);
+  const q = new URLSearchParams();
+  for (const k of PATH_FILTERS) {
+    const v = state.pathFilter[k];
+    if (v) q.set(k, v === true ? "1" : v);
+  }
+  const query = q.toString();
+  history.replaceState(null, "", `#/paths${query ? `?${query}` : ""}`);
+  renderPaths();
 }
 
 async function loadPaths() {
@@ -1116,31 +1148,38 @@ async function loadPaths() {
   const [paths, profile] = await Promise.all([api("/api/paths"), api("/api/profile"), loadTracks()]);
   state.profile = profile;
   state.paths = paths;
-  const counts = new Map();
-  for (const p of paths) counts.set(p.domain || "Other", (counts.get(p.domain || "Other") || 0) + 1);
-  const chip = (value, label) => el("button", {
-    type: "button", class: "chip", "data-domain": value, "aria-pressed": state.pathFilter.domain === value ? "true" : "false",
-    onclick: () => {
-      state.pathFilter.domain = value;
-      $$("#p-domains .chip").forEach((c) => c.setAttribute("aria-pressed", c.dataset.domain === value ? "true" : "false"));
-      renderPaths();
-    },
-  }, label);
-  $("#p-domains").replaceChildren(chip("", "All domains"),
-    ...[...counts].sort((x, y) => x[0].localeCompare(y[0])).map(([d, n]) => chip(d, `${d} (${n})`)));
-  const companies = new Set(paths.flatMap((p) => p.companies));
+  readPathFilter();
+  const f = state.pathFilter;
+  const tally = (values) => {
+    const counts = new Map();
+    for (const v of values) counts.set(v, (counts.get(v) || 0) + 1);
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  };
+  const companies = tally(paths.flatMap((p) => p.companies));
+  f.domain = fillSelect($("#p-domain"), "All domains", tally(paths.map((p) => p.domain || "Other")).sort((a, b) => a[0].localeCompare(b[0])), f.domain);
+  f.company = fillSelect($("#p-company"), "All companies", companies, f.company);
+  $("#p-search").value = f.q;
   $("#paths-lede").textContent = paths.length
-    ? `${plural(paths.length, "system")} to build${companies.size ? `, modelled on ${plural(companies.size, "company", "companies")}` : ""}. Pick one you want to understand. Modules marked "not built" are placeholders: your AI agent builds each one when you get there.`
+    ? `${plural(paths.length, "system")} to build${companies.length ? `, modelled on ${plural(companies.length, "company", "companies")}` : ""}. Pick one you want to understand.`
     : "No learning paths yet.";
   renderPaths();
+}
+
+/** Fills a filter dropdown with "value (count)" options and returns the value it kept. */
+function fillSelect(select, all, counts, value) {
+  select.replaceChildren(el("option", { value: "", text: all }), ...counts.map(([v, n]) => el("option", { value: v, text: `${v} (${n})` })));
+  select.value = counts.some(([v]) => v === value) ? value : "";
+  return select.value;
 }
 
 function pathStats(p) {
   const built = p.modules.filter((m) => m.built);
   return {
     built: built.length,
+    done: built.filter((m) => m.solved === m.questions).length,
     total: built.reduce((s, m) => s + m.questions, 0),
     solved: built.reduce((s, m) => s + m.solved, 0),
+    reports: p.modules.reduce((s, m) => s + m.reports, 0),
   };
 }
 
@@ -1149,33 +1188,122 @@ function pathText(p) {
   return p._text;
 }
 
+/** Your focus modules and target companies, from the profile. */
+function pathInterests() {
+  const profile = state.profile || {};
+  return { focus: new Set(profile.focus || []), targets: new Set((profile.targets || []).map((t) => t.toLowerCase())) };
+}
+
+/** Why a path suits you: the focus modules it uses and the target companies it names. */
+function pathMatch(p, mine) {
+  const focus = p.modules.filter((m) => mine.focus.has(m.module));
+  const targets = p.companies.filter((c) => mine.targets.has(c.toLowerCase()));
+  return { focus, targets, score: focus.length * 2 + (targets.length ? 1 : 0) };
+}
+
+/** The title without the "Build a" that nearly every path starts with. */
+function shortTitle(p) {
+  const t = p.title.replace(/^build (an?|the) /i, "");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 function renderPaths() {
   const f = state.pathFilter;
-  const filtering = Boolean(f.q || f.domain);
+  const mine = pathInterests();
+  const personal = mine.focus.size > 0 || mine.targets.size > 0;
+  const sort = PATH_SORTS[f.sort] && (f.sort !== "match" || personal) ? f.sort : personal ? "match" : "ready";
+  const filtering = Boolean(f.q || f.foryou || f.ready || f.domain || f.company || f.module);
   const followed = new Set((state.profile && state.profile.paths) || []);
-  const started = (p) => p.mine || followed.has(p.id) || pathStats(p).solved > 0;
-  // Your paths sit in their own list above the grid, unless you are searching.
-  const yours = filtering ? [] : state.paths.filter(started);
-  const rows = state.paths
-    .filter((p) => (filtering || !started(p)) && (!f.domain || (p.domain || "Other") === f.domain) && (!f.q || pathText(p).includes(f.q)))
-    .map((p) => ({ p, st: pathStats(p) }))
-    // The ones with the most built come first, then A to Z.
-    .sort((x, y) => y.st.built - x.st.built || x.p.title.localeCompare(y.p.title));
+  const q = f.q.toLowerCase();
+  const all = state.paths.map((p) => ({ p, st: pathStats(p), match: pathMatch(p, mine) }));
+  const started = ({ p, st }) => p.mine || followed.has(p.id) || st.solved > 0;
+  const keep = ({ p, st, match }) => (!f.foryou || match.score > 0) && (!f.ready || st.built > 0)
+    && (!f.domain || (p.domain || "Other") === f.domain) && (!f.company || p.companies.includes(f.company))
+    && (!f.module || p.modules.some((m) => m.module === f.module)) && (!q || pathText(p).includes(q));
+  const order = {
+    match: (x, y) => y.match.score - x.match.score || y.st.built - x.st.built || y.st.reports - x.st.reports,
+    asked: (x, y) => y.st.reports - x.st.reports,
+    ready: (x, y) => y.st.built - x.st.built || y.st.reports - x.st.reports,
+    az: () => 0,
+  }[sort];
+  // Your paths sit in their own list above the grid, unless a filter is on.
+  const yours = filtering ? [] : all.filter(started).map((r) => r.p);
+  const rows = all.filter((r) => (filtering || !started(r)) && keep(r))
+    .sort((x, y) => order(x, y) || shortTitle(x.p).localeCompare(shortTitle(y.p)));
+
+  $("#p-foryou").hidden = !personal;
+  $("#p-sort option[value='match']").hidden = !personal;
+  $("#p-sort").value = sort;
+  $("#p-foryou").setAttribute("aria-pressed", String(f.foryou));
+  $("#p-ready").setAttribute("aria-pressed", String(f.ready));
+  $("#p-foryou").textContent = `For you (${all.filter((r) => r.match.score).length})`;
+  $("#p-ready").textContent = `Ready now (${all.filter((r) => r.st.built).length})`;
+  for (const [id, v] of [["#p-domain", f.domain], ["#p-company", f.company]]) {
+    $(id).value = v;
+    $(id).dataset.on = String(Boolean(v));
+  }
+  const used = f.module && state.paths.flatMap((p) => p.modules).find((m) => m.module === f.module);
+  $("#p-module").replaceChildren(...(f.module ? [el("span", { class: "chip-tag chip-on" }, `Uses ${used ? used.title : f.module}`,
+    el("button", { type: "button", class: "chip-x", "aria-label": "Stop filtering by this module", onclick: () => setPathFilter({ module: "" }) }, "×"))] : []));
+  $("#p-clear").hidden = !filtering;
+
   $("#paths-yours").replaceChildren(...(yours.length ? [el("h2", { text: "Your paths" }), el("ul", { class: "home-list" }, yours.map(yourPathRow))] : []));
-  $("#paths-count").textContent = rows.length ? `${yours.length ? "More paths: " : "Showing "}${plural(rows.length, "path")}.` : "";
-  $("#paths-list").replaceChildren(...(rows.length ? rows.map(({ p, st }) => el("li", {}, pathTile(p, st))) : [el("li", { class: "agent-ask" },
+  $("#paths-count").textContent = rows.length
+    ? `${filtering ? "Showing " : ""}${plural(rows.length, yours.length ? "more path" : "path")}, ${PATH_SORTS[sort]}.`
+    : "";
+  $("#paths-legend").replaceChildren(...(rows.length ? routeLegend(mine.focus.size > 0) : []));
+  $("#paths-list").replaceChildren(...(rows.length ? rows.map(({ p, st, match }) => el("li", {}, pathTile(p, st, match))) : [el("li", { class: "agent-ask" },
     el("p", { class: "note", text: state.paths.length ? "Nothing matches. Clear a filter, or ask your agent for a new path:" : "No learning paths yet. Open this folder in Claude Code, Codex, Cursor or another coding agent and ask:" }),
     el("p", { class: "ask-line" }, el("code", { text: "Make me a Whetstone learning path to build …" })))]));
 }
 
-/** A path as a strip of modules: solved, built, or not built yet. */
-function routeStrip(p) {
-  return el("span", { class: "route", "aria-hidden": "true" }, p.modules.map((m) =>
-    el("span", { class: "route-seg", title: m.title, "data-s": m.built && m.questions && m.solved === m.questions ? "done" : m.built ? "built" : "none" })));
+function moduleState(m) {
+  return !m.built ? "none" : m.solved === m.questions ? "done" : "built";
 }
 
+/** A path as a line of stops, one per module: solved, ready, or for your agent to build. Your focus
+    modules carry a clay pip. On a card, each stop is a button that shows every path using its module. */
+function routeMap(p, interactive) {
+  const focus = pathInterests().focus;
+  return el("span", { class: "route-map", ...(interactive ? { role: "group", "aria-label": "Modules" } : { "aria-hidden": "true" }) },
+    p.modules.map((m) => {
+      const s = moduleState(m);
+      const attrs = { class: "stop", "data-s": s, "data-focus": focus.has(m.module) ? "" : null, title: `${m.title}: ${STOP_TEXT[s]}` };
+      if (!interactive) return el("span", attrs);
+      const on = state.pathFilter.module === m.module;
+      return el("button", {
+        type: "button", ...attrs, "data-module": m.module, "aria-pressed": String(on),
+        "aria-label": `${m.title}, ${STOP_TEXT[s]}. Show every path that uses it.`,
+        onclick: () => {
+          setPathFilter({ module: on ? "" : m.module });
+          const again = $(`#paths-list [data-path="${p.id}"] .stop[data-module="${m.module}"]`);
+          if (again) again.focus();
+        },
+      });
+    }));
+}
+
+function routeLegend(focus) {
+  const item = (s, text) => el("span", { class: "legend-item" }, el("span", { class: "stop", "data-s": s }), text);
+  return [item("done", "solved"), item("built", "ready"), item("none", "your agent prepares it"),
+    focus ? el("span", { class: "legend-item" }, el("span", { class: "pip" }), "your focus") : null,
+    el("span", { text: "Pick a stop to see every path that uses its module." })];
+}
+
+/** What you can do with a path now: modules solved, ready to practise, and still to build. */
 function pathSummary(p, st) {
-  return `${st.built} of ${plural(p.modules.length, "module")} built` + (st.total ? `, ${st.solved} of ${plural(st.total, "question")} solved` : "");
+  const ready = st.built - st.done;
+  const none = p.modules.length - st.built;
+  const parts = [st.done && `${st.done} solved`, ready && `${ready} ready`, none && `${none} for your agent`].filter(Boolean);
+  return parts.length ? `Modules: ${parts.join(", ")}` : "No modules yet";
+}
+
+function matchLine(match) {
+  const bits = [];
+  if (match.focus.length === 1) bits.push(`Uses ${match.focus[0].title}, in your focus.`);
+  else if (match.focus.length) bits.push(`Uses ${match.focus.length} of your focus modules.`);
+  if (match.targets.length) bits.push(`Includes ${match.targets.join(" and ")}, ${match.targets.length > 1 ? "companies" : "a company"} you target.`);
+  return bits.length ? el("p", { class: "path-match", text: bits.join(" ") }) : null;
 }
 
 function yourPathRow(p) {
@@ -1183,22 +1311,28 @@ function yourPathRow(p) {
   const m = p.modules.find((x) => !x.built || x.solved < x.questions);
   const action = !m ? el("button", { type: "button", class: "btn btn-quiet", onclick: () => openPath(p.id) }, "Review")
     : m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, m.solved ? `Continue: ${m.title}` : `Start: ${m.title}`)
-      : requestButton("build", m.module, `Build: ${m.title}`);
+      : requestButton("build", m.module, `Prepare: ${m.title}`);
   return el("li", { class: "home-row" },
     el("button", { type: "button", class: "home-text link-like", onclick: () => openPath(p.id) },
       el("span", { class: "home-title", text: p.title }),
-      routeStrip(p),
-      el("span", { class: "home-sub", text: pathSummary(p, st) })),
+      routeMap(p, false),
+      el("span", { class: "home-sub", text: `${pathSummary(p, st)}.` })),
     action);
 }
 
-function pathTile(p, st) {
-  return el("button", { type: "button", class: "card path-tile", onclick: () => openPath(p.id) },
-    el("span", { class: "path-domain" }, p.domain || "Other", p.mine ? el("span", { class: "tag-mine", text: "Yours" }) : null),
-    el("span", { class: "card-title", text: p.title }),
-    p.goal ? el("span", { class: "card-summary", text: p.goal }) : null,
-    p.companies.length ? el("span", { class: "card-companies", text: p.companies.slice(0, 4).join(", ") + (p.companies.length > 4 ? ` and ${p.companies.length - 4} more` : "") }) : null,
-    el("span", { class: "card-foot path-foot" }, routeStrip(p), el("span", { class: "card-rounds", text: pathSummary(p, st) })));
+/** A path on the grid. The title button opens it, and its click area covers the card; the stops
+    sit above that area so each one can filter by its module. */
+function pathTile(p, st, match) {
+  const cos = p.companies.length > 3 ? `${p.companies.slice(0, 3).join(", ")} and ${p.companies.length - 3} more` : p.companies.join(", ");
+  return el("article", { class: "card path-tile", "data-path": p.id },
+    el("h3", { class: "card-title" },
+      el("button", { type: "button", class: "path-open", onclick: () => openPath(p.id) }, shortTitle(p)),
+      p.mine ? el("span", { class: "tag-mine", text: "Yours" }) : null),
+    cos ? el("p", { class: "path-cos", text: cos }) : null,
+    p.goal ? el("p", { class: "card-summary path-goal-short", text: p.goal }) : null,
+    matchLine(match),
+    routeMap(p, true),
+    el("p", { class: "card-foot" }, el("span", { text: pathSummary(p, st) }), el("span", { class: "card-rounds", text: plural(st.reports, "report") })));
 }
 
 function openPath(id) {
@@ -1209,22 +1343,41 @@ function openPath(id) {
   $("#path-dialog .drawer-inner").scrollTop = 0;
 }
 
+/** How many paths use each module. */
+function moduleUse() {
+  const uses = new Map();
+  for (const p of state.paths) for (const m of new Set(p.modules.map((x) => x.module))) uses.set(m, (uses.get(m) || 0) + 1);
+  return uses;
+}
+
+/** From the drawer: every path that uses a module, with the other filters cleared. */
+function showPathsUsing(module) {
+  $("#path-dialog").close();
+  if ($("#paths").hidden) {
+    location.hash = `#/paths?module=${encodeURIComponent(module)}`;
+    return;
+  }
+  setPathFilter({ q: "", foryou: false, ready: false, domain: "", company: "", module });
+  $(".path-filters").scrollIntoView({ block: "start" });
+}
+
 function pathCard(p) {
   const st = pathStats(p);
   const current = p.modules.findIndex((m) => m.built && m.solved < m.questions);
+  const focus = pathInterests().focus;
+  const uses = moduleUse();
   return el("section", { class: "path", "aria-labelledby": `path-${p.id}` },
     el("span", { class: "wear", style: `--w:${st.total ? Math.round((st.solved / st.total) * 100) : 0}%`, "aria-hidden": "true" }),
     p.domain ? el("p", { class: "path-domain", text: p.domain }) : null,
     p.companies.length ? el("p", { class: "path-companies", text: p.companies.join(", ") }) : null,
-    el("h2", { id: `path-${p.id}`, text: p.title }),
-    followButton(p),
+    el("div", { class: "path-head" }, el("h2", { id: `path-${p.id}`, text: p.title }), followButton(p)),
     p.goal ? el("p", { class: "path-goal", text: p.goal }) : null,
-    el("p", { class: "path-sum", text: `${pathSummary(p, st)}.` }),
+    el("p", { class: "path-sum", text: `${pathSummary(p, st)}.${st.total ? ` ${st.solved} of ${plural(st.total, "question")} solved.` : ""}` }),
     p.modules.some((m) => !m.built) ? el("div", { class: "agent-ask fill-ask" },
-      el("p", { class: "note", text: `${plural(p.modules.filter((m) => !m.built).length, "module")} not built yet. Ask your agent to build the first question of each:` }),
+      el("p", { class: "note", text: `${plural(p.modules.filter((m) => !m.built).length, "module")} not ready yet. Your agent can prepare the first question of each:` }),
       requestButton("fill-path", p.id)) : null,
     p.modules.length
-      ? el("ol", { class: "path-line" }, p.modules.map((m, i) => moduleStep(m, i, i === current)))
+      ? el("ol", { class: "path-line" }, p.modules.map((m, i) => moduleStep(m, i, i === current, focus.has(m.module), (uses.get(m.module) || 1) - 1)))
       : el("p", { class: "path-sum" }, "No modules yet. Ask your agent to add some, or run ", el("code", { text: `bin/whetstone path add ${p.id} <module>` })));
 }
 
@@ -1238,7 +1391,7 @@ function followButton(p) {
     } }, followed ? "Following ✓" : "Follow this path");
 }
 
-function moduleStep(m, i, isCurrent) {
+function moduleStep(m, i, isCurrent, inFocus, others) {
   const kind = !m.built ? "none" : m.solved === m.questions ? "done" : m.solved ? "progress" : "ready";
   let action;
   if (m.built) {
@@ -1249,14 +1402,15 @@ function moduleStep(m, i, isCurrent) {
   }
   const sub = m.built
     ? `${m.solved} of ${plural(m.questions, "question")} solved`
-    : `Not built yet${m.reports ? `, seen in ${plural(m.reports, "interview report")}` : ""}.`;
+    : `Not ready yet${m.reports ? `. Seen in ${plural(m.reports, "interview report")}` : ""}.`;
   return el("li", { class: "path-step", "data-s": kind, "aria-current": isCurrent ? "step" : null },
     el("span", { class: "notch", "aria-hidden": "true" }, kind === "done" ? "✓" : String(i + 1)),
     el("div", { class: "path-step-body" },
       el("div", { class: "path-step-text" },
-        el("span", { class: "path-step-title", text: m.title }),
+        el("span", { class: "path-step-title" }, m.title, inFocus ? el("span", { class: "tag-focus", text: "Your focus" }) : null),
         m.summary ? el("span", { class: "path-step-what", text: m.summary }) : null,
-        el("span", { class: "path-step-sub", text: sub })),
+        el("span", { class: "path-step-sub", text: sub }),
+        others ? el("button", { type: "button", class: "also-in", onclick: () => showPathsUsing(m.module) }, `Also in ${plural(others, "other path")}`) : null),
       action));
 }
 
@@ -1321,7 +1475,7 @@ function todayPicks(d, paths) {
     const variant = q.find((x) => x.variant_of === r.key && x.status !== "solved");
     picks.push({ kind: "Review", title: variant ? variant.title : r.title, target: r.key,
       why: `Solved on ${shortDate(r.solved_at)}. A fresh variant checks that it stuck.`,
-      action: variant ? start(variant, "Start review") : requestButton("variant", r.key, "Build review variant") });
+      action: variant ? start(variant, "Start review") : requestButton("variant", r.key, "Prepare review variant") });
   }
   const open = q.filter((r) => r.status === "attempted").sort((a, b) => b.last_run.created_at.localeCompare(a.last_run.created_at));
   for (const r of open.slice(0, 2)) {
@@ -1336,7 +1490,7 @@ function todayPicks(d, paths) {
       action: m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, "Start") : requestButton("build", m.module) });
   }
   for (const e of d.edges.filter((x) => x.focus && !x.built)) {
-    picks.push({ kind: "From your focus", title: e.title, target: e.module, why: "Not built yet. Your agent builds the first question.", action: requestButton("build", e.module) });
+    picks.push({ kind: "From your focus", title: e.title, target: e.module, why: "Not ready yet. Your agent prepares the first question.", action: requestButton("build", e.module) });
   }
   const fresh = q.find((r) => r.status === "new");
   if (fresh) picks.push({ kind: "Start something new", title: fresh.title, target: fresh.key, why: moduleName(fresh.module), action: start(fresh, "Start") });
@@ -1451,7 +1605,7 @@ function daysAgo(iso) {
 function edgeList(edges, game, d) {
   return el("ul", { class: "edges" }, edges.map((e) => {
     const bits = [];
-    if (!e.built) bits.push("Not built yet");
+    if (!e.built) bits.push("Not ready yet");
     else if (!e.state) bits.push("Not started");
     else bits.push(`${capital(e.label)}, practised ${daysAgo(e.last_day)}`);
     const today = isoDay(new Date());
@@ -1460,7 +1614,7 @@ function edgeList(edges, game, d) {
     const next = d.questions.find((r) => r.module === e.module && r.status !== "solved");
     const action = !e.built ? requestButton("build", e.module)
       : next ? el("a", { class: "btn btn-quiet btn-small", href: `#/${next.key}` }, next.status === "attempted" ? "Continue" : "Start")
-        : requestButton("build", e.module, "Build next question");
+        : requestButton("build", e.module, "Prepare next question");
     return el("li", { class: "edge", "data-label": e.label, title: why },
       el("span", { class: "edge-name" },
         el("span", { text: e.title }),
@@ -1539,7 +1693,7 @@ function setupSteps(d, paths) {
   return [
     { done: Boolean(d.profile.name || d.profile.role || d.profile.goal), title: "Set up your profile", sub: "Your agent writes it from what it knows about you and your GitHub, plus a few questions.", action: requestButton("profile", "") },
     { done: (d.profile.focus || []).length > 0 || (d.profile.paths || []).length > 0 || paths.some((p) => p.mine), title: "Choose what to keep sharp", sub: "Add skills to your focus below, or follow a path.", action: el("a", { class: "btn btn-secondary", href: "#/paths" }, "Browse paths") },
-    { done: d.questions.length > 0, title: "Build your first question", sub: "Your agent writes it and Whetstone checks it.", action: firstModule ? requestButton("build", firstModule) : null },
+    { done: d.questions.length > 0, title: "Get your first question", sub: "Your agent writes it and Whetstone checks it.", action: firstModule ? requestButton("build", firstModule) : null },
     { done: d.questions.some((r) => r.status === "solved"), title: "Solve it", sub: "Run the tests as you go, then Submit." },
   ];
 }
@@ -1612,7 +1766,7 @@ function showAppError(err) {
 }
 
 async function showRoute() {
-  const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+  const parts = location.hash.replace(/^#\/?/, "").split("?")[0].split("/").filter(Boolean);
   const isChallenge = parts.length === 2
     && state.tracks.some((t) => t.id === parts[0] && t.challenges.some((c) => c.id === parts[1]));
   if (isChallenge) {

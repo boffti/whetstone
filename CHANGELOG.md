@@ -29,3 +29,6 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Agent inbox: Build buttons queue requests (migration 5) that the learner's own agent picks up while it watches (`whetstone requests`, `whetstone request claim|done|fail`, the `whetstone-agent` skill). Buttons show waiting, building and ready; the top bar shows when an agent is connected. Copy-a-prompt buttons are gone.
 - Practice opens on Today (one next step and one alternative) and an editable focus: skills, companies and followed paths, saved to the profile header. Stats move to a Progress page. The Catalog opens on For you, with + Focus and Build on every row.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.
+
+- Paths page: search plus For you, Ready now, domain and company filters, a sort (best match, most asked, readiest, A to Z) and filters kept in the URL. Each card shows the path as a route of modules; pick a stop to see every path that uses that module. The path drawer marks your focus modules and links to the other paths that share each module.
+- Wording: "build" now means what you do (build a system); your agent's buttons say Prepare (Prepare, Prepare review variant, Prepare all missing modules), and modules without questions are "not ready yet".

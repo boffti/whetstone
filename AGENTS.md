@@ -57,7 +57,7 @@ Each job has a skill file with the full steps. Claude Code loads them automatica
 
 | The learner says | Skill |
 |---|---|
-| "Watch Whetstone", or the learner presses Build in the app | [.claude/skills/whetstone-agent/SKILL.md](.claude/skills/whetstone-agent/SKILL.md) |
+| "Watch Whetstone", or the learner presses Prepare in the app | [.claude/skills/whetstone-agent/SKILL.md](.claude/skills/whetstone-agent/SKILL.md) |
 | "Set up my Whetstone profile", "Refresh my profile from GitHub" | [.claude/skills/whetstone-profile/SKILL.md](.claude/skills/whetstone-profile/SKILL.md) |
 | "What should I practise?", "What's next?", "Make me a learning path" | [.claude/skills/whetstone-curate/SKILL.md](.claude/skills/whetstone-curate/SKILL.md) |
 | "Build the next question for X", "Fill in my path", "Make a variant" | [.claude/skills/whetstone-author/SKILL.md](.claude/skills/whetstone-author/SKILL.md) |

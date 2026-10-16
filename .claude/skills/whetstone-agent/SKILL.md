@@ -1,11 +1,11 @@
 ---
 name: whetstone-agent
-description: Keep watching Whetstone in the background and do the work the learner asks for in the app (build a module, a review variant, a whole path, a review, a profile refresh) while also pairing live. Use when the learner says "watch Whetstone", "listen to Whetstone", "be my Whetstone agent", or presses Build in the app while you are running.
+description: Keep watching Whetstone in the background and do the work the learner asks for in the app (build a module, a review variant, a whole path, a review, a profile refresh) while also pairing live. Use when the learner says "watch Whetstone", "listen to Whetstone", "be my Whetstone agent", or presses Prepare in the app while you are running.
 ---
 
 # Agent: watch Whetstone and do what the learner asks
 
-In the app, the learner presses **Build**, **Build variant** or **Build all missing**. Whetstone queues a request. You are the one who does the work. Whetstone never starts an agent itself: it waits for you.
+In the app, the learner presses **Prepare**, **Prepare review variant** or **Prepare all missing modules**. Whetstone queues a request. You are the one who does the work. Whetstone never starts an agent itself: it waits for you.
 
 ## Start
 
@@ -13,7 +13,7 @@ In the app, the learner presses **Build**, **Build variant** or **Build all miss
 2. Run `bin/whetstone watch` as a **background** process whose output wakes you. In Claude Code, use the Monitor tool. Without a background monitor, run `bin/whetstone watch --for 120` whenever the learner says "check".
    - While the watch runs, the app shows **Agent connected** in its top bar.
    - The watch first replays queued requests as `requested` events, then streams new events as they happen.
-3. Tell the learner in one line: "Watching Whetstone. Press Build in the app, or keep practising."
+3. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practising."
 
 ## On a `requested` event
 

@@ -82,8 +82,8 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
 
 ## Using the app
 
-- **Catalog:** problems that companies actually ask, opening on **For you** (your focus, your paths and the companies you target). Filter by company, round and status, browse with `/`, `j`, `k` and Enter, add a topic to your focus, or press Build.
-- **Build buttons** queue a request for your own agent. Start it in this folder and say *"watch Whetstone"*: it picks up requests while you practise, and the button turns into Start when the question is ready. The top bar shows when an agent is connected.
+- **Catalog:** problems that companies actually ask, opening on **For you** (your focus, your paths and the companies you target). Filter by company, round and status, browse with `/`, `j`, `k` and Enter, add a topic to your focus, or press Prepare.
+- **Prepare buttons** queue a request for your own agent. Start it in this folder and say *"watch Whetstone"*: it picks up requests while you practise, and the button turns into Start when the question is ready. The top bar shows when an agent is connected.
 - **Paths:** pick a system to build. Each path shows its modules as a strip. Your started paths come first, with the next step, and one request ("Fill in my path") asks your agent to build every module that is missing.
 - **Practice:** opens on **Today**: one next step and one alternative, then **your focus**: the skills, companies and paths you want to keep sharp, each with its edge (how sharp it is today). Add or remove any of them in the app, or with + Focus in the Catalog. Calendar, numbers and milestones live on the Progress page. In a question:
   1. Read the **Problem**. For most questions the **Lesson** opens after your first test run, because trying first makes it stick.
