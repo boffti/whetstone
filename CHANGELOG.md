@@ -9,4 +9,5 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - CLI (`bin/whetstone`) for AI agents: `path`, `module`, `question`, `catalog`, `progress`, `draft` and `test` commands, with `AGENTS.md`.
 - Shared content: about 250 modules with paraphrased interview reports, and 71 learning paths modelled on big-tech systems.
 - Personal content in a git-ignored `my/` folder: profile, built questions, own paths and progress.
+- Interface: IBM Plex type, slate and wet-stone colors in dark and light, keyboard hints on Run tests and Submit, and a per-test edge meter after each run.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.

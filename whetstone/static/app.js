@@ -98,33 +98,35 @@ function defineThemes() {
   monaco.editor.defineTheme("whetstone-light", {
     base: "vs", inherit: true,
     rules: [
-      { token: "comment", foreground: "7A858B", fontStyle: "italic" },
-      { token: "keyword", foreground: "2C6E8E", fontStyle: "bold" },
-      { token: "string", foreground: "3B7A50" },
-      { token: "number", foreground: "B14A2E" },
+      { token: "comment", foreground: "6B7781", fontStyle: "italic" },
+      { token: "keyword", foreground: "1D6C96", fontStyle: "bold" },
+      { token: "string", foreground: "1C8550" },
+      { token: "number", foreground: "C65F1A" },
     ],
     colors: {
-      "editor.background": "#F2F3F0",
-      "editor.lineHighlightBackground": "#E6E8E4",
-      "editorLineNumber.foreground": "#A3ACB0",
-      "editorCursor.foreground": "#2C6E8E",
-      "editor.selectionBackground": "#C8DCE6",
+      "editor.background": "#F4F6F7",
+      "editor.lineHighlightBackground": "#EAEDF0",
+      "editorLineNumber.foreground": "#9AA5AE",
+      "editorLineNumber.activeForeground": "#4A5661",
+      "editorCursor.foreground": "#C65F1A",
+      "editor.selectionBackground": "#CFE2EE",
     },
   });
   monaco.editor.defineTheme("whetstone-dark", {
     base: "vs-dark", inherit: true,
     rules: [
-      { token: "comment", foreground: "77848A", fontStyle: "italic" },
-      { token: "keyword", foreground: "73A9C6", fontStyle: "bold" },
-      { token: "string", foreground: "7DBB8D" },
-      { token: "number", foreground: "E08566" },
+      { token: "comment", foreground: "808C96", fontStyle: "italic" },
+      { token: "keyword", foreground: "86BEDC", fontStyle: "bold" },
+      { token: "string", foreground: "5DC88F" },
+      { token: "number", foreground: "F0A060" },
     ],
     colors: {
-      "editor.background": "#1E2529",
-      "editor.lineHighlightBackground": "#232B30",
-      "editorLineNumber.foreground": "#4F5B61",
-      "editorCursor.foreground": "#73A9C6",
-      "editor.selectionBackground": "#2E4A5A",
+      "editor.background": "#191E23",
+      "editor.lineHighlightBackground": "#20262C",
+      "editorLineNumber.foreground": "#56616B",
+      "editorLineNumber.activeForeground": "#A7B1B9",
+      "editorCursor.foreground": "#E8863A",
+      "editor.selectionBackground": "#2B4556",
     },
   });
 }
@@ -153,7 +155,7 @@ async function initEditor() {
     language: "python",
     theme: monacoTheme(),
     automaticLayout: true,
-    fontFamily: "'JetBrains Mono', Menlo, Consolas, monospace",
+    fontFamily: "'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace",
     ...editorDensity(),
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
@@ -164,6 +166,8 @@ async function initEditor() {
   });
   state.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => run("run"));
   state.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => run("submit"));
+  // Plex Mono may arrive after Monaco measured its fallback; remeasure so the cursor lines up.
+  document.fonts.ready.then(() => monaco.editor.remeasureFonts());
 }
 
 function getCode() {
@@ -432,7 +436,7 @@ function showResults(status, word, count) {
   bench.classList.remove("results-hidden");
   chip.dataset.status = status;
   // On phones only the count shows; the color still carries the verdict.
-  chip.replaceChildren(el("span", { class: "chip-word", text: count ? `${word} · ` : word }), count ? el("span", { text: count }) : null);
+  chip.replaceChildren(el("span", { class: "chip-word", text: count ? `${word} ` : word }), count ? el("span", { text: count }) : null);
   chip.setAttribute("aria-expanded", "true");
 }
 
@@ -609,7 +613,7 @@ function problemStatus(p) {
 
 function card(p, hits, max) {
   const companies = [...new Set(hits.map((r) => r.company))];
-  const shown = companies.slice(0, 4).join(" · ") + (companies.length > 4 ? ` · +${companies.length - 4} more` : "");
+  const shown = companies.slice(0, 4).join(", ") + (companies.length > 4 ? ` and ${companies.length - 4} more` : "");
   const rounds = [...new Set(hits.map((r) => r.round))].map((r) => ROUNDS[r] || r).join(", ");
   const st = problemStatus(p);
   return el("button", { type: "button", class: "card", onclick: () => openProblem(p.id) },
@@ -632,7 +636,7 @@ function safeUrl(u) {
 }
 
 function reportItem(r) {
-  const bits = [ROUNDS[r.round] || r.round, r.level, r.year].filter(Boolean).join(" · ");
+  const bits = [ROUNDS[r.round] || r.round, r.level, r.year].filter(Boolean).join(", ");
   const links = r.sources.map(safeUrl).filter(Boolean);
   return el("li", { class: "report", "data-match": reportMatches(r) ? "true" : "false" },
     el("p", { class: "report-head" },
@@ -782,10 +786,10 @@ function pathTile(p, st) {
   const status = st.solved ? `${st.solved} of ${plural(st.total, "question")} solved` : `${st.built} of ${plural(p.modules.length, "module")} built`;
   return el("button", { type: "button", class: "card path-tile", onclick: () => openPath(p.id) },
     el("span", { class: "wear", style: `--w:${pct}%`, "aria-hidden": "true" }),
-    el("span", { class: "path-domain", text: p.mine ? `Yours · ${p.domain || "Other"}` : p.domain || "Other" }),
+    el("span", { class: "path-domain" }, p.domain || "Other", p.mine ? el("span", { class: "tag-mine", text: "Yours" }) : null),
     el("span", { class: "card-title", text: p.title }),
     p.goal ? el("span", { class: "card-summary", text: p.goal }) : null,
-    p.companies.length ? el("span", { class: "card-companies", text: p.companies.slice(0, 4).join(" · ") + (p.companies.length > 4 ? ` · +${p.companies.length - 4}` : "") }) : null,
+    p.companies.length ? el("span", { class: "card-companies", text: p.companies.slice(0, 4).join(", ") + (p.companies.length > 4 ? ` and ${p.companies.length - 4} more` : "") }) : null,
     el("span", { class: "card-foot" },
       el("span", { class: "card-rounds", text: p.modules.map((m) => m.title).slice(0, 3).join(" → ") + (p.modules.length > 3 ? " → …" : "") }),
       el("span", { class: "status", "data-s": st.solved ? "progress" : st.built ? "ready" : "none", text: status })));
@@ -804,10 +808,11 @@ function pathCard(p) {
   const current = p.modules.findIndex((m) => m.built && m.solved < m.questions);
   return el("section", { class: "path", "aria-labelledby": `path-${p.id}` },
     el("span", { class: "wear", style: `--w:${st.total ? Math.round((st.solved / st.total) * 100) : 0}%`, "aria-hidden": "true" }),
-    el("p", { class: "path-domain", text: [p.domain, p.companies.join(", ")].filter(Boolean).join(" · ") }),
+    p.domain ? el("p", { class: "path-domain", text: p.domain }) : null,
+    p.companies.length ? el("p", { class: "path-companies", text: p.companies.join(", ") }) : null,
     el("h2", { id: `path-${p.id}`, text: p.title }),
     p.goal ? el("p", { class: "path-goal", text: p.goal }) : null,
-    el("p", { class: "path-sum", text: `${st.solved} of ${plural(st.total, "question")} solved · ${st.built} of ${plural(p.modules.length, "module")} built` }),
+    el("p", { class: "path-sum", text: `${st.solved} of ${plural(st.total, "question")} solved. ${st.built} of ${plural(p.modules.length, "module")} built.` }),
     p.modules.length
       ? el("ol", { class: "path-line" }, p.modules.map((m, i) => moduleStep(m, i, i === current)))
       : el("p", { class: "path-sum" }, "No modules yet. Ask your agent to add some, or run ", el("code", { text: `bin/whetstone path add ${p.id} <module>` })));
@@ -826,7 +831,7 @@ function moduleStep(m, i, isCurrent) {
   }
   const sub = m.built
     ? `${m.solved} of ${plural(m.questions, "question")} solved`
-    : `Not built yet${m.reports ? ` · ${plural(m.reports, "interview report")}` : ""}. Ask your agent:`;
+    : `Not built yet${m.reports ? `, seen in ${plural(m.reports, "interview report")}` : ""}. Ask your agent:`;
   return el("li", { class: "path-step", "data-s": kind, "aria-current": isCurrent ? "step" : null },
     el("span", { class: "notch", "aria-hidden": "true" }, kind === "done" ? "✓" : String(i + 1)),
     el("div", { class: "path-step-body" },
@@ -902,6 +907,8 @@ async function boot() {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(e.shiftKey ? "submit" : "run"); }
   });
   window.addEventListener("beforeunload", () => { if (state.saveTimer) saveDraft(); });
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+  $$(".kbd").forEach((k) => { k.textContent = (mac ? "⌘" : "Ctrl ") + (k.dataset.keys === "submit" ? "⇧" : "") + "↵"; });
   initGenerate();
   initCatalog();
   PANE.addEventListener("change", onLayoutChange);

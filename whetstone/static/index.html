@@ -7,8 +7,8 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='11' width='26' height='10' rx='2' fill='%232C6E8E'/><path d='M6 11 L26 11' stroke='%23E6E8E4' stroke-width='1.5'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=4">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css?v=5">
 </head>
 <body>
   <header class="topbar">
@@ -126,8 +126,8 @@
         <textarea id="fallback-editor" class="fallback-editor" spellcheck="false" wrap="off" hidden aria-label="Code editor"></textarea>
       </div>
       <div class="actions">
-        <button class="btn btn-secondary" id="run-btn" type="button" title="Run visible tests (Ctrl or Cmd + Enter)">Run tests</button>
-        <button class="btn btn-primary" id="submit-btn" type="button" title="Run all tests, including hidden ones (Ctrl or Cmd + Shift + Enter)">Submit</button>
+        <button class="btn btn-secondary" id="run-btn" type="button" title="Run visible tests (Ctrl or Cmd + Enter)">Run tests <kbd class="kbd" data-keys="run"></kbd></button>
+        <button class="btn btn-primary" id="submit-btn" type="button" title="Run all tests, including hidden ones (Ctrl or Cmd + Shift + Enter)">Submit <kbd class="kbd" data-keys="submit"></kbd></button>
         <button class="btn btn-text" id="reset-btn" type="button">Reset<span class="long-label"> to starter</span></button>
         <button class="btn btn-text results-toggle" id="results-toggle" type="button" aria-controls="results" aria-expanded="true"></button>
         <span class="save-state" id="save-state" aria-live="polite"></span>
@@ -213,6 +213,6 @@
     window.MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/app.js?v=7"></script>
 </body>
 </html>
