@@ -100,38 +100,39 @@ function loadMonaco() {
 }
 
 function defineThemes() {
+  // The editor follows the page: Claude's warm neutrals, clay for numbers and the cursor.
   monaco.editor.defineTheme("whetstone-light", {
     base: "vs", inherit: true,
     rules: [
-      { token: "comment", foreground: "6B7781", fontStyle: "italic" },
-      { token: "keyword", foreground: "1D6C96", fontStyle: "bold" },
-      { token: "string", foreground: "1C8550" },
-      { token: "number", foreground: "C65F1A" },
+      { token: "comment", foreground: "73726C", fontStyle: "italic" },
+      { token: "keyword", foreground: "2F6497", fontStyle: "bold" },
+      { token: "string", foreground: "2E7A4D" },
+      { token: "number", foreground: "B8572F" },
     ],
     colors: {
-      "editor.background": "#F4F6F7",
-      "editor.lineHighlightBackground": "#EAEDF0",
-      "editorLineNumber.foreground": "#9AA5AE",
-      "editorLineNumber.activeForeground": "#4A5661",
-      "editorCursor.foreground": "#C65F1A",
-      "editor.selectionBackground": "#CFE2EE",
+      "editor.background": "#F5F4ED",
+      "editor.lineHighlightBackground": "#EDEBE3",
+      "editorLineNumber.foreground": "#A3A199",
+      "editorLineNumber.activeForeground": "#3D3D3A",
+      "editorCursor.foreground": "#B8572F",
+      "editor.selectionBackground": "#DCE6F1",
     },
   });
   monaco.editor.defineTheme("whetstone-dark", {
     base: "vs-dark", inherit: true,
     rules: [
-      { token: "comment", foreground: "808C96", fontStyle: "italic" },
-      { token: "keyword", foreground: "86BEDC", fontStyle: "bold" },
-      { token: "string", foreground: "5DC88F" },
-      { token: "number", foreground: "F0A060" },
+      { token: "comment", foreground: "9C9A92", fontStyle: "italic" },
+      { token: "keyword", foreground: "8BB4DE", fontStyle: "bold" },
+      { token: "string", foreground: "6CC08B" },
+      { token: "number", foreground: "E8956F" },
     ],
     colors: {
-      "editor.background": "#191E23",
-      "editor.lineHighlightBackground": "#20262C",
-      "editorLineNumber.foreground": "#56616B",
-      "editorLineNumber.activeForeground": "#A7B1B9",
-      "editorCursor.foreground": "#E8863A",
-      "editor.selectionBackground": "#2B4556",
+      "editor.background": "#1F1E1D",
+      "editor.lineHighlightBackground": "#2A2927",
+      "editorLineNumber.foreground": "#5E5D58",
+      "editorLineNumber.activeForeground": "#C2C0B6",
+      "editorCursor.foreground": "#D97757",
+      "editor.selectionBackground": "#3A4A5E",
     },
   });
 }

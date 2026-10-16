@@ -1,23 +1,24 @@
-/* Whetstone: slate and wet stone, a water-stone orange for the main action, and a steel
-   edge for everything sharp: focus, links, the active tab, and tests that pass. */
+/* Whetstone wears Claude Desktop's warm neutrals (cream by day, charcoal by night) so the
+   side pane reads as part of Claude. Claude's clay marks the main action; a quiet blue marks
+   links, focus and the honed edge; selected states stay neutral, as in Claude. */
 :root {
   color-scheme: light;
-  --stone: #EDEFF1;
-  --stone-raised: #F8F9FA;
-  --stone-sunk: #E1E5E8;
-  --code-bg: #F4F6F7;
-  --ink: #1B232A;
-  --ink-soft: #4A5661;
-  --grit: #5F6B75;
-  --rule: #D3D9DE;
-  --steel: #1D6C96;
-  --steel-ink: #F5F9FB;
-  --whet: #C65F1A;
+  --stone: #FAF9F5;          /* page */
+  --stone-raised: #FFFFFF;   /* panels and cards */
+  --stone-sunk: #F0EEE6;
+  --code-bg: #F5F4ED;
+  --ink: #141413;
+  --ink-soft: #3D3D3A;
+  --grit: #6B6A64;
+  --rule: #E3E1D8;
+  --steel: #2F6497;
+  --steel-ink: #FFFFFF;
+  --whet: #B8572F;           /* clay: the main action */
   --whet-ink: #FFFFFF;
-  --honed: #1C8550;
-  --rust: #C23F2B;
-  --amber: #8F6E0C;
-  --focus: #1D6C96;
+  --honed: #2E7A4D;
+  --rust: #B93A3A;
+  --amber: #8A6410;
+  --focus: #2F6497;
 
   /* One engineering family: Plex Sans to read, Condensed for titles that must fit a side pane,
      Mono for anything you would type. */
@@ -40,43 +41,43 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --stone: #1C2126;          /* slate: the page */
-    --stone-raised: #232A30;   /* slab: panels and cards */
-    --stone-sunk: #171B1F;
-    --code-bg: #191E23;
-    --ink: #E4E8EB;            /* chalk */
-    --ink-soft: #A7B1B9;
-    --grit: #808C96;
-    --rule: #343D46;           /* seams */
-    --steel: #86BEDC;          /* the honed edge: links, focus, active */
-    --steel-ink: #0F1A21;
-    --whet: #E8863A;           /* water-stone orange: the main action */
-    --whet-ink: #1C1408;
-    --honed: #5DC88F;          /* tests pass */
-    --rust: #EE6A55;           /* burr: tests fail */
-    --amber: #E2C25A;
-    --focus: #9CCBE6;
+    --stone: #262624;          /* page */
+    --stone-raised: #30302E;   /* panels and cards */
+    --stone-sunk: #1F1E1D;
+    --code-bg: #1F1E1D;
+    --ink: #F5F4EF;
+    --ink-soft: #C2C0B6;
+    --grit: #9C9A92;
+    --rule: #3E3D39;
+    --steel: #8BB4DE;
+    --steel-ink: #1F1E1D;
+    --whet: #D97757;           /* clay: the main action */
+    --whet-ink: #1F1E1D;
+    --honed: #6CC08B;
+    --rust: #F07A72;
+    --amber: #DDB35A;
+    --focus: #8BB4DE;
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --stone: #1C2126;          /* slate: the page */
-  --stone-raised: #232A30;   /* slab: panels and cards */
-  --stone-sunk: #171B1F;
-  --code-bg: #191E23;
-  --ink: #E4E8EB;            /* chalk */
-  --ink-soft: #A7B1B9;
-  --grit: #808C96;
-  --rule: #343D46;           /* seams */
-  --steel: #86BEDC;          /* the honed edge: links, focus, active */
-  --steel-ink: #0F1A21;
-  --whet: #E8863A;           /* water-stone orange: the main action */
-  --whet-ink: #1C1408;
-  --honed: #5DC88F;          /* tests pass */
-  --rust: #EE6A55;           /* burr: tests fail */
-  --amber: #E2C25A;
-  --focus: #9CCBE6;
+  --stone: #262624;          /* page */
+  --stone-raised: #30302E;   /* panels and cards */
+  --stone-sunk: #1F1E1D;
+  --code-bg: #1F1E1D;
+  --ink: #F5F4EF;
+  --ink-soft: #C2C0B6;
+  --grit: #9C9A92;
+  --rule: #3E3D39;
+  --steel: #8BB4DE;
+  --steel-ink: #1F1E1D;
+  --whet: #D97757;           /* clay: the main action */
+  --whet-ink: #1F1E1D;
+  --honed: #6CC08B;
+  --rust: #F07A72;
+  --amber: #DDB35A;
+  --focus: #8BB4DE;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -288,7 +289,7 @@ code, pre { font-family: var(--font-code); }
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
 }
-.tab[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--steel); }
+.tab[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--ink); }
 .tab:hover { color: var(--ink); }
 
 .reader-body { overflow-y: auto; padding: 1.2rem 1.6rem 3rem; }
@@ -336,7 +337,7 @@ code, pre { font-family: var(--font-code); }
   cursor: pointer;
   white-space: nowrap;
 }
-.file-tab[aria-selected="true"] { color: var(--ink); background: var(--stone-raised); box-shadow: inset 0 -2px 0 var(--steel); }
+.file-tab[aria-selected="true"] { color: var(--ink); background: var(--stone-raised); box-shadow: inset 0 -2px 0 var(--ink); }
 .file-tab .ro { font-family: var(--font-ui); color: var(--grit); margin-left: 0.4rem; }
 .editor-wrap { position: relative; min-height: 0; background: var(--code-bg); }
 .editor { position: absolute; inset: 0; }
@@ -450,7 +451,7 @@ a.btn { display: inline-block; text-decoration: none; }
   padding: 0.3rem 0.65rem; border-radius: var(--radius-s);
 }
 .topnav a:hover { color: var(--ink); background: var(--stone-sunk); }
-.topnav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--steel); border-radius: 0; }
+.topnav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); border-radius: 0; }
 
 /* ---------- Catalog ---------- */
 .home, .catalog, .paths { min-height: 0; overflow-y: auto; padding: 1.6rem clamp(1rem, 3vw, 2.4rem) 3rem; }
@@ -549,7 +550,7 @@ a.btn { display: inline-block; text-decoration: none; }
   border: 1px solid var(--rule); border-radius: 999px; padding: 0.22rem 0.7rem;
 }
 .chip:hover { border-color: var(--grit); color: var(--ink); }
-.chip[aria-pressed="true"] { background: var(--steel); border-color: var(--steel); color: var(--steel-ink); font-weight: 700; }
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--stone); font-weight: 700; }
 .catalog-count { color: var(--grit); font-size: var(--step--1); margin: 0 0 0.9rem; }
 
 .grid {

@@ -25,4 +25,5 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Pages that cannot load now say why instead of staying blank.
 - Mutation-check gate: every new build, fix and design question ships 2 to 5 mutants (wrong versions of the reference, one per misconception), and `question add` refuses it if any mutant passes the tests.
 - New question types: `tests` (write the tests for working code; Submit runs them against hidden mutants, see `examples/retry-tests/`) and `design` (a design note naming options, trade-off, choice and accepted failure mode, then code for the declared guarantee).
+- Colours follow Claude Desktop: warm cream and charcoal surfaces, clay for the main action, neutral selected states, so the app reads as part of Claude in its side pane.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.
