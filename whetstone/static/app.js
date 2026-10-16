@@ -1271,7 +1271,26 @@ function showView(view) {
   for (const v of ["catalog", "paths", "practice"]) $(`#nav-${v}`).setAttribute("aria-current", nav === v ? "page" : "false");
 }
 
+// A page that cannot load says why, instead of staying blank.
 async function route() {
+  $("#app-error").hidden = true;
+  try {
+    await showRoute();
+  } catch (err) {
+    showAppError(err);
+  }
+}
+
+function showAppError(err) {
+  const down = err instanceof TypeError; // fetch() itself failed: the server is not answering
+  $("#app-error").replaceChildren(
+    el("strong", { text: down ? "Whetstone is not answering. " : "This page could not load. " }),
+    down ? "Start it with docker compose up -d (or bin/whetstone serve), then try again. " : `${err.message} `,
+    el("button", { type: "button", class: "btn btn-quiet btn-small", onclick: () => location.reload() }, "Try again"));
+  $("#app-error").hidden = false;
+}
+
+async function showRoute() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
   const isChallenge = parts.length === 2
     && state.tracks.some((t) => t.id === parts[0] && t.challenges.some((c) => c.id === parts[1]));
@@ -1335,8 +1354,4 @@ async function boot() {
   await route();
 }
 
-boot().catch((err) => {
-  showView("practice");
-  $("#challenge-title").textContent = "Whetstone could not start";
-  $("#panel-lesson").textContent = err.message;
-});
+boot().catch(showAppError);
