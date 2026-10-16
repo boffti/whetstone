@@ -454,7 +454,64 @@ a.btn { display: inline-block; text-decoration: none; }
 /* ---------- Catalog ---------- */
 .home, .catalog, .paths { min-height: 0; overflow-y: auto; padding: 1.6rem clamp(1rem, 3vw, 2.4rem) 3rem; }
 /* Practice home: one column of short lists, separated by seams, no cards. */
-.home-body { max-width: 52rem; display: grid; gap: 1.8rem; margin-top: 1.2rem; }
+.home-body { max-width: 60rem; display: grid; gap: 2rem; margin-top: 1rem; }
+.dash-headline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.8rem 1.2rem; }
+.stack { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.stack li { font: 500 var(--step--1) var(--font-code); padding: 0.1rem 0.5rem; border: 1px solid var(--rule); border-radius: var(--radius-s); color: var(--ink-soft); }
+.dash-continue { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-note { margin: -0.2rem 0 0.6rem; max-width: 62ch; }
+.dash-grid { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); align-items: start; }
+
+/* Your edges: one blade per skill. Length is sharpness today; colour is its state. */
+.edges { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.edge { display: grid; grid-template-columns: minmax(9rem, 14rem) minmax(6rem, 1fr); gap: 0.25rem 1rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--rule); }
+.edge-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.5rem; font-weight: 600; }
+.edge-state { grid-column: 2; color: var(--ink-soft); font-size: var(--step--1); display: flex; flex-wrap: wrap; gap: 0.2rem 0.8rem; }
+.edge .ask-line { grid-column: 1 / -1; }
+.blade { position: relative; height: 6px; border-radius: 1px; background: var(--rule); overflow: hidden; }
+.blade-fill { position: absolute; inset: 0 auto 0 0; width: var(--s); background: var(--steel); }
+.edge[data-label="sharp"] .blade-fill { background: var(--honed); box-shadow: 0 0 6px color-mix(in srgb, var(--honed) 45%, transparent); }
+.edge[data-label="dulling"] .blade-fill { background: var(--amber); }
+.edge[data-label="dull"] .blade-fill { background: var(--grit); }
+.edge[data-label="not started"] .blade { background: transparent; border: 1px dashed var(--rule); height: 4px; }
+.grit { font-family: var(--font-code); color: var(--steel); }
+.edge-state .due { color: var(--amber); }
+.btn-small { padding: 0.15rem 0.55rem; font-size: var(--step--1); }
+.home-row .ask-line code { font-size: var(--step--1); }
+.tag-ai { font-size: var(--step--1); font-weight: 400; color: var(--amber); }
+
+/* 26 weeks of practice, one column per week. */
+.calendar { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, auto); grid-template-columns: repeat(26, minmax(0, 1fr)); gap: 2px; margin-top: 0.6rem; max-width: 26rem; }
+.calendar .day { aspect-ratio: 1; border-radius: 2px; }
+
+/* Numbers as a ledger: value, then what it means. */
+.ledger { display: grid; grid-template-columns: max-content 1fr; margin: 0; border-top: 1px solid var(--rule); }
+.ledger dt, .ledger dd { padding: 0.55rem 0; border-bottom: 1px solid var(--rule); margin: 0; }
+.ledger dt { color: var(--ink-soft); padding-right: 1.2rem; }
+.ledger dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.8rem; }
+.ledger-value { font: 600 var(--step-1) var(--font-code); min-width: 3.5rem; }
+
+/* Interests: a path as a strip of modules. */
+.route { display: flex; gap: 2px; width: min(12rem, 100%); }
+.route-seg { flex: 1; height: 6px; border-radius: 1px; background: var(--rule); }
+.route-seg[data-s="built"] { background: var(--steel); }
+.route-seg[data-s="done"] { background: var(--honed); }
+.route-seg[data-s="none"] { background: transparent; border: 1px dashed var(--rule); }
+
+/* Recent runs, like a git log. */
+.log { list-style: none; margin: 0; padding: 0; font: var(--step--1)/1.6 var(--font-code); border-top: 1px solid var(--rule); }
+.log li { display: grid; grid-template-columns: 7.5rem 4rem 1fr auto; gap: 0.8rem; padding: 0.35rem 0; border-bottom: 1px solid var(--rule); }
+.log time, .log-mode { color: var(--ink-soft); }
+.log a { color: var(--ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log a:hover { text-decoration: underline; }
+.log li[data-status="passed"] .log-result { color: var(--honed); }
+.log li[data-status="failed"] .log-result, .log li[data-status="error"] .log-result { color: var(--rust); }
+@media (max-width: 640px) {
+  .edge { grid-template-columns: 1fr; }
+  .edge-state { grid-column: 1; }
+  .log li { grid-template-columns: 6.5rem 1fr auto; }
+  .log-mode { display: none; }
+}
 .home-section h2 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-1); margin: 0 0 0.5rem; }
 .home-list, .setup { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
 .home-row, .setup-step { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }

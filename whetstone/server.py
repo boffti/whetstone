@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -11,9 +12,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from . import dashboard as dash
 from .catalog import build_notes, catalog_links, find_problem, load_catalog, path_rows
 from .config import Settings, load_settings
-from .content import ContentError, find_challenge, load_all_paths, load_tracks, render_md, slugify
+from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
 from .runner import run_tests
 from .store import Store, progress_rows
@@ -145,14 +147,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return out
 
-    @app.get("/api/progress")
-    def progress():
-        """Everything the Practice home needs: each question's progress, reviews and the week."""
+    @app.get("/api/dashboard")
+    def dashboard():
+        """The Practice home: who the learner is, how sharp each skill is, the numbers,
+        the game layer, and each question's progress for the next steps."""
+        today = date.today()
+        all_tracks = load_tracks(settings.tracks_dir)
+        rows = progress_rows(store, all_tracks)
+        facts = store.facts()
+        week = store.week()
+        days = store.active_days(last=182)
+        profile = load_profile(settings.user_dir / "profile.md")
+        catalog = load_catalog(settings)
+        titles = {t.id: t.title for t in all_tracks}
+        recent = [
+            {**r, "title": next((q["title"] for q in rows if q["key"] == r["challenge"]), r["challenge"])} for r in store.recent_runs()
+        ]
         return {
-            "questions": progress_rows(store, load_tracks(settings.tracks_dir)),
-            "week": store.week(),
-            "active_days": store.active_days(),
             "has_profile": (settings.user_dir / "profile.md").exists(),
+            "profile": profile,
+            "questions": rows,
+            "week": week,
+            "active_days": days,
+            "edges": dash.edges(rows, facts, titles, profile, catalog, today),
+            "numbers": dash.numbers(rows, facts, today),
+            "milestones": dash.milestones(rows, facts, week),
+            "records": dash.records(rows, facts, store.active_days(last=3650), week["target"]),
+            "targets": dash.targets(profile, catalog, {t.id for t in all_tracks if t.challenges}),
+            "recent": recent,
         }
 
     @app.get("/api/stats")

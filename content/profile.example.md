@@ -1,3 +1,15 @@
+---
+# Read by the app for your dashboard. Your agent keeps it up to date; you can edit it too.
+name:                      # what the dashboard calls you
+role:                      # one line, e.g. Senior backend engineer, payments
+goal:                      # one line, e.g. Staff-level depth in distributed systems
+stack: []                  # languages and tools you use most, e.g. [Python, Postgres, Kafka]
+focus: []                  # module ids to keep sharp, e.g. [rate-limiter, idempotent-api]
+ai_handles: []             # what your AI writes for you at work, e.g. [tests, concurrency code]
+targets: []                # companies whose interviews you care about, e.g. [Stripe]
+github:                    # your GitHub username, if your agent used it to build this profile
+---
+
 # Learner profile
 
 Your AI agent copies this template to `my/profile.md`, which is never committed, and fills it in. It works from what it knows about you, or from a short interview. Every question it writes is tailored to this file. Edit it as you grow.

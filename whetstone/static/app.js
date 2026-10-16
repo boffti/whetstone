@@ -284,7 +284,7 @@ async function loadStats() {
   const w = s.week;
   const streak = w.streak ? `Weekly streak: ${plural(w.streak, "week")}` : `${plural(w.sessions, "practice day")} so far`;
   $("#stats").replaceChildren(
-    el("span", { title: `${streak}. A week counts at ${w.target} practice days.` }, el("strong", { text: `${w.this_week} of ${w.target}` }), " days this week"),
+    el("span", { title: `${streak}. A week counts at ${w.target} practice days.` }, el("strong", { text: w.this_week >= w.target ? plural(w.this_week, "day") : `${w.this_week} of ${w.target}` }), w.this_week >= w.target ? " this week" : " days this week"),
     el("span", {}, el("strong", { text: `${s.solved} of ${s.total}` }), " solved"),
   );
   fillDays($("#days"), s.active_days);
@@ -626,7 +626,9 @@ async function loadCatalog() {
   select.replaceChildren(el("option", { value: "", text: "All companies" }),
     ...[...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([c, n]) => el("option", { value: c, text: `${c} (${n})` })));
-  select.value = keep;
+  const want = (state.filters.company || keep).toLowerCase();
+  select.value = [...counts.keys()].find((c) => c.toLowerCase() === want) || "";
+  state.filters.company = select.value;
   const reports = state.catalog.reduce((n, p) => n + p.reports.length, 0);
   const asked = state.catalog.filter((p) => p.reports.length).length;
   $("#catalog-lede").textContent = state.catalog.length
@@ -900,72 +902,194 @@ function moduleStep(m, i, isCurrent) {
 }
 
 
-/* ---------- Practice home ---------- */
-// One obvious next step, then reviews, paths and struggles (docs/PEDAGOGY.md: spacing first,
-// autonomy through choice, no guilt about missed days).
-async function loadHome() {
-  const [prog, paths] = await Promise.all([api("/api/progress"), api("/api/paths"), loadTracks()]);
-  state.paths = paths;
-  const q = prog.questions;
-  const w = prog.week;
-  $("#home-lede").textContent = `${w.this_week} of ${w.target} practice days this week. `
-    + (w.streak ? `Weekly streak: ${plural(w.streak, "week")}${w.repaired ? ", with one missed week forgiven" : ""}.`
-      : w.sessions ? `${plural(w.sessions, "practice day")} so far.` : `A week counts toward your streak at ${w.target} practice days.`);
+/* ---------- Practice home: the personal dashboard ---------- */
+// Who you are, how sharp each skill is, what to do next, honest numbers, and a game layer that
+// rewards mastery, never volume (docs/PEDAGOGY.md, rule 12).
+const GAME_KEY = "whetstone.game";
+function gameOn() { try { return localStorage.getItem(GAME_KEY) !== "off"; } catch (_) { return true; } }
+function setGame(on) { try { localStorage.setItem(GAME_KEY, on ? "on" : "off"); } catch (_) { /* per-viewer only */ } }
 
+async function loadHome() {
+  const [d, paths] = await Promise.all([api("/api/dashboard"), api("/api/paths"), loadTracks()]);
+  state.paths = paths;
+  state.dash = d;
+  renderHome();
+}
+
+function renderHome() {
+  const d = state.dash;
+  const paths = state.paths;
+  const game = gameOn();
+  const q = d.questions;
   const today = isoDay(new Date());
+  const open = q.filter((r) => r.status === "attempted").sort((a, b) => b.last_run.created_at.localeCompare(a.last_run.created_at));
+  const next = open[0] || q.find((r) => r.status === "new");
+
+  $("#home-title").textContent = d.profile.name || "Practice";
+  const lede = [d.profile.role, d.profile.goal ? `Goal: ${d.profile.goal}` : ""].filter(Boolean).map((t) => t.replace(/\.$/, "")).join(". ");
+  $("#home-lede").textContent = lede ? `${lede}.` : weekLine(d.week);
+
   const sections = [];
-  const setup = setupSteps(prog, paths);
+  const head = [];
+  if (d.profile.stack && d.profile.stack.length) head.push(el("ul", { class: "stack", "aria-label": "Your stack" }, d.profile.stack.map((t) => el("li", { text: t }))));
+  if (next) head.push(el("a", { class: "btn btn-primary dash-continue", href: `#/${next.key}` }, `${open[0] ? "Continue" : "Start"}: ${next.title}`));
+  if (d.has_profile && !d.profile.name && !d.profile.goal) head.push(askLine("Update my Whetstone profile header."));
+  if (head.length) sections.push(el("div", { class: "dash-headline" }, head));
+
+  const setup = setupSteps(d, paths);
   if (setup.some((st) => !st.done)) sections.push(homeSection("Get started", el("ol", { class: "setup" }, setup.map(setupItem))));
 
-  const open = q.filter((r) => r.status === "attempted").sort((a, b) => b.last_run.created_at.localeCompare(a.last_run.created_at));
-  const fresh = q.find((r) => r.status === "new");
-  const next = open[0] || fresh;
-  if (next) {
-    const sub = next.last_run
-      ? `Last run ${shortDate(next.last_run.created_at)}: ${next.last_run.passed} of ${next.last_run.total} tests passed.`
-      : "Not started yet.";
-    sections.push(homeSection(open[0] ? "Pick up where you left off" : "Start here",
-      el("ul", { class: "home-list" }, homeRow(next.title, `${moduleTitle(next.module)}. ${sub}`,
-        el("a", { class: "btn btn-primary", href: `#/${next.key}` }, open[0] ? "Continue" : "Start")))));
-  }
+  if (d.edges.length) sections.push(homeSection("Your edges", edgeList(d.edges, game), edgeHelp(game)));
 
-  const due = q.filter((r) => r.review_due && r.review_due <= today).slice(0, 3);
-  if (due.length) {
-    sections.push(homeSection("Due for review", el("ul", { class: "home-list" }, due.map((r) => homeRow(r.title,
-      `${r.solve === "assisted" ? "Solved with help" : "Solved"} on ${shortDate(r.solved_at)}. A fresh variant checks it stuck. Ask your agent:`,
-      askLine(`Build a Whetstone variant of ${r.key} for review.`))))));
-  }
+  const upNext = upNextRows(d, paths, today, next);
+  const week = el("div", { class: "week" },
+    el("p", { class: "home-sub", text: weekLine(d.week) }),
+    calendar(d.active_days));
+  sections.push(el("div", { class: "dash-grid" },
+    upNext.length ? homeSection("Up next", el("ul", { class: "home-list" }, upNext)) : null,
+    homeSection("Practice", week)));
 
-  const started = paths.filter((p) => p.mine || pathStats(p).solved).slice(0, 3);
-  const steps = started.map((p) => [p, p.modules.find((m) => !m.built || m.solved < m.questions)]).filter(([, m]) => m);
-  if (steps.length) {
-    sections.push(homeSection("Next in your paths", el("ul", { class: "home-list" }, steps.map(([p, m]) => homeRow(p.title,
-      m.built ? `${m.title}: ${m.solved} of ${plural(m.questions, "question")} solved.` : `${m.title} is not built yet. Ask your agent:`,
-      m.built ? el("a", { class: "btn btn-secondary", href: `#/${m.module}/${m.next}` }, m.solved ? "Continue" : "Start")
-        : askLine(`Build the first Whetstone question for the ${m.module} module.`))))));
-  }
-
-  const stuck = q.filter((r) => r !== next && r.status === "attempted" && (r.runs >= 5 || r.hints_opened >= 2)).slice(0, 3);
-  if (stuck.length) {
-    sections.push(homeSection("Where you struggled", el("ul", { class: "home-list" }, stuck.map((r) => homeRow(r.title,
-      `${plural(r.runs, "run")}, ${r.hints_opened} of ${r.hint_count} hints. Your agent can guide you without giving it away:`,
-      askLine(`I'm stuck on ${r.key}.`))))));
-  }
-
-  const days = el("div", { class: "days", role: "img" });
-  fillDays(days, prog.active_days);
-  sections.push(homeSection("Last 4 weeks", days));
+  sections.push(homeSection("Your numbers", ledger(d.numbers)));
+  if (game) sections.push(homeSection("Milestones", gameSection(d)));
+  const interests = interestRows(d, paths);
+  if (interests.length) sections.push(homeSection("Interests", el("ul", { class: "home-list" }, interests)));
+  if (d.recent.length) sections.push(homeSection("Recent", el("ol", { class: "log" }, d.recent.map(logLine))));
   $("#home-body").replaceChildren(...sections);
 }
 
-function moduleTitle(id) { return (state.tracks.find((t) => t.id === id) || { title: id }).title; }
+function weekLine(w) {
+  return (w.this_week >= w.target ? `${plural(w.this_week, "practice day")} this week, target met. ` : `${w.this_week} of ${w.target} practice days this week. `)
+    + (w.streak ? `Weekly streak: ${plural(w.streak, "week")}${w.repaired ? ", with one missed week forgiven" : ""}.`
+      : w.sessions ? `${plural(w.sessions, "practice day")} so far.` : `A week counts toward your streak at ${w.target} practice days.`);
+}
 
-function setupSteps(prog, paths) {
+function daysAgo(iso) {
+  const n = Math.round((new Date(isoDay(new Date())) - new Date(iso)) / 86400000);
+  return n <= 0 ? "today" : n === 1 ? "yesterday" : `${n} days ago`;
+}
+
+/** The one bold element: a blade per skill. Its length is how sharp the skill is today. */
+function edgeList(edges, game) {
+  return el("ul", { class: "edges" }, edges.map((e) => {
+    const bits = [];
+    if (!e.built) bits.push("Not built yet");
+    else if (!e.state) bits.push("Not started");
+    else bits.push(`${capital(e.label)}, practised ${daysAgo(e.last_day)}`);
+    const today = isoDay(new Date());
+    const due = e.review_due ? el("span", { class: e.review_due <= today ? "due" : "", text: e.review_due <= today ? "Review due now" : `Review due ${shortDate(e.review_due)}` }) : null;
+    const why = e.state ? `Best result: ${STATE_WORD[e.state]}. ${e.solved} of ${plural(e.questions, "question")} solved.` : "";
+    return el("li", { class: "edge", "data-label": e.label, title: why },
+      el("span", { class: "edge-name" },
+        el("span", { text: e.title }),
+        e.ai_handled ? el("span", { class: "tag-ai", text: "your AI writes this at work" }) : null),
+      el("span", { class: "blade", "aria-hidden": "true" }, el("span", { class: "blade-fill", style: `--s:${Math.round(e.sharpness * 100)}%` })),
+      el("span", { class: "edge-state" }, el("span", { text: bits.join(". ") }), due,
+        game && e.grit ? el("span", { class: "grit", title: GRIT_WORD[e.grit], text: `${e.grit} grit` }) : null,
+        e.built ? null : copyButton(`Build the first Whetstone question for the ${e.module} module.`, "Copy request")));
+  }));
+}
+
+const STATE_WORD = { mastered: "mastered", clean: "solved on your own", assisted: "solved with help", attempted: "attempted" };
+const GRIT_WORD = { 220: "Started", 1000: "Solved", 3000: "Solved on your own", 6000: "Mastered: solved cleanly, and again after a gap", 8000: "Kept sharp through a long review" };
+
+function edgeHelp(game) {
+  return el("p", { class: "home-sub section-note", text: "A skill dulls with time since you last practised it, and stays sharp longer once mastered."
+    + (game ? " Grit is earned like a whetstone's: 220 started, 1000 solved, 3000 on your own, 6000 mastered, 8000 still sharp after a long review." : "") });
+}
+
+function upNextRows(d, paths, today, next) {
+  const rows = [];
+  for (const r of d.questions.filter((x) => x.review_due && x.review_due <= today).slice(0, 2)) {
+    rows.push(homeRow(`Review: ${r.title}`, `${r.solve === "assisted" ? "Solved with help" : "Solved"} on ${shortDate(r.solved_at)}. A fresh variant checks it stuck. Ask your agent:`,
+      askLine(`Build a Whetstone variant of ${r.key} for review.`)));
+  }
+  const started = paths.filter((p) => p.mine || pathStats(p).solved).slice(0, 2);
+  for (const p of started) {
+    const m = p.modules.find((x) => !x.built || x.solved < x.questions);
+    if (!m) continue;
+    rows.push(homeRow(`${p.title}`, m.built ? `${m.title}: ${m.solved} of ${plural(m.questions, "question")} solved.` : `${m.title} is not built yet. Ask your agent:`,
+      m.built ? el("a", { class: "btn btn-secondary", href: `#/${m.module}/${m.next}` }, m.solved ? "Continue" : "Start")
+        : askLine(`Build the first Whetstone question for the ${m.module} module.`)));
+  }
+  for (const r of d.questions.filter((x) => x !== next && x.status === "attempted" && (x.runs >= 5 || x.hints_opened >= 2)).slice(0, 2)) {
+    rows.push(homeRow(`Stuck: ${r.title}`, `${plural(r.runs, "run")}, ${r.hints_opened} of ${r.hint_count} hints. Your agent can guide you without giving it away:`, askLine(`I'm stuck on ${r.key}.`)));
+  }
+  return rows;
+}
+
+/** 26 weeks of practice days, one column per week, like a contribution graph. */
+function calendar(activeDays) {
+  const active = new Set(activeDays);
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7 * 25 - ((today.getDay() + 6) % 7));
+  const cells = [];
+  for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+    const iso = isoDay(d);
+    cells.push(el("span", { class: `day${active.has(iso) ? " on" : ""}${iso === isoDay(today) ? " today" : ""}`, title: iso }));
+  }
+  return el("div", { class: "calendar", role: "img", "aria-label": `Practised on ${activeDays.length} days in the last 26 weeks` }, cells);
+}
+
+function ledger(n) {
+  if (!n.solved && !n.first_submits) return el("p", { class: "home-sub", text: "Your numbers appear after your first Submit." });
+  const trend = n.hints_now !== null && n.hints_before !== null
+    ? `, ${n.hints_now < n.hints_before ? "down" : n.hints_now > n.hints_before ? "up" : "level"} from ${n.hints_before} last month` : "";
+  const rows = [
+    ["Solved", n.solved, `${n.clean} on your own, ${n.assisted} with help`],
+    ["Mastered", n.mastered, "solved cleanly, and again after a gap"],
+    ["Runs to solve", n.median_runs, "median"],
+    ["Hints per solve", n.hints_per_solve, `opened before solving${trend}`],
+    ["First Submit", n.first_submit_rate === null ? null : `${n.first_submit_rate}%`, `passed every hidden test on the first try (${plural(n.first_submits, "question")})`],
+  ].filter(([, v]) => v !== null && v !== undefined);
+  return el("dl", { class: "ledger" }, rows.flatMap(([k, v, why]) => [
+    el("dt", { text: k }), el("dd", {}, el("span", { class: "ledger-value", text: String(v) }), el("span", { class: "home-sub", text: why }))]));
+}
+
+function gameSection(d) {
+  const r = d.records;
+  const list = d.milestones.length
+    ? el("ul", { class: "home-list" }, d.milestones.map((m) => homeRow(m.title, m.at ? `${m.detail}. ${shortDate(m.at)}.` : `${m.detail}.`, null)))
+    : el("p", { class: "home-sub", text: "Milestones mark habits that make skills last: a clean solve, a passed review, a bug fixed from the report alone." });
+  const recs = [
+    r.clean_in_a_row ? `${plural(r.clean_in_a_row, "clean solve")} in a row` : null,
+    r.fewest_runs ? `${plural(r.fewest_runs.runs, "run")} to solve ${r.fewest_runs.title}` : null,
+    r.best_weekly_streak ? `best weekly streak: ${plural(r.best_weekly_streak, "week")}` : null,
+  ].filter(Boolean);
+  const off = el("button", { type: "button", class: "btn btn-text", onclick: () => { setGame(false); renderHome(); } }, "Hide grit and milestones");
+  return el("div", {}, list, recs.length ? el("p", { class: "home-sub section-note", text: `Personal records: ${recs.join(", ")}.` }) : null, off);
+}
+
+function interestRows(d, paths) {
+  const rows = paths.filter((p) => p.mine || pathStats(p).solved || pathStats(p).built).slice(0, 4).map((p) => {
+    const st = pathStats(p);
+    const strip = el("span", { class: "route", "aria-hidden": "true" }, p.modules.map((m) =>
+      el("span", { class: "route-seg", "data-s": m.built && m.solved === m.questions ? "done" : m.built ? "built" : "none" })));
+    return homeRow(p.title, `${st.built} of ${plural(p.modules.length, "module")} built, ${st.solved} of ${plural(st.total, "question")} solved.`, strip);
+  });
+  for (const t of d.targets) {
+    const go = el("button", { type: "button", class: "btn btn-quiet", onclick: () => { state.filters.company = t.company; location.hash = "#/catalog"; } }, "See what they ask");
+    rows.push(homeRow(t.company, `${plural(t.problems, "problem")} in the catalog, ${t.ready} ready to practise.`, go));
+  }
+  if (!gameOn()) rows.push(homeRow("Grit and milestones are hidden", "Turn them back on any time.",
+    el("button", { type: "button", class: "btn btn-quiet", onclick: () => { setGame(true); renderHome(); } }, "Show")));
+  return rows;
+}
+
+function logLine(r) {
+  const solved = r.mode === "submit" && r.status === "passed";
+  return el("li", { "data-status": r.status },
+    el("time", { datetime: r.created_at, text: `${shortDate(r.created_at)} ${r.created_at.slice(11, 16)}` }),
+    el("span", { class: "log-mode", text: r.mode }),
+    el("a", { href: `#/${r.challenge}`, text: r.title, title: r.challenge }),
+    el("span", { class: "log-result", text: `${r.passed}/${r.total}${solved ? " passed" : ""}` }));
+}
+
+function setupSteps(d, paths) {
   return [
-    { done: prog.has_profile, title: "Set up your profile", sub: "Your agent writes it from what it knows about you, plus a few questions.", ask: "Set up my Whetstone profile." },
-    { done: paths.some((p) => p.mine) || prog.questions.length > 0, title: "Pick a system to build", sub: "Browse the Paths page, or ask your agent for one.", link: "#/paths" },
-    { done: prog.questions.length > 0, title: "Build your first question", sub: "Your agent writes it and Whetstone checks it.", ask: "Build the first Whetstone question for my path." },
-    { done: prog.questions.some((r) => r.status === "solved"), title: "Solve it", sub: "Run the tests as you go, then Submit." },
+    { done: d.has_profile, title: "Set up your profile", sub: "Your agent writes it from what it knows about you, your GitHub, plus a few questions.", ask: "Set up my Whetstone profile." },
+    { done: paths.some((p) => p.mine) || d.questions.length > 0, title: "Pick a system to build", sub: "Browse the Paths page, or ask your agent for one.", link: "#/paths" },
+    { done: d.questions.length > 0, title: "Build your first question", sub: "Your agent writes it and Whetstone checks it.", ask: "Build the first Whetstone question for my path." },
+    { done: d.questions.some((r) => r.status === "solved"), title: "Solve it", sub: "Run the tests as you go, then Submit." },
   ];
 }
 
@@ -976,8 +1100,8 @@ function setupItem(st) {
     st.done ? null : st.ask ? askLine(st.ask) : st.link ? el("a", { class: "btn btn-secondary", href: st.link }, "Open Paths") : null);
 }
 
-function homeSection(title, body) {
-  return el("section", { class: "home-section" }, el("h2", { text: title }), body);
+function homeSection(title, body, note) {
+  return el("section", { class: "home-section" }, el("h2", { text: title }), note || null, body);
 }
 
 function homeRow(title, sub, action) {
@@ -987,8 +1111,12 @@ function homeRow(title, sub, action) {
 }
 
 function askLine(text) {
-  const copy = el("button", { type: "button", class: "btn btn-quiet", onclick: () => copyText(text, copy) }, "Copy");
-  return el("p", { class: "ask-line" }, el("code", { text }), copy);
+  return el("p", { class: "ask-line" }, el("code", { text }), copyButton(text, "Copy"));
+}
+
+function copyButton(text, label) {
+  const btn = el("button", { type: "button", class: "btn btn-quiet btn-small", title: text, onclick: () => copyText(text, btn) }, label);
+  return btn;
 }
 
 /* ---------- Routing ---------- */

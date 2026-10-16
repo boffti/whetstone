@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .catalog import CLI, _rel
 from .config import load_settings
-from .content import ContentError, LearningPath, find_challenge, load_all_paths, load_tracks, save_path, slugify
+from .content import ContentError, LearningPath, find_challenge, load_all_paths, load_profile, load_tracks, save_path, slugify
 
 TEMPLATE = {
     "challenge.yaml": (
@@ -508,6 +508,14 @@ def cmd_doctor(args) -> int:
         "Your profile: " + ("my/profile.md" if has_profile else "not set up yet"),
         'Ask your agent: "Set up my Whetstone profile."',
     )
+    if has_profile:
+        header = load_profile(user / "profile.md")
+        filled = [k for k, v in header.items() if v]
+        check(
+            bool(filled) or None,
+            f"Profile header for the dashboard: {', '.join(filled) if filled else 'missing or empty'}",
+            'Ask your agent: "Update my Whetstone profile header." (the whetstone-profile skill)',
+        )
 
     problems, paths = load_catalog(settings), load_all_paths(settings.shared_paths_dir, settings.paths_dir)
     check(

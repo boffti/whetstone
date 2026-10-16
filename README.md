@@ -25,7 +25,7 @@ If something doesn't work, run `bin/whetstone doctor`. It checks Python, your da
 
 Then ask your agent, in plain words:
 
-- *"Set up my Whetstone profile."* It writes `my/profile.md` from what it knows about you, plus a few questions.
+- *"Set up my Whetstone profile."* It writes `my/profile.md` from what it knows about you, plus a few questions. With your consent it also reads your GitHub activity, including which code your AI co-authored, through the GitHub access your agent already has.
 - *"Make me a learning path to build a checkout system."*, or pick one on the **Paths** page.
 - *"Build the next question for the rate-limiter module."*
 - *"I'm stuck on rate-limiter/01-token-bucket."* It guides you one step at a time and never writes your code.
@@ -83,7 +83,7 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
 
 - **Catalog:** problems that companies actually ask, with each report's question, follow-ups and sources.
 - **Paths:** pick a system to build; modules not built yet show the request to give your agent.
-- **Practice:** the home page shows the question to pick up, reviews that are due, the next step in your paths, and where you struggled. In a question:
+- **Practice:** your dashboard. It shows your profile, your *edges* (how sharp each skill is today; skills dull with time and stay sharp longer once mastered), what to do next, 26 weeks of practice, honest numbers, milestones, the companies you target, and recent runs. In a question:
   1. Read the **Problem**. For most questions the **Lesson** opens after your first test run, because trying first makes it stick.
   2. Write code in `solution.py`.
   3. Press **Run tests** (Ctrl/Cmd + Enter) for the visible tests, or **Submit** (Ctrl/Cmd + Shift + Enter) for all of them.

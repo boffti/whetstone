@@ -207,6 +207,31 @@ class Store:
             week -= timedelta(days=7)
         return {"this_week": this_week, "target": target, "streak": streak, "sessions": len(days), "repaired": repaired}
 
+    def facts(self) -> dict[str, dict]:
+        """Per question: runs up to the solve, hints opened before it, how the first Submit
+        went, and the last day practised. Feeds the dashboard's numbers and edges."""
+        out: dict[str, dict] = {}
+        queries = {
+            "runs_to_solve": "SELECT r.challenge, COUNT(*) AS v FROM runs r JOIN solved s ON s.challenge = r.challenge "
+            "WHERE r.created_at <= s.solved_at GROUP BY r.challenge",
+            "hints_before_solve": "SELECT h.challenge, COUNT(*) AS v FROM reveals h JOIN solved s ON s.challenge = h.challenge "
+            "WHERE h.what LIKE 'hint-%' AND h.created_at <= s.solved_at GROUP BY h.challenge",
+            "first_submit": "SELECT challenge, status AS v FROM runs WHERE id IN (SELECT MIN(id) FROM runs WHERE mode = 'submit' GROUP BY challenge)",
+            "last_day": "SELECT challenge, MAX(day) AS v FROM runs GROUP BY challenge",
+        }
+        with self._conn() as conn:
+            for name, sql in queries.items():
+                for row in conn.execute(sql):
+                    out.setdefault(row["challenge"], {})[name] = row["v"]
+        return out
+
+    def recent_runs(self, limit: int = 8) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT challenge, mode, status, passed, total, created_at FROM runs ORDER BY created_at DESC, id DESC LIMIT ?", (limit,)
+            )
+            return [dict(r) for r in rows]
+
     def active_days(self, last: int = 28) -> list[str]:
         since = (date.today() - timedelta(days=last - 1)).isoformat()
         with self._conn() as conn:
@@ -259,6 +284,7 @@ def add_reviews(rows: list[dict]) -> None:
     for r in rows:
         clean = sorted(v["solved_at"] for v in variants.get(r["key"], []) if v["solve"] == "clean")
         r["mastered"] = r["solve"] == "clean" and bool(clean)
+        r["clean_reviews"] = len(clean)
         r["review_due"] = None
         if r["variant_of"] or not r["solve"] or len(clean) >= len(REVIEW_GAPS):
             continue

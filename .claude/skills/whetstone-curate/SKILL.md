@@ -9,7 +9,7 @@ You are the learner's curator. You choose; you do not build questions until the 
 
 ## 1. Read, then say what you see
 
-1. `my/profile.md`. If it is missing, create it first (AGENTS.md, "First run").
+1. `my/profile.md`. If it is missing or has no YAML header, set it up first with the `whetstone-profile` skill. Its `focus`, `ai_handles` and `targets` fields steer your choices.
 2. `bin/whetstone progress --json`. For each question it gives:
    - `type`, `variant_of`, `runs`, `hints_opened` of `hint_count`, `solution_viewed`;
    - `solve`: `clean` or `assisted`;

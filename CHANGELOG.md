@@ -15,4 +15,6 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - `whetstone doctor` checks the setup and explains each fix. The progress database is versioned: upgrades run automatically, after a backup to `whetstone.db.v<N>.bak`.
 - Shared content: the "Six pressures of system design" foundations path, with `realtime-push` and `cqrs-read-model` modules.
 - Test output is plain text even when the app's environment sets FORCE_COLOR (no escape codes in the results panel).
+- Practice home is a personal dashboard: profile header, skill edges that dull over time, up next, a 26-week calendar, a numbers ledger, milestones, personal records, target companies and recent runs. Grit ranks and milestones reward mastery, never volume, and can be hidden.
+- `whetstone-profile` skill: builds the profile header from what the agent knows, plus GitHub activity and AI co-author trailers, with consent.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.

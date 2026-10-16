@@ -199,3 +199,29 @@ def find_challenge(tracks_dir: Path, track_id: str, dir_name: str) -> Challenge:
 def slugify(text: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return slug[:48].strip("-") or "challenge"
+
+
+PROFILE_LISTS = ("stack", "focus", "ai_handles", "targets")
+
+
+def load_profile(path: Path) -> dict:
+    """The YAML header at the top of my/profile.md, which the dashboard shows. Missing or
+    broken headers give an empty profile; `whetstone doctor` reports why."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    match = re.match(r"---\s*\n(.*?)\n---\s*(\n|$)", text, flags=re.S)
+    if not match:
+        return {}
+    try:
+        meta = yaml.safe_load(match.group(1)) or {}
+    except yaml.YAMLError:
+        return {}
+    if not isinstance(meta, dict):
+        return {}
+    out = {k: str(meta[k]).strip() for k in ("name", "role", "goal", "github") if meta.get(k)}
+    for k in PROFILE_LISTS:
+        value = meta.get(k) or []
+        out[k] = [str(v).strip() for v in (value if isinstance(value, list) else [value]) if str(v).strip()]
+    return out

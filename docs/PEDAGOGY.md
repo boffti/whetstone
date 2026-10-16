@@ -80,11 +80,19 @@ Far transfer is rare. Comparing cases to draw out the shared principle, and vari
 - In Whetstone: each module has one question that uses the idea in another domain, and one in the learner's own stack (from my/profile.md). After two related solves, ask what principle they share, then state it.
 - Sources: [Alfieri et al. 2013](https://doi.org/10.1080/00461520.2013.775712), [Pan & Rickard 2018](https://doi.org/10.1037/bul0000151)
 
-### 12. Autonomy, competence, relevance
-Adults keep up self-directed practice when they feel autonomy, competence and relevance. Rewards for simply doing the task reduce motivation. Badges and leaderboards show small or negative effects. Showing a broken streak drives people away; letting them repair it helps.
+### 12. Autonomy, competence, relevance, and a game that rewards mastery
+Adults keep up self-directed practice when they feel autonomy, competence and relevance. Rewards for simply doing the task reduce motivation. Informative feedback about competence raises it. Gamification shows small effects overall; badges plus a leaderboard lowered motivation and exam scores in one course. Showing a broken streak drives people away, and letting them repair it helps.
 - Strength: moderate; mixed for gamification.
-- In Whetstone: offer two choices for the next question. Use the learner's own stack. The streak is weekly (for example 3 sessions a week) with one repair; when it breaks, show total sessions, never "streak lost". Name gained skills concretely ("you now handle clock skew"). No points, badges or leaderboards.
-- Sources: [Sailer & Homner 2020](https://doi.org/10.1007/s10648-019-09498-w), [Silverman & Barasch 2023](https://doi.org/10.1093/jcr/ucac029)
+- In Whetstone:
+  - Offer two choices for the next question, and use the learner's own stack.
+  - The streak is weekly (3 practice days a week) and forgives one missed week. When it breaks, show total practice days, never "streak lost".
+  - The game layer rewards mastery only:
+    - **grit ranks** per skill, like a whetstone's grits: 220 started, 1000 solved, 3000 solved on your own, 6000 mastered, 8000 still sharp after a long review;
+    - **sharpness** that dulls with time since practice (rule 3);
+    - **milestones** for habits that make skills last, each naming what the learner can now do;
+    - **personal records** against yourself.
+  - No points for volume, and no leaderboards. Learners can hide the game layer.
+- Sources: [Sailer & Homner 2020](https://doi.org/10.1007/s10648-019-09498-w), [Silverman & Barasch 2023](https://doi.org/10.1093/jcr/ucac029), [Kluger & DeNisi 1996](https://doi.org/10.1037/0033-2909.119.2.254)
 
 ## Question types
 
