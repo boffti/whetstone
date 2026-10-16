@@ -94,14 +94,14 @@ While your agent watches, you can work from the app instead:
 
 ## Screenshots
 
-These are at side-pane width (820 px), the size the app is designed for. It also works full screen and on a phone.
+These are at side-pane width (820 px), the size the app is designed for. It also works full screen and on a phone. They follow your GitHub theme, light or dark.
 
 ### Today and progress
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/screenshots/today.png" alt="Today: One next step and one alternative, then your focus: each skill with an edge that shows how sharp it is today."><br><b>Today.</b> One next step and one alternative, then your focus: each skill with an edge that shows how sharp it is today.</td>
-<td width="50%" valign="top"><img src="docs/screenshots/progress.png" alt="Progress: Practice days, honest numbers, milestones and personal records. The game layer rewards mastery, never volume."><br><b>Progress.</b> Practice days, honest numbers, milestones and personal records. The game layer rewards mastery, never volume.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.png"><img src="docs/screenshots/today.png" alt="Today: One next step and one alternative, then your focus: each skill with an edge that shows how sharp it is today."></picture><br><b>Today.</b> One next step and one alternative, then your focus: each skill with an edge that shows how sharp it is today.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/progress-dark.png"><img src="docs/screenshots/progress.png" alt="Progress: Practice days, honest numbers, milestones and personal records. The game layer rewards mastery, never volume."></picture><br><b>Progress.</b> Practice days, honest numbers, milestones and personal records. The game layer rewards mastery, never volume.</td>
 </tr>
 </table>
 
@@ -109,16 +109,16 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/screenshots/question-guess.png" alt="Guess first: Before your first run, you guess which tests will pass. Predicting is how reading code sticks."><br><b>Guess first.</b> Before your first run, you guess which tests will pass. Predicting is how reading code sticks.</td>
-<td width="50%" valign="top"><img src="docs/screenshots/question-note.png" alt="A note from your agent: A hidden test fails. Your agent, watching, asks one question at the line that matters."><br><b>A note from your agent.</b> A hidden test fails. Your agent, watching, asks one question at the line that matters.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-guess-dark.png"><img src="docs/screenshots/question-guess.png" alt="Guess first: Before your first run, you guess which tests will pass. Predicting is how reading code sticks."></picture><br><b>Guess first.</b> Before your first run, you guess which tests will pass. Predicting is how reading code sticks.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-note-dark.png"><img src="docs/screenshots/question-note.png" alt="A note from your agent: A hidden test fails. Your agent, watching, asks one question at the line that matters."></picture><br><b>A note from your agent.</b> A hidden test fails. Your agent, watching, asks one question at the line that matters.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/screenshots/question-solved.png" alt="Solved: Every test passes. Whetstone asks you to explain one hidden case in your own words, and a variant comes back in 3 days."><br><b>Solved.</b> Every test passes. Whetstone asks you to explain one hidden case in your own words, and a variant comes back in 3 days.</td>
-<td width="50%" valign="top"><img src="docs/screenshots/catalog.png" alt="Catalog: Every problem companies ask, with the reports behind it, most asked first."><br><b>Catalog.</b> Every problem companies ask, with the reports behind it, most asked first.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-solved-dark.png"><img src="docs/screenshots/question-solved.png" alt="Solved: Every test passes. Whetstone asks you to explain one hidden case in your own words, and a variant comes back in 3 days."></picture><br><b>Solved.</b> Every test passes. Whetstone asks you to explain one hidden case in your own words, and a variant comes back in 3 days.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/catalog-dark.png"><img src="docs/screenshots/catalog.png" alt="Catalog: Every problem companies ask, with the reports behind it, most asked first."></picture><br><b>Catalog.</b> Every problem companies ask, with the reports behind it, most asked first.</td>
 </tr>
 </table>
 
-<img src="docs/screenshots/full-question.png" alt="A question at full screen: the module rail, the problem, and the editor with a failing hidden test and a note from the agent at line 13.">
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/full-question-dark.png"><img src="docs/screenshots/full-question.png" alt="A question at full screen: the module rail, the problem, and the editor with a failing hidden test and a note from the agent at line 13."></picture>
 
 <p align="center"><sub>The same question at full screen: the module's questions, the problem, and the editor with test results.</sub></p>
 
@@ -126,23 +126,23 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/screenshots/paths.png" alt="Paths: 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module."><br><b>Paths.</b> 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module.</td>
-<td width="50%" valign="top"><img src="docs/screenshots/path-detail.png" alt="One path: The modules in order, with your focus marked. Prepare builds a missing module; one button builds them all."><br><b>One path.</b> The modules in order, with your focus marked. Prepare builds a missing module; one button builds them all.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/paths-dark.png"><img src="docs/screenshots/paths.png" alt="Paths: 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module."></picture><br><b>Paths.</b> 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/path-detail-dark.png"><img src="docs/screenshots/path-detail.png" alt="One path: The modules in order, with your focus marked. Prepare builds a missing module; one button builds them all."></picture><br><b>One path.</b> The modules in order, with your focus marked. Prepare builds a missing module; one button builds them all.</td>
 </tr>
 </table>
 
-<img src="docs/screenshots/full-paths.png" alt="The Paths page at full screen, filtered to paths that suit the learner, with each path's modules drawn as a route of stops.">
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/full-paths-dark.png"><img src="docs/screenshots/full-paths.png" alt="The Paths page at full screen, filtered to paths that suit the learner, with each path's modules drawn as a route of stops."></picture>
 
 ### System design
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/screenshots/design.png" alt="Design: System design questions from 217 interview reports, most asked first."><br><b>Design.</b> System design questions from 217 interview reports, most asked first.</td>
-<td width="50%" valign="top"><img src="docs/screenshots/design-whiteboard.png" alt="Whiteboard: Draw the design with boxes and arrows (Excalidraw). No diagram syntax to learn."><br><b>Whiteboard.</b> Draw the design with boxes and arrows (Excalidraw). No diagram syntax to learn.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/design-dark.png"><img src="docs/screenshots/design.png" alt="Design: System design questions from 217 interview reports, most asked first."></picture><br><b>Design.</b> System design questions from 217 interview reports, most asked first.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/design-whiteboard-dark.png"><img src="docs/screenshots/design-whiteboard.png" alt="Whiteboard: Draw the design with boxes and arrows (Excalidraw). No diagram syntax to learn."></picture><br><b>Whiteboard.</b> Draw the design with boxes and arrows (Excalidraw). No diagram syntax to learn.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/screenshots/design-preview.png" alt="Preview: Your sections, plus the drawing exactly as your agent reads it: a Mermaid diagram."><br><b>Preview.</b> Your sections, plus the drawing exactly as your agent reads it: a Mermaid diagram.</td>
-<td width="50%" valign="top"><img src="docs/screenshots/design-review.png" alt="Review: Your agent grades each rubric point with a quote from your design. A missed point shows only a question until you pass."><br><b>Review.</b> Your agent grades each rubric point with a quote from your design. A missed point shows only a question until you pass.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/design-preview-dark.png"><img src="docs/screenshots/design-preview.png" alt="Preview: Your sections, plus the drawing exactly as your agent reads it: a Mermaid diagram."></picture><br><b>Preview.</b> Your sections, plus the drawing exactly as your agent reads it: a Mermaid diagram.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/design-review-dark.png"><img src="docs/screenshots/design-review.png" alt="Review: Your agent grades each rubric point with a quote from your design. A missed point shows only a question until you pass."></picture><br><b>Review.</b> Your agent grades each rubric point with a quote from your design. A missed point shows only a question until you pass.</td>
 </tr>
 </table>
 

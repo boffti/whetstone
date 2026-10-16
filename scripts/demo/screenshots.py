@@ -3,7 +3,8 @@
     uv run --group demo python scripts/demo/screenshots.py
 
 It runs the app for the sample learner "Sam" (demo_home.py) in headless Chromium and photographs
-each page at side-pane size (820 px wide, as next to an agent's chat), plus two at full screen.
+each page at side-pane size (820 px wide, as next to an agent's chat), plus two at full screen, in
+the light theme and again in the dark one (files ending in -dark).
 Pages are set up the way a learner would leave them: a question with a failing hidden test and a
 note from the agent, a path filtered by one module, a design drawn on the whiteboard and graded.
 """
@@ -148,14 +149,19 @@ async def submit_skipping_the_guess(page: Page) -> None:
     await page.wait_for_selector("#results .verdict", timeout=30_000)
 
 
-async def take(base: str, store, home: Path) -> None:
+async def take(base: str, store, home: Path, theme: str) -> None:
+    """Every shot in one theme. Dark ones get a -dark suffix; the README picks by the reader's theme."""
     OUT.mkdir(parents=True, exist_ok=True)
+
+    async def shot(page: Page, name: str, width: int) -> None:
+        await snap(page, name if theme == "light" else f"{name}-{theme}", width)
+
     async with async_playwright() as pw:
         browser = await pw.chromium.launch()
 
         async def open_page(viewport: dict) -> Page:
-            context = await browser.new_context(viewport=viewport, device_scale_factor=2, color_scheme="light")
-            await context.add_init_script("localStorage.setItem('whetstone-theme', 'light');")
+            context = await browser.new_context(viewport=viewport, device_scale_factor=2, color_scheme=theme)
+            await context.add_init_script(f"localStorage.setItem('whetstone-theme', '{theme}');")
             return await context.new_page()
 
         page = await open_page(PANE)
@@ -164,10 +170,10 @@ async def take(base: str, store, home: Path) -> None:
         await page.goto(f"{base}/#/practice")
         await page.wait_for_selector("#home-body li", timeout=20_000)
         await page.wait_for_timeout(800)
-        await snap(page, "today", 1000)
+        await shot(page, "today", 1000)
         await page.goto(f"{base}/#/progress")
         await page.wait_for_timeout(1200)
-        await snap(page, "progress", 1000)
+        await shot(page, "progress", 1000)
 
         # A question: the guess before the first run, then a failing hidden test with the agent's note.
         install(home, "memoize", MODULE, "01-memoize")
@@ -182,7 +188,7 @@ async def take(base: str, store, home: Path) -> None:
         for row in await page.locator("#results .guess-row").all():
             await row.get_by_role("button", name="Pass").click()
         await page.wait_for_timeout(300)
-        await snap(page, "question-guess", 1000)
+        await shot(page, "question-guess", 1000)
         await page.get_by_role("button", name="Run with my guess").click()
         await page.wait_for_selector("#results .verdict", timeout=30_000)
         await submit_skipping_the_guess(page)
@@ -190,7 +196,7 @@ async def take(base: str, store, home: Path) -> None:
         await page.wait_for_selector(".pair-note", timeout=10_000)
         await page.evaluate("() => { state.editor.revealLineInCenter(13); }")
         await page.wait_for_timeout(600)
-        await snap(page, "question-note", 1000)
+        await shot(page, "question-note", 1000)
 
         full = await open_page(FULL)
         await full.goto(f"{base}/#/{KEY}")
@@ -200,12 +206,12 @@ async def take(base: str, store, home: Path) -> None:
         await full.wait_for_selector(".pair-note", timeout=10_000)
         await full.click(".tab[data-tab='problem']")
         await full.wait_for_timeout(600)
-        await snap(full, "full-question", 1600)
+        await shot(full, "full-question", 1600)
 
         await code(page, FIRST_TRY.replace(*FIX))
         await submit_skipping_the_guess(page)
         await page.wait_for_timeout(600)
-        await snap(page, "question-solved", 1000)
+        await shot(page, "question-solved", 1000)
 
         # Paths: filtered by one module, then one path's route.
         await page.goto(f"{base}/#/paths")
@@ -213,21 +219,21 @@ async def take(base: str, store, home: Path) -> None:
         await page.locator("#paths-list .path-tile button.stop[data-focus]").first.click()
         await page.wait_for_timeout(500)
         await page.evaluate("() => document.querySelector('#paths').scrollTo(0, 0)")
-        await snap(page, "paths", 1000)
+        await shot(page, "paths", 1000)
         await page.locator("#paths-list .path-open").first.click()
         await page.wait_for_timeout(700)
-        await snap(page, "path-detail", 1000)
+        await shot(page, "path-detail", 1000)
         await page.keyboard.press("Escape")
 
         # Catalog and Design
         await page.goto(f"{base}/#/catalog")
         await page.wait_for_selector("#catalog-grid .row", timeout=20_000)
         await page.wait_for_timeout(500)
-        await snap(page, "catalog", 1000)
+        await shot(page, "catalog", 1000)
         await page.goto(f"{base}/#/design")
         await page.wait_for_selector("#design-list .row", timeout=20_000)
         await page.wait_for_timeout(500)
-        await snap(page, "design", 1000)
+        await shot(page, "design", 1000)
 
         # A design: drawn on the whiteboard, previewed as the agent reads it, then graded.
         store.save_draft(DESIGN, DESIGN_DRAFT)
@@ -240,12 +246,12 @@ async def take(base: str, store, home: Path) -> None:
         await page.wait_for_timeout(1200)
         await page.evaluate(DRAWING)
         await page.wait_for_timeout(2500)  # the drawing saves a second after it changes
-        await snap(page, "design-whiteboard", 1000)
+        await shot(page, "design-whiteboard", 1000)
         await page.click(".file-tab[data-file='Preview']")
         await page.wait_for_selector("#preview .diagram svg", timeout=20_000)
         await page.evaluate("() => { const h = [...document.querySelectorAll('#preview h2')].pop(); h.scrollIntoView({block: 'start'}); }")
         await page.wait_for_timeout(500)
-        await snap(page, "design-preview", 1000)
+        await shot(page, "design-preview", 1000)
 
         challenge = find_challenge(home / "tracks", *DESIGN.split("/"))
         grade, problems = grade_design(challenge, GRADE)
@@ -258,21 +264,24 @@ async def take(base: str, store, home: Path) -> None:
         await page.click(".file-tab[data-file='design.md']")
         await page.evaluate("() => document.querySelector('.bench').classList.remove('results-hidden')")
         await page.wait_for_timeout(600)
-        await snap(page, "design-review", 1000)
+        await shot(page, "design-review", 1000)
 
         full_paths = await open_page(FULL)
         await full_paths.goto(f"{base}/#/paths")
         await full_paths.wait_for_selector("#paths-list .path-tile", timeout=20_000)
         await full_paths.click("#p-foryou")
         await full_paths.wait_for_timeout(800)
-        await snap(full_paths, "full-paths", 1600)
+        await shot(full_paths, "full-paths", 1600)
         await browser.close()
 
 
 def main() -> None:
-    argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
-    with running_app() as (base, store, home, _):
-        asyncio.run(take(base, store, home))
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--theme", choices=["light", "dark", "both"], default="both")
+    args = parser.parse_args()
+    for theme in ("light", "dark") if args.theme == "both" else (args.theme,):
+        with running_app() as (base, store, home, _):  # a fresh learner per theme: each run changes it
+            asyncio.run(take(base, store, home, theme))
 
 
 if __name__ == "__main__":
