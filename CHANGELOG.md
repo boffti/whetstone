@@ -10,4 +10,5 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Shared content: about 250 modules with paraphrased interview reports, and 71 learning paths modelled on big-tech systems.
 - Personal content in a git-ignored `my/` folder: profile, built questions, own paths and progress.
 - Interface: IBM Plex type, slate and wet-stone colors in dark and light, keyboard hints on Run tests and Submit, and a per-test edge meter after each run.
+- Teaching: five agent skills (curate, author, tutor, review, interview) built on `docs/PEDAGOGY.md`. Questions now have a type (build, predict, fix, review), problem-first lessons, a four-rung hint ladder and spaced variants. `progress` reports clean or assisted solves, mastery and review dates.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.

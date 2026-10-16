@@ -27,7 +27,7 @@ def test_caches_zero_and_other_falsy_results():
     api = CachedAPI(compute)
     assert api.get(7) == 0
     assert api.get(7) == 0
-    assert compute.calls == 1, "A saved 0 must count as a hit. Use `n in cache`, not `cache.get(n)`."
+    assert compute.calls == 1, "A saved 0 was treated as a miss. How do you tell 'missing' from 'falsy'?"
 
 
 def test_negative_inputs_are_separate_keys():
@@ -62,11 +62,11 @@ def test_errors_are_not_cached():
         api.get(5)
     assert api.get(5) == 5
     assert api.get(5) == 5
-    assert state["calls"] == 2
+    assert state["calls"] == 2, "A failed call was saved, so the retry never ran. When should you save?"
 
 
 def test_instances_do_not_share_a_cache():
     a = CachedAPI(lambda n: n + 100)
     b = CachedAPI(lambda n: n + 200)
     assert a.get(1) == 101
-    assert b.get(1) == 201, "Each object needs its own cache. Create it in __init__."
+    assert b.get(1) == 201, "Two objects saw each other's answers. Where is the cache created?"

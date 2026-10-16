@@ -23,50 +23,47 @@ Everything you build for the learner goes into `my/`; the CLI writes nowhere els
 
 ## First run: the learner's profile
 
-If `my/profile.md` does not exist, create it before anything else. Copy `content/profile.example.md` and fill it in from what you already know about the learner: their projects, their chats with you, and their memory files. Ask a few short questions to fill the gaps. Every question you write is tailored to this file.
+If `my/profile.md` does not exist, create it before anything else. Copy `content/profile.example.md` and fill it in from what you already know about the learner: their projects, their chats with you, and their memory files. Ask a few short questions to fill the gaps. Every question you write is tailored to this file. Ask especially what their AI does for them at work: those skills fade fastest, so Whetstone practises them first.
+
+## Commands
 
 | Command | What it does |
 |---|---|
 | `bin/whetstone catalog [--company X] [--round R] [--search W]` | Lists catalog problems, most asked first. `catalog <id>` shows one in full. |
-| `bin/whetstone progress` | Shows what the learner solved and attempted, the hints they opened, and the solutions they viewed. |
+| `bin/whetstone progress` | Shows each question's runs, hints opened and solution views, whether a solve was clean or assisted, mastery, and when its spaced review is due. |
 | `bin/whetstone path list [--domain D]` | Lists paths grouped by domain, for example "Payments & fintech" or "Trading & markets". |
 | `bin/whetstone path create <id> --goal "..." [--domain D] [--company C]...` | Creates a learning path. |
 | `bin/whetstone path add <path> <module>...` | Appends modules in order. A catalog problem that is not built yet is allowed. |
 | `bin/whetstone path show <path>` | Lists the path's modules in order, with progress, and says which modules are not built. |
 | `bin/whetstone module create <id> [--from-catalog <problem>]` | Creates an empty module. `question add` also creates a module when it needs one. |
 | `bin/whetstone module list` | Lists all modules, with progress. |
-| `bin/whetstone question brief <module> [--topic "..."]` | Gives instructions for the module's next question: what to read, what exists, and real reports. |
+| `bin/whetstone question brief <module> [--topic "..."]` | Gives instructions for the module's next question: what to read, what exists, real reports, and the suggested question type. |
 | `bin/whetstone question new <module> <slug>` | Creates the question's files to fill in, in `my/.staging/<slug>/`. |
-| `bin/whetstone question add <folder> --module <id>` | Checks that the reference solution passes and the starter fails, then files the question as the module's next one. |
+| `bin/whetstone question add <folder> --module <id>` | Checks the format, that the reference solution passes and that the starter fails, then files the question as the module's next one. |
 | `bin/whetstone question check [module or module/question]` | Checks questions again. Run it to catch flaky tests. |
 | `bin/whetstone draft <module/question>` | Shows the learner's current code. |
 | `bin/whetstone test <module/question> [--all]` | Runs the tests on the learner's code. These runs are not recorded. |
 
 `catalog`, `progress`, `path show`, `path list` and `module list` also take `--json`.
 
-## Curate: "What should I practise?" or "Make me a learning path"
+## Jobs: use the skill for each one
 
-1. Read `my/profile.md`, which holds the learner's work, goals and learning style. Then run `bin/whetstone progress` and `bin/whetstone catalog`.
-2. For a quick pick, propose 3 modules. Give one line on why each fits: what their work touches, what they struggled with (many runs, opened hints, viewed solutions), and what is asked often.
-3. For a path, first check `bin/whetstone path list`, because a shipped path may already match, such as "Build a checkout system". If none fits, propose an ordered list of modules. Reuse catalog modules where they fit, and add a new placeholder with `module create`. Wait for the learner to agree, then run `path create` and `path add`.
-4. Do not build questions until the learner picks.
+Each job has a skill file with the full steps. Claude Code loads them automatically. Other agents: read the file and follow it.
 
-## Build: "Build the next question for X" or "Fill in my path"
+| The learner says | Skill |
+|---|---|
+| "What should I practise?", "What's next?", "Make me a learning path" | [.claude/skills/whetstone-curate/SKILL.md](.claude/skills/whetstone-curate/SKILL.md) |
+| "Build the next question for X", "Fill in my path", "Make a variant" | [.claude/skills/whetstone-author/SKILL.md](.claude/skills/whetstone-author/SKILL.md) |
+| "I'm stuck on X", "Why does this fail?" | [.claude/skills/whetstone-tutor/SKILL.md](.claude/skills/whetstone-tutor/SKILL.md) |
+| "Review my solution" | [.claude/skills/whetstone-review/SKILL.md](.claude/skills/whetstone-review/SKILL.md) |
+| "Interview me on X", "Mock interview" | [.claude/skills/whetstone-interview/SKILL.md](.claude/skills/whetstone-interview/SKILL.md) |
 
-1. Run `bin/whetstone question brief <module>` and follow it exactly.
-2. Run `bin/whetstone question new <module> <slug>`, then write every file. Follow AUTHORING.md.
-3. Run `bin/whetstone question add my/.staging/<slug> --module <module>`. If it prints problems, fix them and run it again until it says "Added".
-4. Run `bin/whetstone question check <key>` twice more.
-5. Give the learner the link it printed.
-
-To fill a module, repeat the build steps 3 to 5 times; each question takes on the next follow-up from the reports. To fill a path, run `path show` and build the first question of each module marked "not built".
-
-## Tutor: "I'm stuck on X"
-
-1. Run `bin/whetstone draft <key>` and `bin/whetstone test <key>`.
-2. Name the failing behavior and the concept behind it. Ask one question that leads the learner toward the fix.
-3. If they are still stuck, point them to the next hint in the app, or paraphrase it from the question's `hints.md`.
-4. Do not write their solution or paste the reference solution unless they ask for it in plain words.
+All of them follow the teaching contract in [docs/PEDAGOGY.md](docs/PEDAGOGY.md). In short:
+- get the learner's attempt first;
+- climb one help rung at a time;
+- never write their code;
+- give feedback about the work, never the person;
+- bring solved ideas back as spaced variants.
 
 ## Rules
 

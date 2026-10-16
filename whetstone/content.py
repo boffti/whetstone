@@ -11,6 +11,10 @@ import yaml
 
 REQUIRED_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter.py", "solution.py"]
 DIFFICULTIES = ("easy", "medium", "hard")
+# What the learner does in a question. See AUTHORING.md and docs/PEDAGOGY.md.
+QUESTION_TYPES = ("build", "predict", "fix", "review")
+# When the lesson opens: before the problem, or after the learner's first test run (problem first).
+LESSON_MODES = ("first", "after-run")
 
 
 class ContentError(Exception):
@@ -30,6 +34,9 @@ class Challenge:
     support: list[str]
     timeout: int | None
     summary: str
+    kind: str = "build"
+    lesson: str = "first"
+    variant_of: str | None = None
 
     @property
     def number(self) -> int:
@@ -143,6 +150,9 @@ def load_challenge(path: Path, track_id: str) -> Challenge:
         support=[str(s) for s in meta.get("support", [])],
         timeout=meta.get("timeout"),
         summary=str(meta.get("summary", "")),
+        kind=str(meta.get("type", "build")),
+        lesson=str(meta.get("lesson", "first")),
+        variant_of=meta.get("variant_of") or None,
     )
 
 

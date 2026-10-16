@@ -114,7 +114,8 @@ def make_brief(
 
     tracks = load_tracks(settings.tracks_dir)
     existing_track = next((t for t in tracks if t.id == track_id), None)
-    existing = [f"- {c.dir_name}: {c.title} ({c.difficulty})" for c in existing_track.challenges] if existing_track else []
+    existing = [f"- {c.dir_name}: {c.title} ({c.kind}, {c.difficulty})" for c in existing_track.challenges] if existing_track else []
+    position = len(existing) + 1
 
     lines = [
         f'# Whetstone brief: the next question in the "{track_title}" module',
@@ -123,7 +124,8 @@ def make_brief(
         "solution.py, and is graded by pytest. You do the writing; Whetstone checks your work.",
         "",
         "## Read first",
-        "- AUTHORING.md: the file format and the test-writing rules. Follow it exactly.",
+        "- AUTHORING.md: the file format, the question types and the test-writing rules. Follow it exactly.",
+        "- docs/PEDAGOGY.md: why the format works this way. Skim it once.",
         f"- {_rel(settings.profile_path)}: who the learner is, their goals, and how to write for them.",
         f"- {_rel(EXAMPLE)}/: a finished question to match for quality.",
     ]
@@ -136,6 +138,7 @@ def make_brief(
         lines += ["Already in this module (write the next step up, do not repeat these):", *existing]
     else:
         lines.append("This module is empty: write the core version of the problem.")
+    lines += ["", "## Question type", _recipe_line(position)]
     if reports:
         lines += ["", "## Real interview reports to ground it in", *[report_line(r) for r in reports]]
         lines.append("Use the reports for realism. Paraphrase them; do not name the source sites in the lesson.")
@@ -159,3 +162,22 @@ def build_notes(problem: dict, limit: int = 6) -> str:
     ]
     lines += [report_line(r) for r in problem.get("reports", [])[:limit]]
     return "\n".join(lines)
+
+
+# The module recipe from docs/PEDAGOGY.md: read before write, then build, mix, break and fix.
+RECIPE = [
+    "predict: the learner reads working code and predicts what it does on a scripted input.",
+    "build: the core version, from a starter. Problem first (lesson: after-run).",
+    "build: the next step up (concurrency, scale or failure). Mix in an idea from an earlier module without naming it.",
+    "fix or review: a realistic seeded bug to fix, or AI-written code with 2 or 3 defects to review.",
+    "build: an adversary arrives (retry storm, clock skew, a crash between write and ack). Hidden tests attack the design.",
+]
+
+
+def _recipe_line(position: int) -> str:
+    if position <= len(RECIPE):
+        return f"This is question {position} of the module. Suggested: {RECIPE[position - 1]} Pick another type only for a reason from the learner's progress."
+    return (
+        f"This is question {position}: the core recipe is done. Write a variant of an earlier question on a new surface "
+        "(set variant_of), or apply the idea in another domain or in the learner's own stack."
+    )

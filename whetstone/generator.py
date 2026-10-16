@@ -106,7 +106,7 @@ def install_challenge(
     """Validate a challenge folder. If it passes, move it into the track as the next
     numbered challenge. Returns (key or None, problems, notes)."""
     try:
-        result = validate_challenge(load_challenge(stage, track_id), settings)
+        result = validate_challenge(load_challenge(stage, track_id), settings, strict=True)
     except (ContentError, yaml.YAMLError, OSError) as exc:
         return None, [str(exc)], []
     if not result.ok:

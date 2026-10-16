@@ -17,7 +17,7 @@ class CachedAPI:
 - `stats()` returns the number of cache hits and misses since the object was created.
 - Each `CachedAPI` object has its own cache.
 - If `compute` raises an exception, `get` raises the same exception and saves nothing.
-- You do not need thread safety yet. That is challenge 2.
+- You do not need thread safety yet. That comes in the next question.
 
 ## Example
 

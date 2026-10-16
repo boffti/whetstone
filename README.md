@@ -24,9 +24,10 @@ Then ask your agent, in plain words:
 - *"Set up my Whetstone profile."* It writes `my/profile.md` from what it knows about you, plus a few questions.
 - *"Make me a learning path to build a checkout system."*, or pick one on the **Paths** page.
 - *"Build the next question for the rate-limiter module."*
-- *"I'm stuck on rate-limiter/01-token-bucket."*
+- *"I'm stuck on rate-limiter/01-token-bucket."* It guides you one step at a time and never writes your code.
+- *"Review my solution"* or *"Interview me on the rate limiter."*
 
-The agent follows [AGENTS.md](AGENTS.md) and drives `bin/whetstone`. Whetstone has no AI inside, so it runs on your existing AI subscription with no API key. Every question goes through `bin/whetstone question add`, which files it only when the reference solution passes and the starter fails.
+The agent follows [AGENTS.md](AGENTS.md) and five skills in `.claude/skills/` (curate, author, tutor, review, interview), and drives `bin/whetstone`. The skills follow [how Whetstone teaches](docs/PEDAGOGY.md): problem first, a mix of question types (predict, build, fix, review), a gated hint ladder, and spaced variants of what you solved. Whetstone has no AI inside, so it runs on your existing AI subscription with no API key. Every question goes through `bin/whetstone question add`, which files it only when the reference solution passes and the starter fails.
 
 **Without Docker:** run `uv run whetstone serve`. Redis-based questions then need Redis at `REDIS_URL` (default `redis://localhost:6379/0`). On a Mac: `brew install redis && brew services start redis`.
 

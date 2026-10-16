@@ -1,4 +1,6 @@
-title: Cache the slow function
+title: Stop paying twice for a slow lookup
+type: build
+lesson: after-run
 difficulty: easy
 minutes: 15
 tags: [caching, memoization]

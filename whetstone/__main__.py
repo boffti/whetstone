@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 from .catalog import CLI, _rel
@@ -18,10 +19,23 @@ from .config import load_settings
 from .content import ContentError, LearningPath, find_challenge, load_all_paths, load_tracks, save_path, slugify
 
 TEMPLATE = {
-    "challenge.yaml": "title: {title}\ndifficulty: medium\nminutes: 20\ntags: []\nrequires: []\nsupport: []\nsummary: One sentence about what the learner builds.\n",
-    "lesson.md": "## The idea\n\n## Analogy\n\n## In Python\n\n## Common mistakes\n\n## Interview angle\n",
+    "challenge.yaml": (
+        "title: {title}  # name the scenario, not the technique\n"
+        "type: build  # build | predict | fix | review\n"
+        "lesson: after-run  # after-run = problem first; first = lesson first (use for predict)\n"
+        "difficulty: medium\nminutes: 20\ntags: []\nrequires: []\n"
+        "support: []  # predict and review: the code to read, e.g. [subject.py]\n"
+        "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
+        "summary: One sentence about what the learner does.\n"
+    ),
+    "lesson.md": "## The idea\n\n## Subgoals\n\n## In Python\n\n## Misconceptions\n\n## Interview angle\n\n## Tie-in to your work\n",
     "problem.md": "## Task\n\n## API\n\n## Rules\n\n## Example\n",
-    "hints.md": "First hint: point in the right direction.\n\n---\n\nSecond hint: name the tool.\n\n---\n\nThird hint: almost the answer.\n",
+    "hints.md": (
+        "Rung 1, a question about the failing behavior.\n\n---\n\n"
+        "Rung 2, the concept or subgoal behind it, by its lesson name.\n\n---\n\n"
+        "Rung 3, a concrete next step tied to a named test.\n\n---\n\n"
+        "Rung 4, a skeleton: the structure with the key lines left as `...`.\n"
+    ),
     "starter.py": '"""Starter code."""\n\n\ndef solve():\n    raise NotImplementedError\n',
     "solution.py": '"""Reference solution."""\n\n\ndef solve():\n    return 42\n',
     "tests/test_visible.py": "from solution import solve\n\n\ndef test_returns_answer():\n    assert solve() == 42\n",
@@ -380,24 +394,31 @@ def cmd_catalog(args) -> int:
 def cmd_progress(args) -> int:
     settings = load_settings()
     store, tracks = _state(settings)
-    solved = store.solved_keys()
     rows = []
     for t in tracks.values():
         for c in t.challenges:
             last, opened = store.last_run(c.key), store.reveals(c.key)
+            hint_count = len(c.hints())
+            solve = store.solve(c.key, f"hint-{hint_count - 1}")
             rows.append(
                 {
                     "key": c.key,
                     "title": c.title,
+                    "type": c.kind,
+                    "variant_of": c.variant_of,
                     "difficulty": c.difficulty,
                     "tags": c.tags,
-                    "status": "solved" if c.key in solved else ("attempted" if last else "new"),
+                    "status": "solved" if solve else ("attempted" if last else "new"),
+                    "solve": solve[1] if solve else None,
+                    "solved_at": solve[0] if solve else None,
                     "runs": store.run_count(c.key),
+                    "hint_count": hint_count,
                     "hints_opened": sum(w.startswith("hint") for w in opened),
                     "solution_viewed": "solution" in opened,
                     "last_run": last,
                 }
             )
+    add_reviews(rows)
     if args.json:
         print(json.dumps({"streak": store.streak(), "active_days": store.active_days(), "questions": rows}, indent=2))
         return 0
@@ -405,13 +426,42 @@ def cmd_progress(args) -> int:
     print(f"Streak: {store.streak()} days. Solved {done} of {len(rows)} questions.\n")
     for r in rows:
         last = r["last_run"]
-        notes = [f"runs={r['runs']}", f"hints={r['hints_opened']}"]
+        notes = [f"runs={r['runs']}", f"hints={r['hints_opened']}/{r['hint_count']}"]
         if r["solution_viewed"]:
             notes.append("viewed solution")
+        if r["solve"]:
+            notes.append("mastered" if r["mastered"] else f"{r['solve']} solve")
+        if r["review_due"]:
+            notes.append(f"review due {r['review_due']}")
         if last:
             notes.append(f"last {last['mode']}: {last['status']} {last['passed']}/{last['total']}")
         print(f"{r['status']:<9} {r['key']:<46} {' '.join(notes)}")
     return 0
+
+
+# Spaced review (docs/PEDAGOGY.md, rule 3): after a clean solve, a variant is due in 3 days, then
+# 3 weeks, then 3 months. An assisted solve gets its first variant after 2 days.
+REVIEW_GAPS = (3, 21, 90)
+
+
+def add_reviews(rows: list[dict]) -> None:
+    """Add `mastered` and `review_due` to each progress row. A variant re-tests its original
+    question (variant_of); mastery is a clean solve plus a clean variant solve."""
+    variants: dict[str, list[dict]] = {}
+    for r in rows:
+        if r["variant_of"]:
+            variants.setdefault(r["variant_of"], []).append(r)
+    for r in rows:
+        clean = sorted(v["solved_at"] for v in variants.get(r["key"], []) if v["solve"] == "clean")
+        r["mastered"] = r["solve"] == "clean" and bool(clean)
+        r["review_due"] = None
+        if r["variant_of"] or not r["solve"] or len(clean) >= len(REVIEW_GAPS):
+            continue
+        if r["solve"] == "assisted" and not clean:
+            since, gap = r["solved_at"], 2
+        else:
+            since, gap = (clean[-1] if clean else r["solved_at"]), REVIEW_GAPS[len(clean)]
+        r["review_due"] = (date.fromisoformat(since[:10]) + timedelta(days=gap)).isoformat()
 
 
 def _question_or_none(settings, key: str):

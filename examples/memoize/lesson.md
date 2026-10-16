@@ -4,42 +4,43 @@ Some functions are slow but always give the same output for the same input. Thes
 
 A cache lookup that finds an answer is a **hit**. A lookup that finds nothing is a **miss**. On a miss, you compute the answer and save it.
 
-## Analogy
+## Subgoals
 
-A tax accountant gets the same question many times: "What is the tax on $10,000?" The first time, she does the full calculation. Then she writes the answer on a sticky note. The next time, she reads the note. It takes one second, not one hour.
+1. **Look up** the input in the cache.
+2. On a hit, **count** it and return the saved answer.
+3. On a miss, **count** it and call the slow function.
+4. **Save** the answer only after the call returns.
 
-The sticky notes are the cache. Reading a note is a hit. Doing the calculation is a miss.
+A worked example on a different problem with the same subgoals: charge each order only once.
+
+```python
+charged = set()
+
+def charge_once(order_id):
+    if order_id in charged:   # 1. look up
+        return "duplicate"    # 2. hit
+    send_charge(order_id)     # 3. miss: do the work
+    charged.add(order_id)     # 4. record only after it succeeds
+    return "charged"
+```
 
 ## In Python
 
-A `dict` is the simplest cache. The key is the input. The value is the output.
+A `dict` is the simplest cache: the key is the input and the value is the output. Test membership with `key in d`. The standard library has `functools.cache` and `functools.lru_cache`. Use them in real code. In this question, write the cache yourself so you see each part.
 
-```python
-cache = {}
+## Misconceptions
 
-def get(n):
-    if n in cache:          # hit
-        return cache[n]
-    value = slow(n)         # miss
-    cache[n] = value
-    return value
-```
-
-The standard library has `functools.cache` and `functools.lru_cache`. Use them in real code. In this challenge, write the cache yourself so you see each part.
-
-## Common mistakes
-
-- **Falsy values.** `if cache.get(n):` treats a saved `0` as a miss. Use `if n in cache:`.
-- **Shared state.** A cache defined as a class attribute (`_cache = {}` in the class body) is shared by all instances. Create it in `__init__`.
-- **Cached errors.** If the function raises an exception, do not save anything. The next call must try again.
+- "`cache.get(n)` tells me whether `n` is cached." A saved `0` or `""` is falsy, so it looks like a miss.
+- "A dict in the class body belongs to each object." A class attribute is shared by every instance.
+- "If the function fails, it is fine to save something." A saved failure stops every later call from trying again.
 
 ## Interview angle
 
 The first question in the Stripe round is: "How do you make this API faster?" The answer is a cache. Expect follow-up questions:
 
-- How much memory does the cache use? Can it grow forever? (See challenge 5.)
+- How much memory does the cache use? Can it grow forever? (A later question in the module.)
 - Is the function really pure? If the answer can change, you need expiry (TTL).
-- What happens when many threads use the cache at the same time? (See challenge 2.)
+- What happens when many threads use the cache at the same time? (The next question.)
 
 ## Tie-in to your work
 

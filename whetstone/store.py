@@ -114,6 +114,19 @@ class Store:
             ).fetchone()
             return dict(row) if row else None
 
+    def solve(self, key: str, last_hint: str) -> tuple[str, str] | None:
+        """(solved_at, "clean" or "assisted") for a solved question, else None. A solve is assisted
+        when the solution or the last hint was opened before it."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT solved_at FROM solved WHERE challenge = ?", (key,)).fetchone()
+            if not row:
+                return None
+            helped = conn.execute(
+                "SELECT 1 FROM reveals WHERE challenge = ? AND created_at <= ? AND what IN ('solution', ?) LIMIT 1",
+                (key, row["solved_at"], last_hint),
+            ).fetchone()
+            return row["solved_at"], "assisted" if helped else "clean"
+
     def reveals(self, key: str) -> list[str]:
         with self._conn() as conn:
             return [r["what"] for r in conn.execute("SELECT what FROM reveals WHERE challenge = ? ORDER BY created_at", (key,))]

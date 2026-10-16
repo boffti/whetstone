@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import difflib
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,7 +15,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .config import Settings
-from .content import DIFFICULTIES, REQUIRED_FILES, Challenge
+from .content import DIFFICULTIES, LESSON_MODES, QUESTION_TYPES, REQUIRED_FILES, Challenge
 
 
 @dataclass
@@ -163,11 +165,22 @@ class Validation:
     notes: list[str]
 
 
-def validate_challenge(challenge: Challenge, settings: Settings) -> Validation:
+def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = False) -> Validation:
     """A challenge is valid when its files exist, the reference solution passes every
-    test, and the starter fails at least one test."""
+    test, and the starter fails at least one test. `strict` (used when a question is added)
+    also enforces the current format; older questions only get notes."""
     problems: list[str] = []
     notes: list[str] = []
+    for problem in _format_problems(challenge):
+        (problems if strict else notes).append(problem)
+    if challenge.kind not in QUESTION_TYPES:
+        problems.append(f"type must be one of {', '.join(QUESTION_TYPES)}")
+    if challenge.lesson not in LESSON_MODES:
+        problems.append(f"lesson must be one of {', '.join(LESSON_MODES)}")
+    if challenge.variant_of and not re.fullmatch(r"[a-z0-9-]+/\d{2}-[a-z0-9-]+", challenge.variant_of):
+        problems.append("variant_of must be a question key, like rate-limiter/01-token-bucket")
+    if challenge.kind in ("predict", "review") and not challenge.support:
+        problems.append(f"a {challenge.kind} question needs the code to read as a support file (support: [subject.py])")
     for name in REQUIRED_FILES:
         if not (challenge.path / name).exists():
             problems.append(f"missing {name}")
@@ -193,9 +206,27 @@ def validate_challenge(challenge: Challenge, settings: Settings) -> Validation:
         problems.extend(failing[:8] or [ref.output[-1500:]])
     notes.append(f"reference solution: {ref.passed}/{ref.total} passed in {ref.duration:.1f} s")
 
+    if challenge.kind == "fix":
+        notes.append(_fix_size(challenge))
+
     starter = run_tests(challenge, challenge.read("starter.py"), "submit", settings)
     if starter.status == "passed":
         problems.append("starter passes every test, so the challenge teaches nothing; make the starter incomplete")
     else:
         notes.append(f"starter: {starter.passed}/{starter.total} passed (expected: some fail)")
     return Validation(challenge.key, not problems, problems, notes)
+
+
+def _format_problems(challenge: Challenge) -> list[str]:
+    """Rules of the current question format that older questions may not follow yet."""
+    problems = []
+    if (challenge.path / "hints.md").exists() and len(challenge.hints()) != 4:
+        problems.append("hints.md needs exactly 4 hints: a question, the concept, a next step tied to a test, a skeleton")
+    return problems
+
+
+def _fix_size(challenge: Challenge) -> str:
+    """A fix question's bug should be small: report how much of the starter the fix changes."""
+    before, after = challenge.read("starter.py").splitlines(), challenge.read("solution.py").splitlines()
+    changed = sum(1 for op in difflib.ndiff(before, after) if op[:1] in "+-")
+    return f"fix: the reference changes {changed} lines of a {len(before)}-line starter (keep the bug small and realistic)"

@@ -160,6 +160,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "id": cid,
             "title": c.title,
             "difficulty": c.difficulty,
+            "type": c.kind,
+            "lesson_mode": c.lesson,
             "minutes": c.minutes,
             "tags": c.tags,
             "requires": c.requires,
