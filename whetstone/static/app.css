@@ -954,3 +954,60 @@ a.home-text:hover .home-title { text-decoration: underline; }
 .editor-wrap.drawing .editor, .editor-wrap.drawing .fallback-editor { visibility: hidden; }
 .board-mount { position: absolute; inset: 0; }
 .board-note { padding: 1rem 1.2rem; }
+
+/* Excalidraw in the app's colors. Its own stylesheet loads later, so these selectors are one class
+   more specific than its .excalidraw and .excalidraw.theme--dark rules. The canvas is transparent
+   (see renderBoard), so the board shows the app's panel color in both themes. */
+.whiteboard .excalidraw, .whiteboard .excalidraw.theme--dark {
+  --ui-font: var(--font-ui);
+  --color-on-surface: var(--ink);
+  --text-primary-color: var(--ink);
+  --icon-fill-color: var(--ink-soft);
+  --keybinding-color: var(--grit);
+  --island-bg-color: var(--stone-raised);
+  --default-bg-color: var(--stone-raised);
+  --popup-bg-color: var(--stone-raised);
+  --popup-secondary-bg-color: var(--stone-sunk);
+  --popup-text-color: var(--ink);
+  --sidebar-bg-color: var(--stone-raised);
+  --overlay-bg-color: color-mix(in srgb, var(--stone) 88%, transparent);
+  --input-bg-color: var(--stone-raised);
+  --input-hover-bg-color: var(--stone-sunk);
+  --input-border-color: var(--rule);
+  --input-label-color: var(--ink-soft);
+  --color-surface-lowest: var(--stone-raised);
+  --color-surface-low: var(--stone-sunk);
+  --color-surface-mid: var(--stone);
+  --color-surface-high: var(--rule);
+  --default-border-color: var(--rule);
+  --sidebar-border-color: var(--rule);
+  --dialog-border-color: var(--rule);
+  --button-gray-1: var(--stone-sunk);
+  --button-gray-2: var(--rule);
+  --button-gray-3: var(--grit);
+  --scrollbar-thumb: var(--rule);
+  --scrollbar-thumb-hover: var(--grit);
+  /* Selected tools stay neutral, as selected chips do in the app; blue marks focus and links. */
+  --color-surface-primary-container: color-mix(in srgb, var(--ink) 12%, var(--stone-raised));
+  --color-on-primary-container: var(--ink);
+  --color-primary: var(--steel);
+  --color-primary-darker: color-mix(in srgb, var(--steel) 85%, var(--ink));
+  --color-primary-darkest: color-mix(in srgb, var(--steel) 70%, var(--ink));
+  --color-primary-hover: color-mix(in srgb, var(--steel) 85%, var(--ink));
+  --color-primary-light: color-mix(in srgb, var(--steel) 16%, var(--stone-raised));
+  --color-primary-light-darker: color-mix(in srgb, var(--steel) 24%, var(--stone-raised));
+  --color-brand-hover: color-mix(in srgb, var(--steel) 85%, var(--ink));
+  --color-brand-active: var(--steel);
+  --focus-highlight-color: var(--focus);
+  --select-highlight-color: var(--steel);
+  --color-selection: var(--steel);  /* selection outlines on the canvas */
+  --link-color: var(--steel);
+  --color-slider-track: var(--rule);
+  --color-slider-thumb: var(--ink-soft);
+  --border-radius-lg: var(--radius-m);
+  --shadow-island: 0 0 0 1px var(--rule), 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.whiteboard .excalidraw .App-toolbar__extra-tools-trigger, .whiteboard .excalidraw .ToolIcon__keybinding { font-family: var(--font-ui); }
+/* Dark mode inverts the canvas (invert 93%, hue-rotate 180deg), selection outlines included, so this
+   is the color that comes out as the app's dark steel, #8BB4DE. */
+.whiteboard .excalidraw.theme--dark { --color-selection: #245184; }

@@ -927,7 +927,8 @@ function renderBoard() {
   const { React, X } = b.lib;
   b.root.render(React.createElement(X.Excalidraw, {
     theme: isDark() ? "dark" : "light",
-    initialData: { elements: b.elements, appState: { viewBackgroundColor: "#ffffff" }, scrollToContent: true },
+    // A transparent canvas shows the board's own background, so it matches the app in either theme.
+    initialData: { elements: b.elements, appState: { viewBackgroundColor: "transparent" }, scrollToContent: true },
     onChange: boardChanged,
     // No images: they bloat the drawing and the agent cannot read them.
     UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false, export: false, toggleTheme: false, changeViewBackgroundColor: false }, tools: { image: false } },
