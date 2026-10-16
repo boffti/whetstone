@@ -1,73 +1,111 @@
-# Whetstone
+<p align="center">
+  <img src="docs/logo.svg" width="200" alt="Whetstone logo: a two-grit sharpening stone, coarse clay and fine steel, with a glint">
+</p>
 
-[![CI](https://github.com/boffti/whetstone/actions/workflows/ci.yml/badge.svg)](https://github.com/boffti/whetstone/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/boffti/whetstone/actions/workflows/codeql.yml/badge.svg)](https://github.com/boffti/whetstone/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/boffti/whetstone/badge)](https://scorecard.dev/viewer/?uri=github.com/boffti/whetstone)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+<h1 align="center">Whetstone</h1>
 
-A self-hosted practice dojo where your own AI agent builds the lessons. Pick a system you want to understand, such as a payment processor, a taxi booking service, high-frequency trading, or an LLM gateway like OpenRouter. Your agent (Claude Code, Codex, Cursor, or another) writes each step for you: a short lesson, a practical problem, and a pytest suite that grades your code. Visible tests check the basics. Hidden tests check the edge cases interviewers ask about.
+<p align="center">
+  <strong>Your AI writes the code. Whetstone keeps you sharp.</strong><br>
+  A self-hosted practice dojo where your own AI agent builds the lessons, and real tests grade your work.
+</p>
 
-This repo is the shell: the app, the CLI your agent drives, and a shared catalog of systems and real interview reports. Everything written for you stays on your machine, in `my/`, and is never committed.
+<p align="center">
+  <a href="https://github.com/boffti/whetstone/actions/workflows/ci.yml"><img src="https://github.com/boffti/whetstone/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/boffti/whetstone/actions/workflows/codeql.yml"><img src="https://github.com/boffti/whetstone/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/boffti/whetstone"><img src="https://api.scorecard.dev/projects/github.com/boffti/whetstone/badge" alt="OpenSSF Scorecard"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2F6497" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-2F6497" alt="Python 3.11+">
+  <br>
+  <img src="https://img.shields.io/badge/runs_on-your_machine-B8572F" alt="Runs on your machine">
+  <img src="https://img.shields.io/badge/AI-bring_your_own_agent-B8572F" alt="Bring your own AI agent">
+  <img src="https://img.shields.io/badge/API_keys-none_needed-2E7A4D" alt="No API keys needed">
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-2E7A4D" alt="Pull requests welcome"></a>
+</p>
 
-<p align="center"><img src="docs/demo.gif" width="420" alt="Whetstone in a narrow side pane: a personal dashboard with skill edges, practice calendar and numbers; a write-the-tests question where one test misses four hidden bugs; a note from your AI agent over the editor; all bugs caught after better tests; then the Paths and Catalog pages."></p>
+<p align="center">
+  <a href="#why-a-whetstone">Why</a> ·
+  <a href="#sharpen-in-four-strokes">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#whats-in-the-box">What's in the box</a> ·
+  <a href="#where-its-going">Roadmap</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-## Quick start
+<p align="center">
+  <img src="docs/demo.gif" width="860" alt="Whetstone running in a browser pane beside an AI agent's chat: the agent prepares a question, the learner runs tests, and the agent leaves a note in the editor margin.">
+</p>
+
+## Why a whetstone?
+
+A knife that cuts every day goes dull. So do engineers.
+
+AI now writes most of our code, and the code still ships. What quietly fades is the work it took over: recalling an idea without looking it up, reading code closely, finding a bug, writing the test that catches it, and holding a whole system in your head. You notice the day the AI is wrong and you can't tell.
+
+Whetstone is where you put that edge back. Pick a system you'd like to understand, such as a payment processor, a matching engine, or an LLM gateway like OpenRouter. Your own AI agent (Claude Code, Codex, Cursor or another) writes each step for you, tailored to your job and your gaps. Real pytest suites grade you. Ideas you solve come back as fresh variants until they stick.
+
+It isn't interview cramming. Real interview reports keep the problems honest, but the goal is the engineer you are at work on a Tuesday.
+
+### What dulls, and how Whetstone hones it
+
+| What your AI does for you | What you practise in Whetstone |
+|---|---|
+| Writes the code | **Build** questions: the problem comes first; the lesson opens after your first try |
+| Explains code you didn't write | **Predict** questions: read working code and say what it does before you run it |
+| Finds the bug | **Fix** questions: a bug report with symptoms, never the cause |
+| Reviews its own pull request | **Review** questions: spot the defects planted in plausible AI-written code |
+| Writes the tests | **Tests** questions: your tests must catch hidden bugs you never see |
+| Sketches the architecture | **Design** questions: draw it on a whiteboard, and your agent grades it against a rubric |
+
+## Sharpen in four strokes
 
 ```bash
 git clone https://github.com/boffti/whetstone && cd whetstone
 cp .env.example .env
-docker compose up -d --build        # http://localhost:8000 (includes Redis)
+docker compose up -d --build        # open http://localhost:8000
 claude                              # or codex, or open the folder in Cursor
 ```
 
-If something doesn't work, run `bin/whetstone doctor`. It checks Python, your data folder and database, Redis, the web app, and that git ignores `my/`, and it says how to fix each problem.
+Then talk to your agent in plain words:
 
-Then ask your agent, in plain words:
+> **"Set up my Whetstone profile."** It drafts `my/profile.md` from what it knows about you and asks a few questions. With your consent, it also reads your GitHub activity, including which code your AI co-wrote, because those skills fade first.
+>
+> **"Watch Whetstone."** It sits in the background. Press **Prepare** anywhere in the app and it builds the question while you keep practising.
+>
+> **"What should I practise next?"** It reads your progress and offers two choices, reviews that are due coming first.
 
-- *"Set up my Whetstone profile."* It writes `my/profile.md` from what it knows about you, plus a few questions. With your consent it also reads your GitHub activity, including which code your AI co-authored, through the GitHub access your agent already has.
-- *"Make me a learning path to build a checkout system."*, or pick one on the **Paths** page.
-- *"Build the next question for the rate-limiter module."*
-- *"I'm stuck on rate-limiter/01-token-bucket."* It guides you one step at a time and never writes your code.
-- *"Review my solution"* or *"Interview me on the rate limiter."*
-- *"Pair with me while I solve this."* Your agent watches your session in the background and drops short questions next to your code, like a reviewer at your shoulder. Choose how chatty it is with the Pair switch: off, quiet, coach or interviewer.
-
-The agent follows [AGENTS.md](AGENTS.md) and five skills in `.claude/skills/` (curate, author, tutor, review, interview), and drives `bin/whetstone`. The skills follow [how Whetstone teaches](docs/PEDAGOGY.md): problem first, a mix of question types (predict, build, fix, review), a gated hint ladder, and spaced variants of what you solved. Whetstone has no AI inside, so it runs on your existing AI subscription with no API key. Every question goes through `bin/whetstone question add`, which files it only when the reference solution passes and the starter fails.
-
-**Without Docker:** run `uv run whetstone serve`. Redis-based questions then need Redis at `REDIS_URL` (default `redis://localhost:6379/0`). On a Mac: `brew install redis && brew services start redis`.
+Something off? `bin/whetstone doctor` checks your setup and says how to fix each problem.
 
 ## How it works
 
+```mermaid
+sequenceDiagram
+    actor You
+    participant App as Whetstone (localhost)
+    participant Agent as Your AI agent
+    You->>App: Press Prepare on "Rate limiter"
+    App-->>Agent: A request appears while it watches
+    Agent->>App: Writes the lesson, problem, hints and hidden tests
+    App->>App: Checks: the reference passes, the starter fails, every wrong version is caught
+    You->>App: Write code, run the tests, submit
+    Agent-->>You: Asks a question in your editor's margin, like a pair would
+    App->>You: The idea returns as a variant after 3 days, 3 weeks and 3 months
 ```
- you ──ask──▶ your AI agent ──runs──▶ bin/whetstone ──writes──▶ my/        (your profile, questions,
-             (Claude Code, Codex,     (brief, new, add,                     paths, progress; private)
-              Cursor, ...)             check, test)                │
-                                                                   │ reads both
- contributors ──pull requests──▶ content/ (catalog, paths) ────────┴──▶ web app, localhost:8000
-```
 
-Whetstone never calls an AI itself. Your agent does the thinking, and the CLI creates and checks things.
+**Whetstone doesn't call an AI on its own.** Your agent runs on your own subscription and drives a plain CLI (`bin/whetstone`); the app only creates, checks and grades. It needs no API keys or tokens, and it sends your work nowhere. (An optional in-app generator can use your own Anthropic API key. It is off unless you set one.)
 
-**Side by side with your agent:** the app is built to run in a narrow browser pane next to your chat, such as Claude's built-in browser. Below 1100px it switches to one column with a full-height code editor.
+**Built for the side pane.** The app is designed to sit in a narrow browser pane next to your agent's chat, such as the built-in browser in Claude's desktop app. It works on a full screen and on a phone too.
 
-## What is shared, and what is yours
+## What's in the box
 
-| Folder | Committed | What is in it |
-|---|---|---|
-| `whetstone/`, `bin/`, `scripts/`, `tests/` | yes | The app, the CLI, and their tests |
-| `content/catalog.yaml` | yes | About 260 modules (one topic each), with about 620 paraphrased interview reports from more than 90 companies |
-| `content/paths/` | yes | About 80 learning paths: systems to build, modelled on the products of about 100 companies |
-| `content/profile.example.md` | yes | The template your agent fills in |
-| `examples/` | yes | Finished questions that show the format and quality bar: `memoize` (build) and `retry-tests` (write the tests) |
-| `my/` | **never** | Your profile, the questions your agent built for you, your own paths, your progress, your drafts |
+- **78 systems to build** across 11 domains, modelled on the products of about 100 companies: payments, trading, marketplaces, social, messaging, AI platforms, data infrastructure and more.
+- **256 modules** with **621 paraphrased interview reports** from 93 companies, so every problem is grounded in something real.
+- **A Design page** built from 217 system design reports: answer on a whiteboard (Excalidraw), and your agent reads your drawing and grades the design point by point.
+- **Your agent, in six roles:** curator, author, tutor, live pair, reviewer and mock interviewer. Each role is a skill file any agent can follow.
+- **Grading you can trust.** Visible tests check the basics. Hidden tests check the edge cases. Every question comes with realistic wrong versions of its solution, one per common misconception, and Whetstone refuses the question if any of them gets past the tests.
+- **A game layer that rewards mastery, not volume.** Skill edges that dull with time, spaced reviews, milestones, and a weekly streak that forgives one missed week. No points, no leaderboards, and you can hide all of it.
 
-Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you change a shared path, your copy is saved in `my/paths/` and overrides the shared one. So `git pull` brings new paths and catalog research without touching your work, and your work, which may mention your job, can't be pushed by accident. To use a different folder for your data, set `WHETSTONE_HOME`.
-
-## Content model
-
-- A **question** is one exercise: a lesson, a problem, hints, starter code, a reference solution, and tests. It lives in `my/tracks/<module>/<NN-slug>/`.
-- A **module** is a topic made of ordered questions, each a step up from the last. It is defined in `content/catalog.yaml`, often as a placeholder with no questions yet.
-- A **learning path** is an ordered list of modules toward one goal, usually a system to build:
+<details>
+<summary><strong>The learning paths, by domain</strong></summary>
 
 | Domain | Examples |
 |---|---|
@@ -78,35 +116,53 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
 | Messaging & collaboration | chat, video calls, collaborative docs, email |
 | AI & developer platforms | an LLM gateway like OpenRouter, LLM serving, RAG, CI, SSO |
 | Data & infrastructure | data warehouse, Kafka-style log, S3, databases, observability |
-| Search & ads, Enterprise software, Devices & industry | search engine, maps, CRM, payroll, vehicle OTA, fab scheduling |
+| Search & ads, enterprise software, devices & industry | search engine, maps, CRM, payroll, vehicle OTA, fab scheduling |
 
-## Using the app
+</details>
 
-- **Catalog:** problems that companies actually ask, opening on **For you** (your focus, your paths and the companies you target). Filter by company, round and status, browse with `/`, `j`, `k` and Enter, add a topic to your focus, or press Prepare.
-- **Prepare buttons** queue a request for your own agent. Start it in this folder and say *"watch Whetstone"*: it picks up requests while you practise, and the button turns into Start when the question is ready. The top bar shows when an agent is connected.
-- **Paths:** pick a system to build. Each path shows its modules as a strip. Your started paths come first, with the next step, and one request ("Fill in my path") asks your agent to build every module that is missing.
-- **Design:** the system design questions companies ask, most asked first, opening on **For you**. Press Prepare and your agent writes a design question for that system. You answer it in two places: a Markdown scratchpad with sections (requirements, estimates, API, data model, high-level design, deep dives, trade-offs, failure modes), and a whiteboard (Excalidraw) where you draw the boxes and arrows. Your agent reads the drawing as a Mermaid diagram, and the Preview tab shows exactly what it reads. An optional interview clock keeps time. **Check sections** shows what is still empty. Your agent can watch you write and ask questions in the margin, as an interviewer would. **Ask for review** has it grade the design against a rubric, point by point; you pass when every must-have point is covered.
-- **Practice:** opens on **Today**: one next step and one alternative, then **your focus**: the skills, companies and paths you want to keep sharp, each with its edge (how sharp it is today). Add or remove any of them in the app, or with + Focus in the Catalog. Calendar, numbers and milestones live on the Progress page. In a question:
-  1. Read the **Problem**. For most questions the **Lesson** opens after your first test run, because trying first makes it stick.
-  2. Write code in `solution.py`.
-  3. Press **Run tests** (Ctrl/Cmd + Enter) for the visible tests, or **Submit** (Ctrl/Cmd + Shift + Enter) for all of them.
-  4. If you're stuck, open hints one at a time. Each hint unlocks after a test run. The reference solution opens after you solve the question, or if you give up.
+<details>
+<summary><strong>A tour of the app</strong></summary>
 
-  On your first run of a question, and before each Submit, Whetstone asks you to guess which tests will pass. After a solve it asks one question about a hidden case. Both take seconds, both can be skipped, and the dashboard shows how often your guesses were right. "Stop asking" turns them off.
+- **Practice** opens on **Today**: one next step and one alternative, then your focus: the skills, companies and paths you want to keep sharp, each with an edge that shows how sharp it is today.
+- **Paths** shows each system as a route of modules. Filter by what suits you, what is ready now, a domain or a company. Pick a stop on a route to see every path that uses that module.
+- **Design** lists the system design questions companies ask. You write the design in sections, draw it on the whiteboard, and press **Ask for review**.
+- **Catalog** lists every problem and the reports behind it, most asked first. Browse with `/`, `j`, `k` and Enter.
+- In a question, try first: the lesson opens after your first run. Hints unlock one rung at a time, each after another try. Before your first run, Whetstone asks you to guess which tests will pass, because predicting is how reading sticks.
 
-  A solve without the last hint or the solution counts as clean. Solved ideas come back as variants after 3 days, 3 weeks and 3 months. Your weekly streak counts weeks with 3 practice days, and forgives one missed week. Your drafts and progress are saved in `my/whetstone.db`.
+</details>
+
+## Your stuff stays yours
+
+| Folder | Committed | What is in it |
+|---|---|---|
+| `whetstone/`, `bin/`, `scripts/`, `tests/` | yes | The app, the CLI and their tests |
+| `content/` | yes | The shared catalog and learning paths that contributors improve |
+| `examples/` | yes | Finished questions that set the quality bar for agents |
+| `my/` | **never** | Your profile, the questions written for you, your paths, drafts and progress |
+
+Your questions can mention your job, so they live only in `my/`, which git ignores. A `git pull` brings new paths and research without touching your work. The server only answers requests from your own machine, and with Docker your code runs as a non-root user in a container. To keep your data elsewhere, set `WHETSTONE_HOME`.
+
+## Where it's going
+
+- [x] Build, predict, fix, review, tests and design questions, with mutation-checked tests
+- [x] An agent inbox and live pairing: your agent watches the app and answers in the margin
+- [x] System design on a whiteboard, graded against a rubric
+- [ ] **Terminal**: bash, text tools, jq and git, then the AWS CLI and Terraform, graded in a sandbox
+- [ ] **More languages**: TypeScript and Go, chosen from your profile
+- [ ] A hosted, read-only showcase of the catalog and paths
+
+Have an idea? [Open an issue](https://github.com/boffti/whetstone/issues). Read [docs/PEDAGOGY.md](docs/PEDAGOGY.md) for the teaching rules every feature follows.
 
 ## Contributing
 
-Contributions to the shared shell are welcome: new learning paths, modules, paraphrased interview research, and app or CLI improvements. See [CONTRIBUTING.md](CONTRIBUTING.md) for formats and checks. Questions themselves are personal, so they are not contributed.
+New learning paths, modules, paraphrased interview research, and app or CLI improvements are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the formats and the checks. Questions themselves are personal, so they stay out of the repo.
 
-## Security
+Found a security problem? Please report it privately, as [SECURITY.md](SECURITY.md) describes.
 
-Whetstone runs the code you submit, so it only answers requests from your own machine. With Docker, it runs submissions as a non-root user in a container. See [SECURITY.md](SECURITY.md) for the threat model and how to report a vulnerability privately.
+<details>
+<summary><strong>Command line reference</strong></summary>
 
-## Command line
-
-`bin/whetstone` runs inside the Docker app when it is up, so tests run in the container. Otherwise it runs locally with `uv`.
+`bin/whetstone` runs inside the Docker app when it is up, so tests run in the container. Otherwise it runs locally with `uv`. Agents: start with [AGENTS.md](AGENTS.md).
 
 ```
 bin/whetstone serve [--host 127.0.0.1] [--port 8000]
@@ -132,10 +188,14 @@ bin/whetstone test <module/question> [--all]
 bin/whetstone watch [--key K] [--for SECONDS]           # stream app activity for a pairing agent
 bin/whetstone note <module/question> "..." [--line N]    # show a remark over the learner's editor
 bin/whetstone grade <module/question> < grade.json       # record a system design grade against its rubric
+bin/whetstone requests [--json] [--all]                  # work the learner queued in the app
+bin/whetstone request claim|done|fail <id> [--result ...]
 
 bin/whetstone generate "<topic>" [--module generated] [--difficulty medium] [--notes "..."]   # optional; needs ANTHROPIC_API_KEY
 ```
 
+</details>
+
 ## License
 
-[MIT](LICENSE). Please follow the [code of conduct](CODE_OF_CONDUCT.md) when you take part.
+[MIT](LICENSE). Sharpen freely.
