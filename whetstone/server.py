@@ -87,13 +87,6 @@ class SolutionBody(BaseModel):
     give_up: bool = False
 
 
-class GenerateBody(BaseModel):
-    topic: str = Field(min_length=3, max_length=500)
-    track: str = Field(min_length=1, max_length=80)
-    difficulty: str = Field(default="medium", pattern="^(easy|medium|hard)$")
-    notes: str = Field(default="", max_length=2000)
-
-
 NO_GENERATOR = "Ask your AI agent in this folder to build it (see AGENTS.md), or set ANTHROPIC_API_KEY in .env and restart to build here."
 
 
@@ -542,22 +535,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         topic = f"{problem['title']}: {problem.get('summary', '')}"
         try:
             key = generate_challenge(settings, topic, track_id, problem["title"], "medium", build_notes(problem), log=lines.append)
-        except GenerationError as exc:
-            return {"ok": False, "error": str(exc), "log": lines}
-        track, cid = key.split("/", 1)
-        return {"ok": True, "track": track, "id": cid, "log": lines}
-
-    @app.post("/api/generate")
-    def generate(body: GenerateBody):
-        if not settings.generator_enabled:
-            raise HTTPException(400, NO_GENERATOR)
-        lines: list[str] = []
-        known = {t.id: t.title for t in load_tracks(settings.tracks_dir)}
-        track_id = body.track if body.track in known else slugify(body.track)
-        try:
-            key = generate_challenge(
-                settings, body.topic, track_id, known.get(track_id, body.track), body.difficulty, body.notes, log=lines.append
-            )
         except GenerationError as exc:
             return {"ok": False, "error": str(exc), "log": lines}
         track, cid = key.split("/", 1)

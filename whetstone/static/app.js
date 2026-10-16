@@ -272,7 +272,6 @@ async function loadTracks() {
   state.tracks = await api("/api/tracks");
   const select = $("#track-select");
   select.replaceChildren(...state.tracks.map((t) => el("option", { value: t.id, text: t.title })));
-  $("#track-options").replaceChildren(...state.tracks.map((t) => el("option", { value: t.id, label: t.title })));
   select.parentElement.hidden = state.tracks.length < 2;
 }
 
@@ -305,14 +304,9 @@ function renderRail() {
 
 function capital(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
+/** The rail's "Last 4 weeks" calendar. */
 async function loadStats() {
   const s = await api("/api/stats");
-  const w = s.week;
-  const streak = w.streak ? `Weekly streak: ${plural(w.streak, "week")}` : `${plural(w.sessions, "practice day")} so far`;
-  $("#stats").replaceChildren(
-    el("span", { title: `${streak}. A week counts at ${w.target} practice days.` }, el("strong", { text: w.this_week >= w.target ? plural(w.this_week, "day") : `${w.this_week} of ${w.target}` }), w.this_week >= w.target ? " this week" : " days this week"),
-    el("span", {}, el("strong", { text: `${s.solved} of ${s.total}` }), " solved"),
-  );
   fillDays($("#days"), s.active_days);
 }
 
@@ -1192,47 +1186,6 @@ function designRow(p, max) {
         el("span", {}, el("strong", { text: p.reports }), p.reports === 1 ? " report" : " reports"))),
     el("span", { class: "row-actions" }, action),
     asked);
-}
-
-/* ---------- Generate drawer ---------- */
-function initGenerate() {
-  const dialog = $("#generate-dialog");
-  $("#open-generate").addEventListener("click", () => {
-    const enabled = state.config && state.config.generator_enabled;
-    $("#generate-disabled").hidden = enabled;
-    $("#generate-fields").hidden = !enabled;
-    const trackInput = dialog.querySelector("[name=track]");
-    if (!trackInput.value) trackInput.value = state.trackId || "";
-    dialog.showModal();
-  });
-  $("#generate-form").addEventListener("submit", async (e) => {
-    if (e.submitter && e.submitter.value === "cancel") return;
-    e.preventDefault();
-    const form = new FormData(e.target);
-    const btn = $("#generate-btn"), stateEl = $("#generate-state"), log = $("#generate-log");
-    btn.disabled = true;
-    stateEl.textContent = "Claude is writing and Whetstone is checking. This takes about a minute.";
-    log.hidden = true;
-    try {
-      const res = await api("/api/generate", { method: "POST", body: {
-        topic: form.get("topic"), track: form.get("track"), difficulty: form.get("difficulty"), notes: form.get("notes") || "",
-      } });
-      log.textContent = res.log.join("\n") + (res.ok ? "" : `\n\n${res.error}`);
-      log.hidden = false;
-      if (res.ok) {
-        stateEl.textContent = "Added. Opening it now.";
-        await loadTracks();
-        location.hash = `#/${res.track}/${res.id}`;
-        setTimeout(() => dialog.close(), 600);
-      } else {
-        stateEl.textContent = "The question did not pass the checks. Change the topic or notes and try again.";
-      }
-    } catch (err) {
-      stateEl.textContent = err.message;
-    } finally {
-      btn.disabled = false;
-    }
-  });
 }
 
 /* ---------- Catalog ---------- */
@@ -2193,7 +2146,6 @@ async function boot() {
   window.addEventListener("beforeunload", () => { if (state.saveTimer) saveDraft(); });
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   $$(".kbd").forEach((k) => { k.textContent = (mac ? "⌘" : "Ctrl ") + (k.dataset.keys === "submit" ? "⇧" : "") + "↵"; });
-  initGenerate();
   initCatalog();
   PANE.addEventListener("change", onLayoutChange);
   PHONE.addEventListener("change", onLayoutChange);
