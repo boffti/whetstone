@@ -58,7 +58,7 @@ Whetstone never calls an AI itself. Your agent does the thinking, and the CLI cr
 | `content/catalog.yaml` | yes | About 250 modules (one topic each), with about 430 paraphrased interview reports from real companies |
 | `content/paths/` | yes | About 70 learning paths: systems to build, modelled on the products of about 90 companies |
 | `content/profile.example.md` | yes | The template your agent fills in |
-| `examples/memoize/` | yes | A finished question that shows the format and quality bar |
+| `examples/` | yes | Finished questions that show the format and quality bar: `memoize` (build) and `retry-tests` (write the tests) |
 | `my/` | **never** | Your profile, the questions your agent built for you, your own paths, your progress, your drafts |
 
 Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you change a shared path, your copy is saved in `my/paths/` and overrides the shared one. So `git pull` brings new paths and catalog research without touching your work, and your work, which may mention your job, can't be pushed by accident. To use a different folder for your data, set `WHETSTONE_HOME`.

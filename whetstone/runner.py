@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import difflib
 import os
 import re
@@ -60,23 +61,39 @@ def _tail(text: str, limit: int = 6000) -> str:
 
 def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) -> RunReport:
     """mode = 'run' (visible tests only) or 'submit' (all tests)."""
+    if challenge.kind == "tests":
+        return _grade_learner_tests(challenge, code, mode, settings)
     include_hidden = mode == "submit"
     timeout = int(challenge.timeout or settings.run_timeout)
+    files: dict[str, str | Path] = {"solution.py": code}
+    files |= {name: challenge.path / name for name in challenge.support}
+    files |= {f"tests/{f.name}": f for f in challenge.test_files(include_hidden)}
+    tests, output, duration = _pytest(files, "tests", timeout, settings)
+    if tests is None:
+        return _timeout(timeout, duration, output)
+    if challenge.kind == "design":
+        tests.insert(0, _design_note(code))
+    return _report(tests, output, duration, include_hidden, challenge, settings)
+
+
+def _pytest(files: dict[str, str | Path], target: str, timeout: int, settings: Settings) -> tuple[list[TestResult] | None, str, float]:
+    """Run pytest on `target` in a throwaway folder holding `files` (name -> text, or a file to
+    copy). Returns (tests, output, seconds); tests is None when the run timed out."""
     with tempfile.TemporaryDirectory(prefix="whetstone-") as tmp_name:
         tmp = Path(tmp_name)
-        (tmp / "solution.py").write_text(code, encoding="utf-8")
-        for name in challenge.support:
-            shutil.copy(challenge.path / name, tmp / name)
-        tests_dir = tmp / "tests"
-        tests_dir.mkdir()
-        for test_file in challenge.test_files(include_hidden):
-            shutil.copy(test_file, tests_dir / test_file.name)
+        for name, source in files.items():
+            dest = tmp / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(source, Path):
+                shutil.copy(source, dest)
+            else:
+                dest.write_text(source, encoding="utf-8")
         junit = tmp / "report.xml"
         cmd = [
             sys.executable,
             "-m",
             "pytest",
-            "tests",
+            target,
             "-q",
             "--tb=short",
             "--color=no",  # the app shows output as text; a FORCE_COLOR in the environment would leak escape codes
@@ -95,22 +112,29 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
             proc = subprocess.run(cmd, cwd=tmp, env=env, capture_output=True, text=True, timeout=timeout)
         except subprocess.TimeoutExpired as exc:
             out = (exc.stdout or b"").decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            return RunReport(
-                status="timeout",
-                summary=f"Stopped after {timeout} s. A thread may be waiting forever (deadlock) or a loop never ends.",
-                duration=time.monotonic() - started,
-                output=_tail(out),
-            )
-        duration = time.monotonic() - started
+            return None, _tail(out), time.monotonic() - started
         output = _tail(proc.stdout + ("\n" + proc.stderr if proc.stderr.strip() else ""))
-        tests = _parse_junit(junit) if junit.exists() else []
+        return (_parse_junit(junit) if junit.exists() else []), output, time.monotonic() - started
 
+
+def _timeout(timeout: int, duration: float, output: str) -> RunReport:
+    return RunReport(
+        status="timeout",
+        summary=f"Stopped after {timeout} s. A thread may be waiting forever (deadlock) or a loop never ends.",
+        duration=duration,
+        output=output,
+    )
+
+
+def _report(
+    tests: list[TestResult], output: str, duration: float, include_hidden: bool, challenge: Challenge, settings: Settings
+) -> RunReport:
     report = RunReport(status="failed", summary="", duration=duration, tests=tests, output=output)
     report.total = len(tests)
     report.passed = sum(t.outcome == "passed" for t in tests)
     report.skipped = sum(t.outcome == "skipped" for t in tests)
     report.failed = sum(t.outcome in ("failed", "error") for t in tests)
-    collection_error = any(t.outcome == "error" and (t.name.startswith("tests.") or t.name.endswith(".py")) for t in tests)
+    collection_error = any(t.outcome == "error" and (t.name.startswith(("tests.", "test_yours")) or t.name.endswith(".py")) for t in tests)
 
     if report.total == 0 or collection_error:
         report.status = "error"
@@ -129,6 +153,85 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
         report.status = "failed"
         report.summary = f"{report.passed} of {report.total} tests passed."
     return report
+
+
+# ---------- "tests" questions: the learner writes the tests ----------
+MUTANT_TIMEOUT = 20
+
+
+def misconception(mutant: Path) -> str:
+    """The first line of a mutant's docstring: the wrong belief it encodes."""
+    try:
+        doc = ast.get_docstring(ast.parse(mutant.read_text(encoding="utf-8"))) or ""
+    except SyntaxError:
+        doc = ""
+    line = doc.strip().splitlines()[0] if doc.strip() else mutant.stem.replace("-", " ")
+    return re.sub(r"^misconception:\s*", "", line, flags=re.I).rstrip(".")
+
+
+def _grade_learner_tests(challenge: Challenge, code: str, mode: str, settings: Settings) -> RunReport:
+    """Run the learner's tests on the real code (they must pass), then, on Submit, on each hidden
+    mutant (each must make at least one of their tests fail)."""
+    include_hidden = mode == "submit"
+    timeout = int(challenge.timeout or settings.run_timeout)
+    subject = challenge.support[0] if challenge.support else "subject.py"
+    files: dict[str, str | Path] = {name: challenge.path / name for name in challenge.support} | {"test_yours.py": code}
+    tests, output, duration = _pytest(files, "test_yours.py", timeout, settings)
+    if tests is None:
+        return _timeout(timeout, duration, output)
+    results = [
+        TestResult(
+            name=t.name,
+            label=f"your test passes on the real code: {t.label}",
+            outcome=t.outcome,
+            duration=t.duration,
+            message=f"This test fails on the correct {subject}, so it checks the wrong thing. {t.message}".strip()
+            if t.outcome == "failed"
+            else t.message,
+            details=t.details,
+        )
+        for t in tests
+    ]
+    if not tests:
+        return RunReport(
+            status="error", summary="Write at least one test: a function whose name starts with test_.", duration=duration, output=output
+        )
+    if include_hidden:
+        for mutant in challenge.mutants():
+            found, _, seconds = _pytest(files | {subject: mutant}, "test_yours.py", min(timeout, MUTANT_TIMEOUT), settings)
+            duration += seconds
+            caught = found is None or any(t.outcome in ("failed", "error") for t in found)
+            results.append(
+                TestResult(
+                    name=f"test_catches_{mutant.stem.replace('-', '_')}",
+                    label=f"catches the bug: {misconception(mutant)}",
+                    outcome="passed" if caught else "failed",
+                    duration=seconds,
+                    message="" if caught else "Every one of your tests passes on this buggy version. Which input would expose it?",
+                    hidden=True,
+                )
+            )
+    return _report(results, output, duration, include_hidden, challenge, settings)
+
+
+# ---------- "design" questions: a note on the choice, then code ----------
+DESIGN_SECTIONS = ("options", "trade-off", "choice", "failure mode")
+
+
+def _design_note(code: str) -> TestResult:
+    """Design questions open solution.py with a short note; this checks it is filled in."""
+    try:
+        doc = ast.get_docstring(ast.parse(code)) or ""
+    except SyntaxError:
+        doc = ""
+    missing = [s for s in DESIGN_SECTIONS if not re.search(rf"^\s*{s}\s*:\s*(?!\.\.\.)\S", doc, flags=re.I | re.M)]
+    return TestResult(
+        name="test_design_note",
+        label="design note names the options, the trade-off, your choice and the failure mode you accept",
+        outcome="failed" if missing else "passed",
+        duration=0.0,
+        message=f"Fill in the design note at the top of solution.py: {', '.join(missing)}." if missing else "",
+    )
 
 
 def _parse_junit(path: Path) -> list[TestResult]:
@@ -186,7 +289,12 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
     for name in REQUIRED_FILES:
         if not (challenge.path / name).exists():
             problems.append(f"missing {name}")
-    if not challenge.visible_test_files():
+    if challenge.kind == "tests":
+        if not challenge.support:
+            problems.append("a tests question needs the code under test as a support file (support: [subject.py])")
+        if len(challenge.mutants()) < 2:
+            problems.append("a tests question needs 2 or more buggy versions in mutants/, which the learner's tests must catch")
+    elif not challenge.visible_test_files():
         problems.append("missing tests/test_visible.py (at least one visible test file)")
     if challenge.difficulty not in DIFFICULTIES:
         problems.append(f"difficulty must be one of {', '.join(DIFFICULTIES)}")
@@ -216,7 +324,31 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
         problems.append("starter passes every test, so the challenge teaches nothing; make the starter incomplete")
     else:
         notes.append(f"starter: {starter.passed}/{starter.total} passed (expected: some fail)")
+
+    if challenge.kind in MUTATION_GATED:
+        gate, gate_notes = _mutation_gate(challenge, settings, strict)
+        problems += gate
+        notes += gate_notes
     return Validation(challenge.key, not problems, problems, notes)
+
+
+# Questions whose tests grade the learner's code. Their tests must catch every mutant: a wrong
+# version of the reference, one per misconception. (For "tests" questions the mutants are what
+# the learner's tests must catch, so the reference solution check already covers them.)
+MUTATION_GATED = ("build", "fix", "design")
+
+
+def _mutation_gate(challenge: Challenge, settings: Settings, strict: bool) -> tuple[list[str], list[str]]:
+    mutants = challenge.mutants()
+    if len(mutants) < 2:
+        gap = "add 2 or more mutants/*.py: wrong versions of the solution, one per misconception, that the tests must catch"
+        return ([gap], []) if strict else ([], [gap])
+    survivors = [m for m in mutants if run_tests(challenge, m.read_text(encoding="utf-8"), "submit", settings).status == "passed"]
+    found = [
+        f"mutants/{m.name} survives: no test catches '{misconception(m)}'. Add a hidden test for it, or fix the mutant." for m in survivors
+    ]
+    note = f"mutants: the tests catch {len(mutants) - len(survivors)} of {len(mutants)}"
+    return (found, [note]) if strict else ([], [note, *found])
 
 
 def _format_problems(challenge: Challenge) -> list[str]:

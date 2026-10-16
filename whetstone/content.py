@@ -12,7 +12,7 @@ import yaml
 REQUIRED_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter.py", "solution.py"]
 DIFFICULTIES = ("easy", "medium", "hard")
 # What the learner does in a question. See AUTHORING.md and docs/PEDAGOGY.md.
-QUESTION_TYPES = ("build", "predict", "fix", "review")
+QUESTION_TYPES = ("build", "predict", "fix", "review", "tests", "design")
 # When the lesson opens: before the problem, or after the learner's first test run (problem first).
 LESSON_MODES = ("first", "after-run")
 
@@ -61,6 +61,10 @@ class Challenge:
 
     def hints(self) -> list[str]:
         return split_hints(self.read("hints.md"))
+
+    def mutants(self) -> list[Path]:
+        """Wrong versions of the solution, one per misconception. Hidden from the learner."""
+        return sorted((self.path / "mutants").glob("*.py"))
 
 
 @dataclass

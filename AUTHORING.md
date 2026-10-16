@@ -1,6 +1,6 @@
 # Authoring guide
 
-This file is the contract for every question in Whetstone. AI agents follow it when they build questions for a learner (see AGENTS.md and the `whetstone-author` skill). The optional in-app generator sends it to Claude word for word. `examples/memoize/` is a finished question that follows every rule here. [docs/PEDAGOGY.md](docs/PEDAGOGY.md) explains why the rules are what they are.
+This file is the contract for every question in Whetstone. AI agents follow it when they build questions for a learner (see AGENTS.md and the `whetstone-author` skill). The optional in-app generator sends it to Claude word for word. `examples/memoize/` (a build question) and `examples/retry-tests/` (a tests question) are finished questions that follow every rule here. [docs/PEDAGOGY.md](docs/PEDAGOGY.md) explains why the rules are what they are.
 
 ## What a good question does
 
@@ -27,6 +27,8 @@ my/
         starter.py                 # what the learner starts from
         solution.py                # the reference solution
         <support>.py               # read-only files the learner sees, e.g. subject.py (list them in challenge.yaml)
+        mutants/                   # hidden: wrong versions of the solution, one per misconception
+          01-<misconception>.py
         tests/
           test_visible.py          # shown to the learner; run by "Run tests"
           test_hidden.py           # not shown; run by "Submit"
@@ -39,7 +41,7 @@ The learner's code is saved as `solution.py` in a temporary folder, next to the 
 
 ```yaml
 title: Stop the cache stampede      # sentence case, under 40 characters; name the scenario, not the technique
-type: build                         # build | predict | fix | review (see "Question types")
+type: build                         # build | predict | fix | review | tests | design (see "Question types")
 lesson: after-run                   # after-run: problem first, lesson opens after the first run; first: lesson first
 difficulty: medium                  # easy | medium | hard
 minutes: 30                         # honest estimate for a strong engineer
@@ -63,6 +65,8 @@ summary: One sentence about what the learner does.
 | `predict` | reads working code (`subject.py`) and predicts what it does on a scripted input | an `ANSWERS` dict with `...` values | hidden tests run `subject.py` and compare |
 | `fix` | finds and fixes one realistic bug | a complete, plausible implementation with the bug | tests that fail on the bug and pass on the fix |
 | `review` | reviews AI-written code (`subject.py`) with 2 or 3 seeded defects | an empty `FINDINGS` list | tests compare their (line, category) findings with the seeded defects |
+| `tests` | writes the tests for working code (`subject.py`) | one weak happy-path test | their tests must pass on `subject.py`, and on Submit each hidden mutant must make one of them fail |
+| `design` | writes a short design note, then code for the option they chose | the API, plus an empty design note | a check that the note is filled in, plus tests of the guarantee the note promises |
 
 ### build
 The core type. The starter is often a naive version that "works for one thread", so the learner sees exactly why it breaks.
@@ -102,6 +106,33 @@ The core type. The starter is often a naive version that "works for one thread",
 - Hidden tests pass when each seeded defect is found (line within ±2, right category) and there is at most one false positive. The visible test checks only the format.
 - Every seeded defect is something an experienced reviewer would flag in a real pull request. No trick questions.
 
+### tests
+Practises what most learners now hand to AI: writing the tests.
+- `subject.py` (listed in `support`) is correct code with a clear docstring contract. The learner reads it.
+- `starter.py` holds one weak happy-path test, which catches no mutant.
+- `solution.py` holds strong reference tests that pass on `subject.py` and catch every mutant.
+- `mutants/` holds 3 to 5 buggy versions of `subject.py`, one per misconception. Whetstone builds the grading itself: Run checks that the learner's tests pass on `subject.py`, and Submit adds one result per mutant, labelled with its misconception, such as "catches the bug: backoff means waiting the same time between tries".
+- No `tests/` folder is needed. See `examples/retry-tests/`.
+
+### design
+A system-level trade-off, decided and then built.
+- `problem.md` names two or three options and the guarantee each gives, for example at-least-once against at-most-once delivery.
+- `solution.py` opens with a design note that has four lines: `Options:`, `Trade-off:`, `Choice:` and `Failure mode:` (the one the learner accepts). Whetstone checks that the note is filled in. The reviewer and interviewer skills judge what it says.
+- The code declares its choice, for example `GUARANTEE = "at-least-once"`. Hidden tests check the guarantee that was declared, and attack it with an adversary such as a crash between write and ack, duplicate delivery, or clock skew.
+
+## mutants/
+
+Every `build`, `fix`, `design` and `tests` question has 2 to 5 mutants. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. Its docstring's first line names it:
+
+```python
+"""Misconception: a dict in the class body belongs to each object."""
+```
+
+- **The tests must catch every mutant.** `question add` runs the full test suite against each one, and refuses the question if any mutant passes ("survives"). A survivor means a hidden test is missing.
+- One mutant per misconception in the lesson, so each misconception is proven to have a test.
+- Keep the change small and realistic: a missing lock, a falsy check, an off-by-one window, a retry that is not idempotent. No syntax errors and no obviously absurd code.
+- Mutants are never shown to the learner.
+
 ## The module recipe
 
 A module has about 5 questions. `question brief` suggests the type for each position:
@@ -109,8 +140,8 @@ A module has about 5 questions. `question brief` suggests the type for each posi
 1. **predict**: read working code first.
 2. **build**: the core version, problem first.
 3. **build**: the next step up: concurrency, scale or failure. From here on, **mix in ideas from earlier modules without naming them**.
-4. **fix** or **review**: a realistic bug, or AI-written code to judge.
-5. **build**: an adversary arrives, such as a retry storm, clock skew, or a crash between write and ack. Hidden tests attack the design.
+4. **fix**, **review** or **tests**: a realistic bug to fix, AI-written code to judge, or the missing tests to write.
+5. **build** or **design**: an adversary arrives, such as a retry storm, clock skew, or a crash between write and ack. A design question has the learner choose the guarantee first. Hidden tests attack it.
 
 After the core recipe, write variants (`variant_of`), and **one question that uses the idea in another domain or in the learner's own stack** (from `my/profile.md`). Adapt to the learner's progress:
 - a clean solve (no hints, 3 runs or fewer) means skip ahead;
@@ -194,7 +225,7 @@ Check every item:
 - [ ] `type` and `lesson` are set. `variant_of` is set if this is a variant.
 - [ ] The problem does not restate the lesson.
 - [ ] Hints climb the four rungs, use the lesson's subgoal names, and contain no full solution.
-- [ ] Each misconception in the lesson has a hidden test, and each failure message names a scenario.
+- [ ] Each misconception in the lesson has a hidden test and a mutant in `mutants/` that the tests catch, and each failure message names a scenario.
 - [ ] Concurrency tests force the ordering (hooks first).
 - [ ] The question connects to the learner's profile: their stack, their goal, or what they hand off to AI at work.
 
@@ -211,4 +242,4 @@ A question passes when:
 - the reference solution passes all tests;
 - the starter fails at least one.
 
-`question add` also enforces the current format, such as exactly four hints. `question check` only reports format gaps in older questions. Run `question check` three times to catch flaky timing.
+`question add` also enforces the current format: exactly four hints, and 2 or more mutants that the tests all catch. `question check` only reports these gaps in older questions. Run `question check` three times to catch flaky timing.

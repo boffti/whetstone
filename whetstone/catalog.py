@@ -124,10 +124,10 @@ def make_brief(
         "solution.py, and is graded by pytest. You do the writing; Whetstone checks your work.",
         "",
         "## Read first",
-        "- AUTHORING.md: the file format, the question types and the test-writing rules. Follow it exactly.",
+        "- AUTHORING.md: the file format, the question types, the test-writing rules and mutants/. Follow it exactly.",
         "- docs/PEDAGOGY.md: why the format works this way. Skim it once.",
         f"- {_rel(settings.profile_path)}: who the learner is, their goals, and how to write for them.",
-        f"- {_rel(EXAMPLE)}/: a finished question to match for quality.",
+        f"- {_rel(EXAMPLE)}/ and examples/retry-tests/: finished questions to match for quality.",
     ]
     if settings.profile_path.name == "profile.example.md":
         lines.append("- The learner has no profile yet. First create my/profile.md from that template (see AGENTS.md, 'First run').")
@@ -169,8 +169,8 @@ RECIPE = [
     "predict: the learner reads working code and predicts what it does on a scripted input.",
     "build: the core version, from a starter. Problem first (lesson: after-run).",
     "build: the next step up (concurrency, scale or failure). Mix in an idea from an earlier module without naming it.",
-    "fix or review: a realistic seeded bug to fix, or AI-written code with 2 or 3 defects to review.",
-    "build: an adversary arrives (retry storm, clock skew, a crash between write and ack). Hidden tests attack the design.",
+    "fix, review or tests: a realistic seeded bug to fix, AI-written code with 2 or 3 defects to review, or working code to write the tests for. Prefer tests when the profile says the learner's AI writes their tests.",
+    "build or design: an adversary arrives (retry storm, clock skew, a crash between write and ack). In a design question the learner picks the guarantee first. Hidden tests attack it.",
 ]
 
 

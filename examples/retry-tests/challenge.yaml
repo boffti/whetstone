@@ -1,0 +1,9 @@
+title: Prove the retry helper works
+type: tests
+lesson: after-run
+difficulty: medium
+minutes: 25
+tags: [testing, retries, backoff]
+requires: []
+support: [retry.py]
+summary: Write the tests that would catch a broken retry helper before it ships.

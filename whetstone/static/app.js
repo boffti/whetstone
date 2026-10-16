@@ -529,7 +529,7 @@ async function resetCode() {
 
 /* ---------- Running tests ---------- */
 const STATUS_TEXT = { new: "not started", attempted: "in progress", assisted: "solved with help", solved: "solved", mastered: "mastered" };
-const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review" };
+const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review", tests: "Write the tests", design: "Design" };
 const VERDICT = { passed: "Passed", failed: "Not yet", error: "Could not run", timeout: "Timed out", blocked: "Blocked" };
 
 /* ---------- Predict then explain (docs/PEDAGOGY.md, rule 8) ---------- */
@@ -567,13 +567,13 @@ function showGuess(mode) {
         e.target.parentElement.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", String(b === e.target)));
       } }, label)));
     body = el("ul", { class: "guess-list" },
-      el("li", { class: "guess-row" }, el("span", { text: "Every hidden test will pass" }), chips([[true, "Yes"], [false, "No"]], (v) => { allPass = v; }, null)),
+      el("li", { class: "guess-row" }, el("span", { text: c.type === "tests" ? "Your tests will catch every hidden bug" : "Every hidden test will pass" }), chips([[true, "Yes"], [false, "No"]], (v) => { allPass = v; }, null)),
       el("li", { class: "guess-row" }, el("span", { text: "How sure are you?" }), chips([1, 2, 3, 4, 5].map((n) => [n, String(n)]), (v) => { sure = v; }, 3)));
     send = () => go(allPass === null ? null : { all_pass: allPass, confidence: sure });
   }
   state.guessing = { mode, send };
   $("#results").replaceChildren(el("div", { class: "predict" },
-    el("p", { class: "predict-q", text: mode === "run" ? "Before you run: which tests will pass?" : "Before you submit: what will the hidden tests say?" }),
+    el("p", { class: "predict-q", text: mode === "run" ? "Before you run: which tests will pass?" : c.type === "tests" ? "Before you submit: will your tests catch the hidden bugs?" : "Before you submit: what will the hidden tests say?" }),
     el("p", { class: "home-sub", text: "Guessing first trains you to read code before you run it. Mark only what you are sure about." }),
     body,
     el("div", { class: "predict-actions" },
@@ -585,7 +585,8 @@ function showGuess(mode) {
 function guessLine(p) {
   if (!p || !p.total) return null;
   if (p.details.length === 0) {
-    const said = p.all_pass ? "every hidden test would pass" : "some hidden test would fail";
+    const tests = state.challenge.type === "tests";
+    const said = p.all_pass ? (tests ? "your tests would catch every hidden bug" : "every hidden test would pass") : (tests ? "some hidden bug would slip past your tests" : "some hidden test would fail");
     return el("p", { class: "prediction-note", "data-right": String(Boolean(p.correct)) },
       `You said ${said}${p.confidence ? `, ${p.confidence} of 5 sure` : ""}. ${p.correct ? "Right." : "Not this time."}`);
   }

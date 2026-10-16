@@ -39,6 +39,8 @@ TEMPLATE = {
     "solution.py": '"""Reference solution."""\n\n\ndef solve():\n    return 42\n',
     "tests/test_visible.py": "from solution import solve\n\n\ndef test_returns_answer():\n    assert solve() == 42\n",
     "tests/test_hidden.py": "from solution import solve\n\n\ndef test_returns_int():\n    assert isinstance(solve(), int)\n",
+    "mutants/01-off-by-one.py": '"""Misconception: one less is close enough."""\n\n\ndef solve():\n    return 41\n',
+    "mutants/02-wrong-type.py": '"""Misconception: the text "42" is the same as the number 42."""\n\n\ndef solve():\n    return "42"\n',
 }
 
 
