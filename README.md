@@ -1,46 +1,60 @@
-<div align="center">
+<a href="https://github.com/boffti/whetstone">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/banner-dark.svg">
+    <img src="docs/brand/banner-light.svg" width="100%" alt="Whetstone. Learn what you don't know. Relearn what you do. Keep every skill sharp, privately, around your own work.">
+  </picture>
+</a>
 
-<img src="docs/logo.svg" width="180" alt="Whetstone logo: a two-grit sharpening stone, coarse clay and fine steel, with a glint">
-
-<h1>Whetstone</h1>
-
-<p><strong>Your AI writes the code. Whetstone keeps you sharp.</strong><br>
-A self-hosted practice app where your own AI agent writes the lessons, and real tests grade your work.</p>
-
-<p>
-<a href="https://github.com/boffti/whetstone/actions/workflows/ci.yml"><img src="https://github.com/boffti/whetstone/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-<a href="https://github.com/boffti/whetstone/actions/workflows/codeql.yml"><img src="https://github.com/boffti/whetstone/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
-<a href="https://scorecard.dev/viewer/?uri=github.com/boffti/whetstone"><img src="https://api.scorecard.dev/projects/github.com/boffti/whetstone/badge" alt="OpenSSF Scorecard"></a>
-<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2F6497" alt="License: MIT"></a>
-<img src="https://img.shields.io/badge/python-3.11%2B-2F6497" alt="Python 3.11+">
-<br>
-<img src="https://img.shields.io/badge/runs_on-your_machine-B8572F" alt="Runs on your machine">
-<img src="https://img.shields.io/badge/AI-bring_your_own_agent-B8572F" alt="Bring your own AI agent">
-<img src="https://img.shields.io/badge/API_keys-none_needed-2E7A4D" alt="No API keys needed">
-<a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-2E7A4D" alt="Pull requests welcome"></a>
+<p align="center">
+  <b>A private practice space built around your work. Real-world problems from real interviews, written for you by your own AI, which also reviews your work and interviews you.</b>
 </p>
 
-<p>
-<a href="#why-whetstone">Why Whetstone</a> ·
-<a href="#quick-start">Quick start</a> ·
-<a href="#how-to-use-it">How to use it</a> ·
-<a href="#screenshots">Screenshots</a> ·
-<a href="#features">Features</a> ·
-<a href="#roadmap">Roadmap</a> ·
-<a href="CONTRIBUTING.md">Contributing</a>
+<p align="center">
+<a href="https://github.com/boffti/whetstone/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/boffti/whetstone/ci.yml?branch=main&style=flat-square&label=CI&labelColor=262624" alt="CI status"></a> <a href="https://scorecard.dev/viewer/?uri=github.com/boffti/whetstone"><img src="https://img.shields.io/ossf-scorecard/github.com/boffti/whetstone?style=flat-square&label=OpenSSF%20Scorecard&labelColor=262624" alt="OpenSSF Scorecard"></a> <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2F6497?style=flat-square&labelColor=262624" alt="License: MIT"></a> <img src="https://img.shields.io/badge/python-3.11%2B-2F6497?style=flat-square&labelColor=262624" alt="Python 3.11 or later"> <img src="https://img.shields.io/badge/works_with-Claude_Code_%7C_Codex_%7C_Cursor-B8572F?style=flat-square&labelColor=262624" alt="Works with Claude Code, Codex and Cursor"> <img src="https://img.shields.io/badge/runs-on_your_machine-2E7A4D?style=flat-square&labelColor=262624" alt="Runs on your machine">
 </p>
 
-<img src="docs/demo.gif" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare, the agent builds a caching question, the learner guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths and Design pages.">
+<p align="center">
+  <a href="#why-whetstone">Why Whetstone</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#how-to-use-it">How to use it</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#roadmap">Roadmap</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-</div>
+<p align="center">
+  <img src="docs/demo.gif" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare, the agent builds a caching question, the learner guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths and Design pages.">
+</p>
 
 ## Why Whetstone
 
-AI now writes most of our code, and the code still ships. What fades is the work it took over: recalling an idea without looking it up, reading code closely, finding a bug, writing the test that catches it, and holding a whole system in your head. You notice the day the AI is wrong and you can't tell.
+Skills need three kinds of care, and Whetstone gives all three:
 
-Whetstone is where you practise those skills. Pick a system you'd like to understand, such as a payment processor, a matching engine, or an LLM gateway like OpenRouter. Your own AI agent (Claude Code, Codex, Cursor or another) writes each step for you, based on your job and your gaps. Real pytest suites grade your code. Ideas you solve come back as new variants until they stick.
+- **Learn what you don't know.** Pick a system you want to understand, or a topic your next role will need. Your agent writes it as a series of steps, each one a little harder than the last, starting from what you already know.
+- **Relearn what you know.** The things you learned years ago, or now hand to your AI, fade quietly. Whetstone brings them back as fresh problems, so you find out what is still there.
+- **Keep your skills sharp.** Every idea you solve returns on a new surface after 3 days, 3 weeks and 3 months. Each skill shows how sharp it is today, and your agent suggests what to practise next.
 
-It isn't interview cramming. Real interview reports keep the problems realistic, but the goal is staying sharp at work.
+**Built around you.** You tell your agent about your work once: what you build, your stack, your experience and your goals, plus what your AI already does for you. Every question is then written for you. It's a scenario from your world, at the step you're ready for, explained the way you learn.
+
+**Real problems from real interviews.** The question bank is grounded in 621 interview reports from 93 companies, organised into 256 modules and 78 systems to build. The problems are practical: ledgers that must balance, retries that must not charge twice, rate limiters, caches and schedulers. There are no throwaway puzzles. That makes Whetstone good interview preparation too: filter by the companies you're aiming for, practise system design on a whiteboard, and ask your agent for a mock interview.
+
+**Your AI as reviewer and interviewer.** The same agent that writes your questions also reviews your solutions like a staff engineer, nudges you one step at a time when you're stuck without giving the answer away, pairs with you in the editor's margin, and runs mock interviews.
+
+**Private by design.** Whetstone runs on your machine. Your profile, your questions and your progress never leave it. There's no account and no telemetry, and it runs on the AI subscription you already have.
+
+### Same idea, written for you
+
+Three engineers ask their agents for the next question in the rate limiter module. Each one practises the same idea, a token bucket, in the world they work in:
+
+| The learner | The question their agent writes |
+|---|---|
+| A payments engineer | **Throttle the webhook sender.** Card networks accept 50 calls a second per merchant. Queue the rest instead of dropping them, and never let one busy merchant starve the others. |
+| A trading engineer | **Stay under the exchange's order limit.** The venue rejects a burst over 200 orders a second and bans you for a minute. Smooth a burst at the open without losing the order. |
+| An LLM platform engineer | **Share a token budget across model providers.** Each provider allows a number of tokens a minute. Spend the budget across many users fairly, and fall back when one provider is full. |
+
+> [!NOTE]
+> Whetstone has no AI of its own. Your agent (Claude Code, Codex, Cursor or another) writes the questions on the subscription you already pay for, and Whetstone checks and grades them on your machine.
 
 ## What you practise
 
@@ -64,7 +78,25 @@ docker compose up -d --build        # then open http://localhost:8000
 claude                              # or codex, or open the folder in Cursor
 ```
 
-Open `http://localhost:8000` in a browser pane next to your agent, such as the built-in browser in Claude's desktop app, or in any browser tab. If something doesn't work, run `bin/whetstone doctor`: it checks your setup and says how to fix each problem.
+Open `http://localhost:8000` in a browser pane next to your agent, such as the built-in browser in Claude's desktop app, or in any browser tab. Then tell your agent: *"Set up my Whetstone profile."* If something doesn't work, run `bin/whetstone doctor`: it checks your setup and says how to fix each problem.
+
+## How it works
+
+```mermaid
+flowchart LR
+    P["Your profile"]:::clay --> W["Your agent<br/>writes a question"]:::steel
+    W --> C["Whetstone<br/>checks it"]:::steel
+    C --> S["You solve it,<br/>tests grade it"]:::green
+    S --> R["It comes back<br/>days and weeks later"]:::clay
+    R --> W
+    classDef clay fill:#B8572F,stroke:#9C4526,color:#FFFFFF
+    classDef steel fill:#2F6497,stroke:#244C77,color:#FFFFFF
+    classDef green fill:#2E7A4D,stroke:#245F3C,color:#FFFFFF
+```
+
+Your profile holds your job, stack, goals and gaps. Before a question reaches you, Whetstone checks that its reference solution passes, its starter fails, and every wrong version of the solution is caught by the tests. Solved ideas come back as variants after 3 days, 3 weeks and 3 months.
+
+Your agent drives a plain command line (`bin/whetstone`); the app only creates, checks and grades. While you work, your agent can watch the app and ask one question at a time in your editor's margin, like a pair would. (An optional in-app generator can use your own Anthropic API key. It is off unless you set one.)
 
 ## How to use it
 
@@ -146,33 +178,26 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 </tr>
 </table>
 
-## How it works
-
-```mermaid
-sequenceDiagram
-    actor You
-    participant App as Whetstone (localhost)
-    participant Agent as Your AI agent
-    You->>App: Press Prepare on "Rate limiter"
-    App-->>Agent: A request appears while it watches
-    Agent->>App: Writes the lesson, problem, hints and hidden tests
-    App->>App: Checks: the reference passes, the starter fails, every wrong version is caught
-    You->>App: Write code, run the tests, submit
-    Agent-->>You: Asks a question in your editor's margin, like a pair would
-    App->>You: The idea returns as a variant after 3 days, 3 weeks and 3 months
-```
-
-**Whetstone doesn't call an AI on its own.** Your agent runs on your own subscription and drives a plain command line (`bin/whetstone`); the app only creates, checks and grades. It needs no API keys or tokens, and it sends your work nowhere. (An optional in-app generator can use your own Anthropic API key. It is off unless you set one.)
-
 ## Features
 
-- **78 learning paths** across 11 domains, modelled on the products of about 100 companies: payments, trading, marketplaces, social, messaging, AI platforms, data infrastructure and more.
-- **256 modules** with **621 paraphrased interview reports** from 93 companies, so every problem is grounded in something real.
-- **System design practice** from 217 interview reports: write the design, draw it on a whiteboard, and get it graded point by point.
-- **Your agent in six roles:** curator, author, tutor, live pair, reviewer and mock interviewer. Each role is a skill file that any agent can follow.
-- **Tests you can trust.** Visible tests check the basics, and hidden tests check the edge cases. Every question comes with realistic wrong versions of its solution, one per common misconception, and Whetstone refuses the question if any of them passes the tests.
-- **Spaced review.** Solved ideas come back as new variants after 3 days, 3 weeks and 3 months.
-- **A game layer that rewards mastery, not volume:** skill edges that dull over time, milestones, and a weekly streak that forgives one missed week. No points, no leaderboards, and you can hide all of it.
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/brand/icons/for-you.svg" width="44" height="44" align="left" alt=""><b>Built around you</b><br>Your agent reads your profile (your work, stack, experience and goals) and writes every question for you.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/systems.svg" width="44" height="44" align="left" alt=""><b>Real problems from real interviews</b><br>621 interview reports from 93 companies, organised into 256 modules and 78 systems to build.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/brand/icons/spaced.svg" width="44" height="44" align="left" alt=""><b>Learn, relearn, keep sharp</b><br>New ideas step by step, faded ones brought back, and every solved idea returning after 3 days, 3 weeks and 3 months.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/agent.svg" width="44" height="44" align="left" alt=""><b>Your AI as reviewer and interviewer</b><br>It curates, writes, tutors, pairs in your editor's margin, reviews like a staff engineer and runs mock interviews.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/brand/icons/tests.svg" width="44" height="44" align="left" alt=""><b>Graded by real tests</b><br>Visible tests check the basics; hidden tests check the edge cases. Each question ships with wrong solutions that the tests must catch.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/design.svg" width="44" height="44" align="left" alt=""><b>System design on a whiteboard</b><br>Write the design, draw it in Excalidraw, and get it graded point by point against a rubric.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/brand/icons/local.svg" width="44" height="44" align="left" alt=""><b>Private by design</b><br>Runs on your machine. No account, no telemetry, no API keys. Your work stays in a git-ignored folder.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/mastery.svg" width="44" height="44" align="left" alt=""><b>Ready for interviews, too</b><br>Filter by the companies you're aiming for, practise their real questions, and ask your agent for a mock interview.</td>
+</tr>
+</table>
 
 <details>
 <summary><strong>The learning paths, by domain</strong></summary>
@@ -192,6 +217,9 @@ sequenceDiagram
 
 ## Your data
 
+> [!IMPORTANT]
+> Everything written for you lives in `my/`, which git ignores and Whetstone never commits. Your questions can mention your job, so they stay on your machine.
+
 | Folder | Committed | What is in it |
 |---|---|---|
 | `whetstone/`, `bin/`, `scripts/`, `tests/` | yes | The app, the command line and their tests |
@@ -199,7 +227,7 @@ sequenceDiagram
 | `examples/` | yes | Finished questions that set the quality bar for agents |
 | `my/` | **never** | Your profile, the questions written for you, your paths, drafts and progress |
 
-Your questions can mention your job, so they live only in `my/`, which git ignores. A `git pull` brings new paths and research without touching your work. The server only answers requests from your own machine, and with Docker your code runs as a non-root user in a container. To keep your data somewhere else, set `WHETSTONE_HOME`.
+A `git pull` brings new paths and research without touching your work. The server only answers requests from your own machine, and with Docker your code runs as a non-root user in a container. To keep your data somewhere else, set `WHETSTONE_HOME`.
 
 ## Roadmap
 
@@ -217,6 +245,13 @@ Have an idea? [Open an issue](https://github.com/boffti/whetstone/issues). [docs
 New learning paths, modules, paraphrased interview research, and app or command-line improvements are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the formats and the checks. Questions themselves are personal, so they stay out of the repo.
 
 To report a security problem, follow [SECURITY.md](SECURITY.md).
+
+<details>
+<summary><strong>For AI agents</strong></summary>
+
+Start with [AGENTS.md](AGENTS.md). It explains the content model, the `bin/whetstone` commands, and which skill file in `.claude/skills/` covers each job: setting up a profile, curating, writing questions, tutoring, pairing, reviewing and interviewing. [AUTHORING.md](AUTHORING.md) is the contract every question follows.
+
+</details>
 
 <details>
 <summary><strong>Command line reference</strong></summary>

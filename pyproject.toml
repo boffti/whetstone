@@ -35,6 +35,7 @@ whetstone = "whetstone.__main__:main"
 
 [dependency-groups]
 demo = [
+    "fonttools>=4.50",
     "pillow>=10",
     "playwright>=1.47",
 ]
