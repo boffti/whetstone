@@ -34,6 +34,10 @@ Security = "https://github.com/boffti/whetstone/security/policy"
 whetstone = "whetstone.__main__:main"
 
 [dependency-groups]
+demo = [
+    "pillow>=10",
+    "playwright>=1.47",
+]
 dev = ["ruff>=0.6", "httpx>=0.27"]
 
 [build-system]
