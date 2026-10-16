@@ -205,7 +205,7 @@ def slugify(text: str) -> str:
     return slug[:48].strip("-") or "challenge"
 
 
-PROFILE_LISTS = ("stack", "focus", "ai_handles", "targets")
+PROFILE_LISTS = ("stack", "focus", "ai_handles", "targets", "paths")
 
 
 def load_profile(path: Path) -> dict:
@@ -229,3 +229,21 @@ def load_profile(path: Path) -> dict:
         value = meta.get(k) or []
         out[k] = [str(v).strip() for v in (value if isinstance(value, list) else [value]) if str(v).strip()]
     return out
+
+
+PROFILE_NOTE = "# Read by the app for your dashboard. Your agent keeps it up to date; you can edit it too."
+PROFILE_STUB = '\n# Learner profile\n\nYour agent fills this in. Ask it: "Set up my Whetstone profile."\n'
+
+
+def save_profile_header(path: Path, updates: dict) -> dict:
+    """Change fields in the YAML header of my/profile.md and keep the free text below it."""
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    match = re.match(r"---\s*\n(.*?)\n---\s*(\n|$)", text, flags=re.S)
+    meta = (yaml.safe_load(match.group(1)) if match else None) or {}
+    body = text[match.end() :] if match else text
+    meta = {**(meta if isinstance(meta, dict) else {}), **updates}
+    header = yaml.safe_dump(meta, sort_keys=False, allow_unicode=True, width=100)
+    body = body if body.strip() else PROFILE_STUB
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"---\n{PROFILE_NOTE}\n{header}---\n{body if body.startswith(chr(10)) else chr(10) + body}", encoding="utf-8")
+    return load_profile(path)

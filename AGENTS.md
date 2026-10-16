@@ -46,6 +46,8 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone test <module/question> [--all]` | Runs the tests on the learner's code. These runs are not recorded. |
 | `bin/whetstone watch [--key K] [--for SECONDS]` | Streams what the learner does in the app (opened, paused typing, ran, hint, solution, idle) as JSON lines, with the pair mode they chose. Run it in the background to pair live. |
 | `bin/whetstone note <module/question> "..." [--line N]` | Shows a short remark to the learner over their editor, with a marker at line N. |
+| `bin/whetstone requests [--json]` | Lists the work the learner queued in the app: build a module, a review variant, a whole path, a review, a profile refresh. |
+| `bin/whetstone request claim\|done\|fail <id> [--result ...]` | Claims a request, then marks it done (with the question key) or failed (with the reason). The app shows each step. |
 
 `catalog`, `progress`, `path show`, `path list` and `module list` also take `--json`.
 
@@ -55,6 +57,7 @@ Each job has a skill file with the full steps. Claude Code loads them automatica
 
 | The learner says | Skill |
 |---|---|
+| "Watch Whetstone", or the learner presses Build in the app | [.claude/skills/whetstone-agent/SKILL.md](.claude/skills/whetstone-agent/SKILL.md) |
 | "Set up my Whetstone profile", "Refresh my profile from GitHub" | [.claude/skills/whetstone-profile/SKILL.md](.claude/skills/whetstone-profile/SKILL.md) |
 | "What should I practise?", "What's next?", "Make me a learning path" | [.claude/skills/whetstone-curate/SKILL.md](.claude/skills/whetstone-curate/SKILL.md) |
 | "Build the next question for X", "Fill in my path", "Make a variant" | [.claude/skills/whetstone-author/SKILL.md](.claude/skills/whetstone-author/SKILL.md) |

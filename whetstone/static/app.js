@@ -11,6 +11,9 @@ const state = {
   hintsShown: 0,
   hintReady: true,
   notes: [],
+  requests: {},
+  profile: null,
+  agent: { connected: false },
   noteAfter: 0,
   noteDecos: [],
   lessonLocked: false,
@@ -364,6 +367,104 @@ async function openChallenge(trackId, cid) {
   pollNotes();
 }
 
+/* ---------- Agent inbox ---------- */
+// Build buttons queue a request; the learner's own agent, watching with `whetstone watch`,
+// claims it and reports back. Whetstone never starts an agent itself.
+const REQUEST_LABEL = { build: "Build", variant: "Build review variant", "fill-path": "Build all missing modules", review: "Ask for a review", profile: "Set up my profile" };
+const RECENT_MS = 10 * 60 * 1000;
+
+function requestButton(kind, target, label) {
+  const wrap = el("span", { class: "req", "data-req": `${kind}:${target}`, "data-label": label || REQUEST_LABEL[kind] });
+  renderRequest(wrap);
+  return wrap;
+}
+
+function renderRequest(wrap) {
+  const key = wrap.dataset.req;
+  const [kind, ...rest] = key.split(":");
+  const target = rest.join(":");
+  const r = state.requests[key];
+  const button = (text, cls, onclick) => el("button", { type: "button", class: `btn ${cls}`, onclick }, text);
+  let nodes;
+  if (!r) {
+    nodes = [button(wrap.dataset.label, "btn-secondary", () => sendRequest(kind, target))];
+  } else if (r.status === "queued") {
+    nodes = [el("span", { class: "req-state", text: state.agent.connected ? "Queued for your agent" : "Waiting for your agent" }),
+      button("Cancel", "btn-text", () => cancelRequest(r.id))];
+  } else if (r.status === "claimed") {
+    nodes = [el("span", { class: "req-state working", text: "Your agent is building…" })];
+  } else if (r.status === "done") {
+    nodes = r.result && r.result.includes("/") ? [el("a", { class: "btn btn-primary", href: `#/${r.result}` }, "Start")] : [el("span", { class: "req-state done", text: "Done" })];
+  } else {
+    nodes = [el("span", { class: "req-state failed", text: `Not built: ${r.result || "your agent could not do it."}` }),
+      button("Try again", "btn-text", () => sendRequest(kind, target))];
+  }
+  wrap.replaceChildren(...nodes);
+}
+
+async function sendRequest(kind, target) {
+  try {
+    const r = await api("/api/requests", { method: "POST", body: { kind, target } });
+    state.requests[`${kind}:${r.target}`] = r;
+    $$(".req").forEach(renderRequest);
+    if (!state.agent.connected) showAgentHint();
+  } catch (err) {
+    showAppError(err);
+  }
+}
+
+async function cancelRequest(id) {
+  await api(`/api/requests/${id}/cancel`, { method: "POST", body: {} });
+  await pollRequests();
+}
+
+/** The latest request per kind and target. Finished ones count only while they are fresh. */
+async function pollRequests() {
+  let data;
+  try { data = await api("/api/requests"); } catch (_) { return; }
+  const before = state.requests;
+  const now = Date.now();
+  const next = {};
+  for (const r of data.requests) {
+    const key = `${r.kind}:${r.target}`;
+    if (key in next) continue;
+    const open = r.status === "queued" || r.status === "claimed";
+    next[key] = r.status !== "cancelled" && (open || now - new Date(r.updated_at).getTime() < RECENT_MS) ? r : null;
+  }
+  for (const key of Object.keys(next)) if (!next[key]) delete next[key];
+  state.requests = next;
+  state.agent = data.agent;
+  renderAgentStatus();
+  $$(".req").forEach(renderRequest);
+  // A request that just finished built something: refresh what the page shows.
+  const finished = Object.values(next).some((r) => r.status === "done" && (before[`${r.kind}:${r.target}`] || {}).status !== "done");
+  if (finished && Object.keys(before).length) {
+    await loadTracks();
+    if (!$("#home").hidden) loadHome();
+    else if (!$("#paths").hidden) loadPaths();
+  }
+}
+
+function renderAgentStatus() {
+  const box = $("#agent-status");
+  box.dataset.connected = String(Boolean(state.agent.connected));
+  box.title = state.agent.connected
+    ? "Your agent is watching Whetstone. Build buttons go straight to it."
+    : "No agent is watching. Start your agent in this folder and say: watch Whetstone";
+  box.replaceChildren(el("span", { class: "agent-dot", "aria-hidden": "true" }), el("span", { class: "agent-label", text: state.agent.connected ? "Agent connected" : "No agent" }));
+}
+
+function showAgentHint() {
+  const box = $("#app-error");
+  box.classList.add("info");
+  box.replaceChildren(
+    el("strong", { text: "Queued. " }),
+    "Your agent picks this up while it watches Whetstone. In your agent, in this folder, say: ",
+    el("code", { text: "watch Whetstone" }),
+    el("button", { type: "button", class: "btn btn-text btn-small", onclick: () => { box.hidden = true; box.classList.remove("info"); } }, "Dismiss"));
+  box.hidden = false;
+}
+
 /* ---------- Live pair: notes from the learner's agent ---------- */
 // The agent watches with `bin/whetstone watch` and replies with `bin/whetstone note`.
 async function pollNotes() {
@@ -411,6 +512,9 @@ async function initPair() {
   try { select.value = (await api("/api/pair")).mode; } catch (_) { /* keep the default */ }
   select.addEventListener("change", () => api("/api/pair", { method: "PUT", body: { mode: select.value } }));
   setInterval(pollNotes, 3000);
+  renderAgentStatus();
+  pollRequests();
+  setInterval(() => { if (!document.hidden) pollRequests(); }, 4000);
 }
 
 function selectTab(name) {
@@ -785,7 +889,7 @@ function initCatalog() {
   $("#f-company").addEventListener("change", (e) => { state.filters.company = e.target.value; renderCatalog(); });
   $$("#f-status .chip").forEach((c) => c.addEventListener("click", () => {
     state.filters.status = c.dataset.status;
-    $$("#f-status .chip").forEach((x) => x.setAttribute("aria-pressed", x === c ? "true" : "false"));
+    state.filters.statusChosen = true;
     renderCatalog();
   }));
   const dialog = $("#problem-dialog");
@@ -794,7 +898,11 @@ function initCatalog() {
 }
 
 async function loadCatalog() {
-  state.catalog = (await api("/api/catalog")).problems;
+  const [catalog, profile, paths] = await Promise.all([api("/api/catalog"), api("/api/profile"), api("/api/paths")]);
+  state.catalog = catalog.problems;
+  state.profile = profile;
+  state.paths = paths;
+  if (!state.filters.statusChosen) state.filters.status = interestSet().size || (profile.targets || []).length ? "for-you" : "";
   const counts = new Map();
   for (const p of state.catalog) for (const r of p.reports) counts.set(r.company, (counts.get(r.company) || 0) + 1);
   const select = $("#f-company");
@@ -828,17 +936,32 @@ function renderCatalog() {
     .map((p) => ({ p, hits: p.reports.filter(reportMatches) }))
     .filter(({ p, hits }) => hits.length && statusMatches(p) && (!f.q || searchText(p).includes(f.q)))
     .sort((a, b) => b.hits.length - a.hits.length || a.p.title.localeCompare(b.p.title));
+  $$("#f-status .chip").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.status === f.status)));
   const max = Math.max(1, ...rows.map((r) => r.hits.length));
   const n = rows.reduce((s, r) => s + r.hits.length, 0);
   $("#catalog-count").textContent = rows.length
-    ? `Showing ${plural(rows.length, "problem")} and ${plural(n, "report")}, most asked first.`
-    : "Nothing matches. Clear a filter or try another word.";
+    ? `Showing ${plural(rows.length, "problem")} and ${plural(n, "report")}, most asked first.${f.status === "for-you" ? " For you means your focus, your paths and the companies you target." : ""}`
+    : f.status === "for-you" ? "Nothing here for you yet. Add skills or companies to your focus, or choose All." : "Nothing matches. Clear a filter or try another word.";
   $("#catalog-grid").replaceChildren(...rows.map(({ p, hits }) => el("li", {}, catalogRow(p, hits, max))));
 }
 
 function statusMatches(p) {
   const s = state.filters.status;
+  if (s === "for-you") return forYou(p);
   return !s || (s === "ready" ? p.links.length > 0 : !p.links.length && p.format !== "design");
+}
+
+/** Modules you care about: your focus, and the modules of paths you follow or started. */
+function interestSet() {
+  const profile = state.profile || {};
+  const followed = new Set(profile.paths || []);
+  const fromPaths = state.paths.filter((p) => followed.has(p.id) || p.mine).flatMap((p) => p.modules.map((m) => m.module));
+  return new Set([...(profile.focus || []), ...fromPaths]);
+}
+
+function forYou(p) {
+  const targets = ((state.profile && state.profile.targets) || []).map((t) => t.toLowerCase());
+  return interestSet().has(p.id) || p.companies.some((c) => targets.includes(c.toLowerCase()));
 }
 
 function problemStatus(p) {
@@ -851,20 +974,31 @@ function problemStatus(p) {
     : { kind: "ready", text: `${plural(total, "question")} ready` };
 }
 
-/** One problem as a compact row: what it is, who asks it, how often, and whether it is ready. */
+/** One problem as a compact row: what it is, who asks it, how often, and two actions:
+    add it to your focus, and practise it (or ask your agent to build it). */
 function catalogRow(p, hits, max) {
   const companies = [...new Set(hits.map((r) => r.company))];
   const shown = companies.slice(0, 3).join(", ") + (companies.length > 3 ? ` and ${companies.length - 3} more` : "");
   const rounds = [...new Set(hits.map((r) => r.round))].map((r) => ROUNDS[r] || r).join(", ");
-  const st = problemStatus(p);
-  return el("button", { type: "button", class: "row", title: rounds, onclick: () => openProblem(p.id) },
-    el("span", { class: "row-main" },
-      el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), el("span", { class: "row-cos", text: shown })),
-      el("span", { class: "row-sub", text: p.summary })),
-    el("span", { class: "row-asked" },
-      el("span", { class: "freq", style: `--w:${Math.round((hits.length / max) * 100)}%`, "aria-hidden": "true" }),
-      el("span", {}, el("strong", { text: hits.length }), hits.length === 1 ? " report" : " reports")),
-    el("span", { class: "status", "data-s": st.kind, text: st.text }));
+  const focus = (state.profile && state.profile.focus) || [];
+  const inFocus = focus.includes(p.id);
+  const link = p.links[0];
+  const practise = p.format === "design" ? el("span", { class: "status", "data-s": "design", text: "Discussion only" })
+    : link ? el("a", { class: "btn btn-quiet btn-small", href: `#/${link.track}/${link.challenge}` }, link.solved ? "Continue" : "Start")
+      : requestButton("build", p.id);
+  return el("div", { class: "row-item" },
+    el("button", { type: "button", class: "row", title: rounds, onclick: () => openProblem(p.id) },
+      el("span", { class: "row-main" },
+        el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), el("span", { class: "row-cos", text: shown })),
+        el("span", { class: "row-sub", text: p.summary })),
+      el("span", { class: "row-asked" },
+        el("span", { class: "freq", style: `--w:${Math.round((hits.length / max) * 100)}%`, "aria-hidden": "true" }),
+        el("span", {}, el("strong", { text: hits.length }), hits.length === 1 ? " report" : " reports"))),
+    el("span", { class: "row-actions" },
+      el("button", { type: "button", class: `btn btn-text btn-small focus-toggle`, "aria-pressed": String(inFocus),
+        title: inFocus ? "Remove from your focus" : "Add to your focus",
+        onclick: () => saveInterests({ focus: inFocus ? focus.filter((x) => x !== p.id) : [...focus, p.id] }) }, inFocus ? "✓ In focus" : "+ Focus"),
+      practise));
 }
 
 function safeUrl(u) {
@@ -929,12 +1063,9 @@ function renderProblemActions(p) {
       type: "button", class: `btn ${p.links.length ? "btn-quiet" : "btn-primary"}`, id: "build-btn", onclick: () => buildProblem(p),
     }, `Build ${own ? "the next" : "a"} question`));
   } else {
-    const ask = `Build the ${own ? "next " : "first "}Whetstone question for the ${p.id} module.`;
-    const copy = el("button", { type: "button", class: "btn btn-quiet", onclick: () => copyText(ask, copy) }, "Copy request");
     nodes.push(el("div", { class: "agent-ask" },
-      el("p", { class: "note", text: "Build it with your own AI subscription. Open this folder in Claude Code, Codex, Cursor or another coding agent and ask:" }),
-      el("p", { class: "ask-line" }, el("code", { text: ask }), copy),
-      el("p", { class: "note" }, "The agent follows ", el("code", { text: "AGENTS.md" }), " and the ", el("code", { text: "bin/whetstone" }), " CLI. Whetstone checks the question before adding it here.")));
+      el("p", { class: "note", text: `Your agent builds ${own ? "the next" : "a"} question for you on your own AI subscription, and Whetstone checks it before it appears here.` }),
+      requestButton("build", p.id, own ? "Build the next question" : "Build a question")));
   }
   $("#problem-actions").replaceChildren(...nodes);
 }
@@ -982,7 +1113,8 @@ function initPaths() {
 
 async function loadPaths() {
   // Reload modules too, so a module the agent just built links straight into Practice.
-  const [paths] = await Promise.all([api("/api/paths"), loadTracks()]);
+  const [paths, profile] = await Promise.all([api("/api/paths"), api("/api/profile"), loadTracks()]);
+  state.profile = profile;
   state.paths = paths;
   const counts = new Map();
   for (const p of paths) counts.set(p.domain || "Other", (counts.get(p.domain || "Other") || 0) + 1);
@@ -1020,7 +1152,8 @@ function pathText(p) {
 function renderPaths() {
   const f = state.pathFilter;
   const filtering = Boolean(f.q || f.domain);
-  const started = (p) => p.mine || pathStats(p).solved > 0;
+  const followed = new Set((state.profile && state.profile.paths) || []);
+  const started = (p) => p.mine || followed.has(p.id) || pathStats(p).solved > 0;
   // Your paths sit in their own list above the grid, unless you are searching.
   const yours = filtering ? [] : state.paths.filter(started);
   const rows = state.paths
@@ -1050,7 +1183,7 @@ function yourPathRow(p) {
   const m = p.modules.find((x) => !x.built || x.solved < x.questions);
   const action = !m ? el("button", { type: "button", class: "btn btn-quiet", onclick: () => openPath(p.id) }, "Review")
     : m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, m.solved ? `Continue: ${m.title}` : `Start: ${m.title}`)
-      : copyButton(`Build the first Whetstone question for the ${m.module} module.`, `Copy request: ${m.title}`);
+      : requestButton("build", m.module, `Build: ${m.title}`);
   return el("li", { class: "home-row" },
     el("button", { type: "button", class: "home-text link-like", onclick: () => openPath(p.id) },
       el("span", { class: "home-title", text: p.title }),
@@ -1084,14 +1217,25 @@ function pathCard(p) {
     p.domain ? el("p", { class: "path-domain", text: p.domain }) : null,
     p.companies.length ? el("p", { class: "path-companies", text: p.companies.join(", ") }) : null,
     el("h2", { id: `path-${p.id}`, text: p.title }),
+    followButton(p),
     p.goal ? el("p", { class: "path-goal", text: p.goal }) : null,
     el("p", { class: "path-sum", text: `${pathSummary(p, st)}.` }),
     p.modules.some((m) => !m.built) ? el("div", { class: "agent-ask fill-ask" },
       el("p", { class: "note", text: `${plural(p.modules.filter((m) => !m.built).length, "module")} not built yet. Ask your agent to build the first question of each:` }),
-      askLine(`Fill in my ${p.id} Whetstone path.`)) : null,
+      requestButton("fill-path", p.id)) : null,
     p.modules.length
       ? el("ol", { class: "path-line" }, p.modules.map((m, i) => moduleStep(m, i, i === current)))
       : el("p", { class: "path-sum" }, "No modules yet. Ask your agent to add some, or run ", el("code", { text: `bin/whetstone path add ${p.id} <module>` })));
+}
+
+function followButton(p) {
+  const followed = ((state.profile && state.profile.paths) || []).includes(p.id);
+  return el("button", { type: "button", class: `btn ${followed ? "btn-quiet" : "btn-secondary"} btn-small follow`, "aria-pressed": String(followed),
+    onclick: async () => {
+      const paths = (state.profile && state.profile.paths) || [];
+      await saveInterests({ paths: followed ? paths.filter((x) => x !== p.id) : [...paths, p.id] });
+      $("#path-detail").replaceChildren(pathCard(p));
+    } }, followed ? "Following ✓" : "Follow this path");
 }
 
 function moduleStep(m, i, isCurrent) {
@@ -1101,7 +1245,7 @@ function moduleStep(m, i, isCurrent) {
     action = el("a", { class: `btn ${isCurrent ? "btn-primary" : "btn-secondary"}`, href: `#/${m.module}/${m.next}`, onclick: () => $("#path-dialog").close() },
       { ready: "Start", progress: "Continue", done: "Review" }[kind]);
   } else {
-    action = copyButton(`Build the first Whetstone question for the ${m.module} module.`, "Copy request");
+    action = requestButton("build", m.module);
   }
   const sub = m.built
     ? `${m.solved} of ${plural(m.questions, "question")} solved`
@@ -1128,48 +1272,168 @@ async function loadHome() {
   const [d, paths] = await Promise.all([api("/api/dashboard"), api("/api/paths"), loadTracks()]);
   state.paths = paths;
   state.dash = d;
+  state.profile = d.profile;
   renderHome();
 }
 
 function renderHome() {
+  const progress = location.hash.startsWith("#/progress");
   const d = state.dash;
-  const paths = state.paths;
-  const game = gameOn();
-  const q = d.questions;
-  const today = isoDay(new Date());
-  const open = q.filter((r) => r.status === "attempted").sort((a, b) => b.last_run.created_at.localeCompare(a.last_run.created_at));
-  const next = open[0] || q.find((r) => r.status === "new");
-
-  $("#home-title").textContent = d.profile.name || "Practice";
+  $("#home-title").textContent = progress ? "Your progress" : d.profile.name || "Today";
   const lede = [d.profile.role, d.profile.goal ? `Goal: ${d.profile.goal}` : ""].filter(Boolean).map((t) => t.replace(/\.$/, "")).join(". ");
-  $("#home-lede").textContent = lede ? `${lede}.` : weekLine(d.week);
+  $("#home-lede").textContent = progress ? weekLine(d.week) : lede ? `${lede}.` : weekLine(d.week);
+  $("#home-body").replaceChildren(...(progress ? progressSections(d) : todaySections(d, state.paths)));
+}
 
+/* ---------- Today: one next step, then your focus ---------- */
+function todaySections(d, paths) {
   const sections = [];
-  const head = [];
-  if (d.profile.stack && d.profile.stack.length) head.push(el("ul", { class: "stack", "aria-label": "Your stack" }, d.profile.stack.map((t) => el("li", { text: t }))));
-  if (next) head.push(el("a", { class: "btn btn-primary dash-continue", href: `#/${next.key}` }, `${open[0] ? "Continue" : "Start"}: ${next.title}`));
-  if (d.has_profile && !d.profile.name && !d.profile.goal) head.push(askLine("Update my Whetstone profile header."));
-  if (head.length) sections.push(el("div", { class: "dash-headline" }, head));
-
+  if (d.profile.stack && d.profile.stack.length) sections.push(el("ul", { class: "stack", "aria-label": "Your stack" }, d.profile.stack.map((t) => el("li", { text: t }))));
   const setup = setupSteps(d, paths);
   if (setup.some((st) => !st.done)) sections.push(homeSection("Get started", el("ol", { class: "setup" }, setup.map(setupItem))));
 
-  if (d.edges.length) sections.push(homeSection("Your edges", edgeList(d.edges, game), edgeHelp(game)));
+  const picks = todayPicks(d, paths);
+  if (picks.length) {
+    sections.push(homeSection("Today", el("ul", { class: "today" },
+      picks.map((pk, i) => el("li", { class: `today-item${i ? "" : " main"}` },
+        el("span", { class: "home-text" },
+          el("span", { class: "today-kind", text: i ? `Or: ${pk.kind}` : pk.kind }),
+          el("span", { class: "home-title", text: pk.title }),
+          el("span", { class: "home-sub", text: pk.why })),
+        pk.action)))));
+  }
+  sections.push(homeSection("Your focus", focusSection(d), el("p", { class: "home-sub section-note", text: "The skills, companies and paths you want to keep sharp. Your agent reads this list too." })));
+  const w = d.week;
+  sections.push(el("a", { class: "progress-link", href: "#/progress" },
+    el("span", { class: "home-title", text: "Your progress" }),
+    el("span", { class: "home-sub", text: `${w.this_week} of ${w.target} practice days this week. ${w.streak ? `${plural(w.streak, "week")} streak. ` : ""}${plural(d.numbers.solved, "question")} solved. Calendar, numbers and milestones →` })));
+  return sections;
+}
 
-  const upNext = upNextRows(d, paths, today, next);
-  const week = el("div", { class: "week" },
-    el("p", { class: "home-sub", text: weekLine(d.week) }),
-    calendar(d.active_days));
-  sections.push(el("div", { class: "dash-grid" },
-    upNext.length ? homeSection("Up next", el("ul", { class: "home-list" }, upNext)) : null,
-    homeSection("Practice", week)));
+/** Up to two next steps, most useful first: a due review, the question in progress,
+    the next step in a path you follow, then something new in your focus. */
+function todayPicks(d, paths) {
+  const q = d.questions;
+  const today = isoDay(new Date());
+  const start = (r, verb) => el("a", { class: "btn btn-primary", href: `#/${r.key}` }, verb);
+  const picks = [];
+  for (const r of q.filter((x) => x.review_due && x.review_due <= today)) {
+    const variant = q.find((x) => x.variant_of === r.key && x.status !== "solved");
+    picks.push({ kind: "Review", title: variant ? variant.title : r.title, target: r.key,
+      why: `Solved on ${shortDate(r.solved_at)}. A fresh variant checks that it stuck.`,
+      action: variant ? start(variant, "Start review") : requestButton("variant", r.key, "Build review variant") });
+  }
+  const open = q.filter((r) => r.status === "attempted").sort((a, b) => b.last_run.created_at.localeCompare(a.last_run.created_at));
+  for (const r of open.slice(0, 2)) {
+    picks.push({ kind: "Continue", title: r.title, target: r.key,
+      why: `Last run ${shortDate(r.last_run.created_at)}: ${r.last_run.passed} of ${r.last_run.total} tests passed.`, action: start(r, "Continue") });
+  }
+  const followed = new Set(d.profile.paths || []);
+  for (const p of paths.filter((x) => followed.has(x.id) || x.mine || pathStats(x).solved)) {
+    const m = p.modules.find((x) => !x.built || x.solved < x.questions);
+    if (!m) continue;
+    picks.push({ kind: "Next in your path", title: m.title, target: m.module, why: p.title,
+      action: m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, "Start") : requestButton("build", m.module) });
+  }
+  for (const e of d.edges.filter((x) => x.focus && !x.built)) {
+    picks.push({ kind: "From your focus", title: e.title, target: e.module, why: "Not built yet. Your agent builds the first question.", action: requestButton("build", e.module) });
+  }
+  const fresh = q.find((r) => r.status === "new");
+  if (fresh) picks.push({ kind: "Start something new", title: fresh.title, target: fresh.key, why: moduleName(fresh.module), action: start(fresh, "Start") });
+  const seen = new Set();
+  return picks.filter((pk) => !seen.has(pk.target) && seen.add(pk.target)).slice(0, 2);
+}
 
+function moduleName(id) { return (state.tracks.find((t) => t.id === id) || { title: id }).title; }
+
+/** Your focus: each skill's edge, plus the companies and paths you follow. All editable. */
+function focusSection(d) {
+  const profile = d.profile;
+  const box = el("div", { class: "focus" });
+  box.append(d.edges.length ? edgeList(d.edges, gameOn(), d) : el("p", { class: "home-sub", text: "Nothing in your focus yet. Add a skill below, or from the Catalog." }));
+  box.append(addRow("Add a skill", "module-options", "Rate limiter, Job scheduler…", async (value) => {
+    const p = await findModule(value);
+    if (!p) return "Pick a skill from the list.";
+    await saveInterests({ focus: [...(profile.focus || []), p.id] });
+  }));
+  box.append(chipList("Companies", profile.targets || [], (c) => saveInterests({ targets: profile.targets.filter((x) => x !== c) })));
+  box.append(addRow("Add a company", "company-options", "Stripe, Netflix…", async (value) => {
+    await saveInterests({ targets: [...(profile.targets || []), value] });
+  }));
+  const followed = (profile.paths || []).map((id) => state.paths.find((p) => p.id === id)).filter(Boolean);
+  box.append(chipList("Paths you follow", followed.map((p) => p.title), (title) => {
+    const p = followed.find((x) => x.title === title);
+    return saveInterests({ paths: profile.paths.filter((x) => x !== p.id) });
+  }, el("a", { class: "btn btn-text btn-small", href: "#/paths" }, "Browse paths")));
+  fillOptions();
+  return box;
+}
+
+function chipList(label, items, onRemove, extra) {
+  return el("div", { class: "chip-row" }, el("span", { class: "chip-row-label", text: label }),
+    ...(items.length ? items.map((item) => el("span", { class: "chip-tag" }, item,
+      el("button", { type: "button", class: "chip-x", "aria-label": `Remove ${item}`, onclick: () => onRemove(item) }, "×"))) : [el("span", { class: "home-sub", text: "None yet." })]),
+    extra || null);
+}
+
+function addRow(label, listId, placeholder, onAdd) {
+  const input = el("input", { type: "text", list: listId, placeholder, "aria-label": label });
+  const note = el("span", { class: "home-sub" });
+  const add = async () => {
+    const value = input.value.trim();
+    if (!value) return;
+    const problem = await onAdd(value);
+    note.textContent = problem || "";
+    if (!problem) input.value = "";
+  };
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+  return el("div", { class: "add-row" }, input, el("button", { type: "button", class: "btn btn-quiet btn-small", onclick: add }, label), note);
+}
+
+async function catalogList() {
+  if (!state.catalog.length) state.catalog = (await api("/api/catalog")).problems;
+  return state.catalog;
+}
+
+async function findModule(value) {
+  const v = value.toLowerCase();
+  return (await catalogList()).find((p) => p.id === v || p.title.toLowerCase() === v);
+}
+
+async function fillOptions() {
+  const problems = await catalogList();
+  const modules = $("#module-options"), companies = $("#company-options");
+  if (!modules.children.length) modules.replaceChildren(...problems.map((p) => el("option", { value: p.title })));
+  if (!companies.children.length) {
+    const names = [...new Set(problems.flatMap((p) => p.reports.map((r) => r.company)))].sort();
+    companies.replaceChildren(...names.map((c) => el("option", { value: c })));
+  }
+}
+
+async function saveInterests(updates) {
+  try {
+    state.profile = await api("/api/profile", { method: "PUT", body: updates });
+    if (state.dash) state.dash.profile = state.profile;
+    if (!$("#home").hidden) await loadHome();
+    else if (!$("#catalog").hidden) renderCatalog();
+    else if (!$("#paths").hidden) renderPaths();
+  } catch (err) {
+    showAppError(err);
+  }
+}
+
+/* ---------- Progress: the numbers, kept off the Today page ---------- */
+function progressSections(d) {
+  const sections = [el("a", { class: "btn btn-text btn-small back-link", href: "#/practice" }, "← Today")];
+  sections.push(homeSection("Practice", el("div", { class: "week" }, el("p", { class: "home-sub", text: weekLine(d.week) }), calendar(d.active_days))));
   sections.push(homeSection("Your numbers", ledger(d.numbers)));
-  if (game) sections.push(homeSection("Milestones", gameSection(d)));
-  const interests = interestRows(d, paths);
-  if (interests.length) sections.push(homeSection("Interests", el("ul", { class: "home-list" }, interests)));
+  if (gameOn()) sections.push(homeSection("Milestones", gameSection(d)));
+  else sections.push(homeSection("Milestones", el("p", { class: "home-sub" }, "Grit and milestones are hidden. ",
+    el("button", { type: "button", class: "btn btn-text btn-small", onclick: () => { setGame(true); renderHome(); } }, "Show them"))));
+  if (!predictOn()) sections.push(el("p", { class: "home-sub" }, "Predict and explain is off. ",
+    el("button", { type: "button", class: "btn btn-text btn-small", onclick: () => { setPredict(true); renderHome(); } }, "Turn it on")));
   if (d.recent.length) sections.push(homeSection("Recent", el("ol", { class: "log" }, d.recent.map(logLine))));
-  $("#home-body").replaceChildren(...sections);
+  return sections;
 }
 
 function weekLine(w) {
@@ -1184,7 +1448,7 @@ function daysAgo(iso) {
 }
 
 /** The one bold element: a blade per skill. Its length is how sharp the skill is today. */
-function edgeList(edges, game) {
+function edgeList(edges, game, d) {
   return el("ul", { class: "edges" }, edges.map((e) => {
     const bits = [];
     if (!e.built) bits.push("Not built yet");
@@ -1193,14 +1457,20 @@ function edgeList(edges, game) {
     const today = isoDay(new Date());
     const due = e.review_due ? el("span", { class: e.review_due <= today ? "due" : "", text: e.review_due <= today ? "Review due now" : `Review due ${shortDate(e.review_due)}` }) : null;
     const why = e.state ? `Best result: ${STATE_WORD[e.state]}. ${e.solved} of ${plural(e.questions, "question")} solved.` : "";
+    const next = d.questions.find((r) => r.module === e.module && r.status !== "solved");
+    const action = !e.built ? requestButton("build", e.module)
+      : next ? el("a", { class: "btn btn-quiet btn-small", href: `#/${next.key}` }, next.status === "attempted" ? "Continue" : "Start")
+        : requestButton("build", e.module, "Build next question");
     return el("li", { class: "edge", "data-label": e.label, title: why },
       el("span", { class: "edge-name" },
         el("span", { text: e.title }),
         e.ai_handled ? el("span", { class: "tag-ai", text: "your AI writes this at work" }) : null),
       el("span", { class: "blade", "aria-hidden": "true" }, el("span", { class: "blade-fill", style: `--s:${Math.round(e.sharpness * 100)}%` })),
       el("span", { class: "edge-state" }, el("span", { text: bits.join(". ") }), due,
-        game && e.grit ? el("span", { class: "grit", title: GRIT_WORD[e.grit], text: `${e.grit} grit` }) : null,
-        e.built ? null : copyButton(`Build the first Whetstone question for the ${e.module} module.`, "Copy request")));
+        game && e.grit ? el("span", { class: "grit", title: GRIT_WORD[e.grit], text: `${e.grit} grit` }) : null),
+      el("span", { class: "edge-actions" }, action,
+        e.focus ? el("button", { type: "button", class: "btn btn-text btn-small", title: "Remove from your focus",
+          onclick: () => saveInterests({ focus: d.profile.focus.filter((f) => f !== e.module) }) }, "Remove") : null));
   }));
 }
 
@@ -1210,26 +1480,6 @@ const GRIT_WORD = { 220: "Started", 1000: "Solved", 3000: "Solved on your own", 
 function edgeHelp(game) {
   return el("p", { class: "home-sub section-note", text: "A skill dulls with time since you last practised it, and stays sharp longer once mastered."
     + (game ? " Grit is earned like a whetstone's: 220 started, 1000 solved, 3000 on your own, 6000 mastered, 8000 still sharp after a long review." : "") });
-}
-
-function upNextRows(d, paths, today, next) {
-  const rows = [];
-  for (const r of d.questions.filter((x) => x.review_due && x.review_due <= today).slice(0, 2)) {
-    rows.push(homeRow(`Review: ${r.title}`, `${r.solve === "assisted" ? "Solved with help" : "Solved"} on ${shortDate(r.solved_at)}. A fresh variant checks it stuck. Ask your agent:`,
-      askLine(`Build a Whetstone variant of ${r.key} for review.`)));
-  }
-  const started = paths.filter((p) => p.mine || pathStats(p).solved).slice(0, 2);
-  for (const p of started) {
-    const m = p.modules.find((x) => !x.built || x.solved < x.questions);
-    if (!m) continue;
-    rows.push(homeRow(`${p.title}`, m.built ? `${m.title}: ${m.solved} of ${plural(m.questions, "question")} solved.` : `${m.title} is not built yet. Ask your agent:`,
-      m.built ? el("a", { class: "btn btn-secondary", href: `#/${m.module}/${m.next}` }, m.solved ? "Continue" : "Start")
-        : askLine(`Build the first Whetstone question for the ${m.module} module.`)));
-  }
-  for (const r of d.questions.filter((x) => x !== next && x.status === "attempted" && (x.runs >= 5 || x.hints_opened >= 2)).slice(0, 2)) {
-    rows.push(homeRow(`Stuck: ${r.title}`, `${plural(r.runs, "run")}, ${r.hints_opened} of ${r.hint_count} hints. Your agent can guide you without giving it away:`, askLine(`I'm stuck on ${r.key}.`)));
-  }
-  return rows;
 }
 
 /** 26 weeks of practice days, one column per week, like a contribution graph. */
@@ -1275,24 +1525,6 @@ function gameSection(d) {
   return el("div", {}, list, recs.length ? el("p", { class: "home-sub section-note", text: `Personal records: ${recs.join(", ")}.` }) : null, off);
 }
 
-function interestRows(d, paths) {
-  const rows = paths.filter((p) => p.mine || pathStats(p).solved || pathStats(p).built).slice(0, 4).map((p) => {
-    const st = pathStats(p);
-    const strip = el("span", { class: "route", "aria-hidden": "true" }, p.modules.map((m) =>
-      el("span", { class: "route-seg", "data-s": m.built && m.solved === m.questions ? "done" : m.built ? "built" : "none" })));
-    return homeRow(p.title, `${st.built} of ${plural(p.modules.length, "module")} built, ${st.solved} of ${plural(st.total, "question")} solved.`, strip);
-  });
-  for (const t of d.targets) {
-    const go = el("button", { type: "button", class: "btn btn-quiet", onclick: () => { state.filters.company = t.company; location.hash = "#/catalog"; } }, "See what they ask");
-    rows.push(homeRow(t.company, `${plural(t.problems, "problem")} in the catalog, ${t.ready} ready to practise.`, go));
-  }
-  if (!predictOn()) rows.push(homeRow("Predict and explain is off", "Guessing before a run, and explaining after a solve, train you to read code before you run it.",
-    el("button", { type: "button", class: "btn btn-quiet", onclick: () => { setPredict(true); renderHome(); } }, "Turn on")));
-  if (!gameOn()) rows.push(homeRow("Grit and milestones are hidden", "Turn them back on any time.",
-    el("button", { type: "button", class: "btn btn-quiet", onclick: () => { setGame(true); renderHome(); } }, "Show")));
-  return rows;
-}
-
 function logLine(r) {
   const solved = r.mode === "submit" && r.status === "passed";
   return el("li", { "data-status": r.status },
@@ -1303,10 +1535,11 @@ function logLine(r) {
 }
 
 function setupSteps(d, paths) {
+  const firstModule = (d.profile.focus || [])[0];
   return [
-    { done: d.has_profile, title: "Set up your profile", sub: "Your agent writes it from what it knows about you, your GitHub, plus a few questions.", ask: "Set up my Whetstone profile." },
-    { done: paths.some((p) => p.mine) || d.questions.length > 0, title: "Pick a system to build", sub: "Browse the Paths page, or ask your agent for one.", link: "#/paths" },
-    { done: d.questions.length > 0, title: "Build your first question", sub: "Your agent writes it and Whetstone checks it.", ask: "Build the first Whetstone question for my path." },
+    { done: Boolean(d.profile.name || d.profile.role || d.profile.goal), title: "Set up your profile", sub: "Your agent writes it from what it knows about you and your GitHub, plus a few questions.", action: requestButton("profile", "") },
+    { done: (d.profile.focus || []).length > 0 || (d.profile.paths || []).length > 0 || paths.some((p) => p.mine), title: "Choose what to keep sharp", sub: "Add skills to your focus below, or follow a path.", action: el("a", { class: "btn btn-secondary", href: "#/paths" }, "Browse paths") },
+    { done: d.questions.length > 0, title: "Build your first question", sub: "Your agent writes it and Whetstone checks it.", action: firstModule ? requestButton("build", firstModule) : null },
     { done: d.questions.some((r) => r.status === "solved"), title: "Solve it", sub: "Run the tests as you go, then Submit." },
   ];
 }
@@ -1315,7 +1548,7 @@ function setupItem(st) {
   return el("li", { class: "setup-step", "data-done": st.done ? "true" : "false" },
     el("span", { class: "setup-title", text: st.title }),
     st.done ? null : el("span", { class: "home-sub", text: st.sub }),
-    st.done ? null : st.ask ? askLine(st.ask) : st.link ? el("a", { class: "btn btn-secondary", href: st.link }, "Open Paths") : null);
+    st.done || !st.action ? null : el("span", { class: "setup-action" }, st.action));
 }
 
 function homeSection(title, body, note) {
@@ -1326,15 +1559,6 @@ function homeRow(title, sub, action) {
   return el("li", { class: "home-row" },
     el("span", { class: "home-text" }, el("span", { class: "home-title", text: title }), el("span", { class: "home-sub", text: sub })),
     action);
-}
-
-function askLine(text) {
-  return el("p", { class: "ask-line" }, el("code", { text }), copyButton(text, "Copy"));
-}
-
-function copyButton(text, label) {
-  const btn = el("button", { type: "button", class: "btn btn-quiet btn-small", title: text, onclick: () => copyText(text, btn) }, label);
-  return btn;
 }
 
 /* ---------- Keyboard on list pages ---------- */
@@ -1370,6 +1594,7 @@ function showView(view) {
 // A page that cannot load says why, instead of staying blank.
 async function route() {
   $("#app-error").hidden = true;
+  $("#app-error").classList.remove("info");
   try {
     await showRoute();
   } catch (err) {
@@ -1409,7 +1634,7 @@ async function showRoute() {
     return;
   }
   showView("home");
-  document.title = "Practice · Whetstone";
+  document.title = parts[0] === "progress" ? "Progress · Whetstone" : "Today · Whetstone";
   await loadHome();
 }
 

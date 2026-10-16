@@ -137,3 +137,65 @@ def test_predictions_are_scored_and_explanations_kept(tmp_path):
     assert Store(settings.db_path).explanation("m/01-memo")["text"] == "I save only after compute returns."
     numbers = client.get("/api/dashboard").json()["numbers"]
     assert (numbers["predict_now"], numbers["predicted"]) == (67, 3), "2 of 3 guesses right"
+
+
+def test_agent_inbox_round_trip(tmp_path, monkeypatch, capsys):
+    """The app queues a build; the learner's agent claims it and reports back; the app sees it."""
+    import json
+
+    import yaml
+    from fastapi.testclient import TestClient
+
+    from whetstone.__main__ import main
+
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    mine.mkdir()
+    (content / "catalog.yaml").write_text(
+        yaml.safe_dump({"problems": [{"id": "rate-limiter", "title": "Rate limiter", "summary": "s", "reports": []}]})
+    )
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+    settings = Settings(content, mine, "redis://localhost:1/0", None, "", 10)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+
+    assert client.post("/api/requests", json={"kind": "build", "target": "nope"}).status_code == 400
+    first = client.post("/api/requests", json={"kind": "build", "target": "Rate Limiter"}).json()
+    again = client.post("/api/requests", json={"kind": "build", "target": "rate-limiter"}).json()
+    assert first["target"] == "rate-limiter" and again["id"] == first["id"], "an open request is reused, not duplicated"
+    assert client.get("/api/requests").json()["agent"]["connected"] is False
+
+    assert main(["watch", "--for", "1"]) == 0
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert events[1]["event"] == "requested" and events[1]["ask"] == "Build the next Whetstone question for the rate-limiter module."
+    assert client.get("/api/requests").json()["agent"]["connected"] is True, "watching counts as connected"
+
+    assert main(["request", "claim", str(first["id"])]) == 0
+    assert main(["request", "claim", str(first["id"])]) == 1, "a claimed request cannot be claimed twice"
+    assert main(["request", "done", str(first["id"]), "--result", "rate-limiter/01-token-bucket"]) == 0
+    done = client.get("/api/requests").json()["requests"][0]
+    assert (done["status"], done["result"]) == ("done", "rate-limiter/01-token-bucket")
+
+
+def test_learner_edits_interests_and_keeps_their_profile_text(tmp_path):
+    import yaml
+    from fastapi.testclient import TestClient
+
+    from whetstone.content import load_profile
+
+    content, mine = tmp_path / "content", tmp_path / "my"
+    (content / "paths").mkdir(parents=True)
+    mine.mkdir()
+    (content / "catalog.yaml").write_text(
+        yaml.safe_dump({"problems": [{"id": "rate-limiter", "title": "Rate limiter", "summary": "s", "reports": []}]})
+    )
+    (content / "paths" / "staff.yaml").write_text(yaml.safe_dump({"title": "Staff", "modules": ["rate-limiter"]}))
+    (mine / "profile.md").write_text("---\nname: Sam\nfocus: []\n---\n\n# Learner profile\n\nWrites Go at work.\n")
+    settings = Settings(content, mine, "redis://localhost:1/0", None, "", 10)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+
+    assert client.put("/api/profile", json={"focus": ["nope"]}).status_code == 400
+    saved = client.put("/api/profile", json={"focus": ["Rate Limiter"], "targets": ["Stripe", "Stripe"], "paths": ["staff"]}).json()
+    assert (saved["name"], saved["focus"], saved["targets"], saved["paths"]) == ("Sam", ["rate-limiter"], ["Stripe"], ["staff"])
+    assert "Writes Go at work." in (mine / "profile.md").read_text(), "the free text below the header is kept"
+    assert load_profile(mine / "profile.md")["focus"] == ["rate-limiter"]

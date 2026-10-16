@@ -16,10 +16,10 @@ from pydantic import BaseModel, Field
 from . import dashboard as dash
 from .catalog import build_notes, catalog_links, find_problem, load_catalog, path_rows
 from .config import Settings, load_settings
-from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, slugify
+from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, save_profile_header, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
 from .runner import run_tests
-from .store import PAIR_MODES, Store, progress_rows
+from .store import PAIR_MODES, REQUEST_KINDS, Store, progress_rows
 
 STATIC = Path(__file__).parent / "static"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -54,6 +54,17 @@ class RunBody(CodeBody):
 class ExplainBody(BaseModel):
     test: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1, max_length=2000)
+
+
+class InterestsBody(BaseModel):
+    focus: list[str] | None = Field(default=None, max_length=20)
+    targets: list[str] | None = Field(default=None, max_length=20)
+    paths: list[str] | None = Field(default=None, max_length=20)
+
+
+class RequestBody(BaseModel):
+    kind: str = Field(pattern="^(" + "|".join(REQUEST_KINDS) + ")$")
+    target: str = Field(default="", max_length=200)
 
 
 class PairBody(BaseModel):
@@ -271,6 +282,74 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             store.dismiss_note(note_id)
         return {"ok": True}
 
+    # ---------- Interests: the learner edits their focus, companies and paths ----------
+    @app.get("/api/profile")
+    def profile():
+        return load_profile(settings.user_dir / "profile.md")
+
+    @app.put("/api/profile")
+    def save_interests(body: InterestsBody, request: Request):
+        require_json(request)
+        updates: dict = {}
+        if body.focus is not None:
+            known = {slugify(p["id"]) for p in load_catalog(settings)} | {t.id for t in load_tracks(settings.tracks_dir)}
+            focus = list(dict.fromkeys(slugify(f) for f in body.focus))
+            unknown = [f for f in focus if f not in known]
+            if unknown:
+                raise HTTPException(400, f"Not a module: {', '.join(unknown)}")
+            updates["focus"] = focus
+        if body.targets is not None:
+            updates["targets"] = list(dict.fromkeys(t.strip()[:40] for t in body.targets if t.strip()))
+        if body.paths is not None:
+            known_paths = {lp.id for lp in load_all_paths(settings.shared_paths_dir, settings.paths_dir)}
+            unknown = [x for x in body.paths if x not in known_paths]
+            if unknown:
+                raise HTTPException(400, f"Not a learning path: {', '.join(unknown)}")
+            updates["paths"] = list(dict.fromkeys(body.paths))
+        saved = save_profile_header(settings.user_dir / "profile.md", updates)
+        store.record_event(None, "interests", {k: saved.get(k, []) for k in updates})
+        return saved
+
+    # ---------- Agent inbox ----------
+    def check_target(kind: str, target: str) -> str:
+        """The request's target, normalised, or a 400 when it names nothing real."""
+        want = REQUEST_KINDS[kind]
+        if want == "module":
+            module = slugify(target)
+            known = {slugify(p["id"]) for p in load_catalog(settings)} | {t.id for t in load_tracks(settings.tracks_dir)}
+            if module not in known:
+                raise HTTPException(400, f"{target} is not a module.")
+            return module
+        if want == "question":
+            track, _, cid = target.partition("/")
+            get_challenge(track, cid)
+            return target
+        if want == "path":
+            if target not in {lp.id for lp in load_all_paths(settings.shared_paths_dir, settings.paths_dir)}:
+                raise HTTPException(400, f"{target} is not a learning path.")
+            return target
+        return ""
+
+    @app.post("/api/requests")
+    def add_request(body: RequestBody, request: Request):
+        require_json(request)
+        target = check_target(body.kind, body.target)
+        r = store.add_request(body.kind, target)
+        store.record_event(None, "requested", {"id": r["id"], "kind": r["kind"], "target": r["target"], "ask": request_ask(r)})
+        return r
+
+    @app.get("/api/requests")
+    def list_requests():
+        return {"requests": store.requests(), "agent": agent_status(store)}
+
+    @app.post("/api/requests/{request_id}/cancel")
+    def cancel_request(request_id: int, request: Request):
+        require_json(request)
+        r = store.update_request(request_id, "cancelled", only_from=("queued", "claimed"))
+        if not r:
+            raise HTTPException(404, "No open request with that id.")
+        return r
+
     @app.get("/api/pair")
     def pair():
         return {"mode": store.setting("pair_mode", "quiet")}
@@ -426,3 +505,26 @@ def score_prediction(guess: dict, mode: str, report) -> dict:
         if name in actual
     ]
     return {"correct": sum(d["predicted"] == d["actual"] for d in details), "total": len(details), "details": details}
+
+
+AGENT_FRESH_SECONDS = 30
+
+
+def agent_status(store: Store) -> dict:
+    """Whether the learner's agent is watching: `whetstone watch` checks in every few seconds."""
+    from datetime import datetime
+
+    seen = store.agent_seen()
+    fresh = bool(seen) and (datetime.now() - datetime.fromisoformat(seen)).total_seconds() < AGENT_FRESH_SECONDS
+    return {"connected": fresh, "seen_at": seen}
+
+
+def request_ask(r: dict) -> str:
+    """The plain-words job, as the learner would say it to their agent."""
+    return {
+        "build": f"Build the next Whetstone question for the {r['target']} module.",
+        "variant": f"Build a Whetstone variant of {r['target']} for review.",
+        "fill-path": f"Fill in my {r['target']} Whetstone path.",
+        "review": f"Review my solution to {r['target']}.",
+        "profile": "Set up or refresh my Whetstone profile.",
+    }[r["kind"]]

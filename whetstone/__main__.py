@@ -622,9 +622,19 @@ def cmd_watch(args) -> int:
             emit("paused", question, editing_seconds=round(e["last"] - e["since"]), lines=e["lines"])
 
     emit("watching", args.key, note=f'Read the code with: {CLI} draft <question>. Reply with: {CLI} note <question> "..." --line N')
+    from .server import request_ask
+
+    # Work the learner queued before the watch started comes first.
+    for r in reversed(store.requests(open_only=True)):
+        emit("requested", None, id=r["id"], kind=r["kind"], target=r["target"], status=r["status"], ask=request_ask(r))
+    store.mark_agent_seen()
+    last_seen = time.monotonic()
     try:
         while not stop_at or time.monotonic() < stop_at:
             now = time.monotonic()
+            if now - last_seen >= HEARTBEAT_SECONDS:
+                store.mark_agent_seen()  # the app shows "Agent connected" while this stays fresh
+                last_seen = now
             for e in store.events_after(last):
                 last = e["id"]
                 if args.key and e["challenge"] not in (None, args.key):
@@ -666,6 +676,40 @@ def cmd_note(args) -> int:
         return fail("A note needs 1 to 600 characters. Keep it to one idea.")
     Store(settings.db_path).add_note(args.key, text, args.line)
     print(f"Noted on {args.key}" + (f", line {args.line}." if args.line else "."))
+    return 0
+
+
+HEARTBEAT_SECONDS = 5
+
+
+def cmd_requests(args) -> int:
+    """Work the learner queued for you in the app."""
+    from .server import request_ask
+    from .store import Store
+
+    rows = Store(load_settings().db_path).requests(open_only=not args.all)
+    if args.json:
+        print(json.dumps([r | {"ask": request_ask(r)} for r in rows], indent=2))
+        return 0
+    if not rows:
+        print("Nothing queued.")
+    for r in rows:
+        print(f"#{r['id']:<4} {r['status']:<9} {request_ask(r)}" + (f"  -> {r['result']}" if r.get("result") else ""))
+    return 0
+
+
+def cmd_request(args) -> int:
+    """Claim a queued request, then mark it done or failed, so the app shows its progress."""
+    from .store import Store
+
+    store = Store(load_settings().db_path)
+    moves = {"claim": ("claimed", ("queued",)), "done": ("done", ("queued", "claimed")), "fail": ("failed", ("queued", "claimed"))}
+    status, allowed = moves[args.action]
+    r = store.update_request(args.id, status, args.result, only_from=allowed)
+    if not r:
+        return fail(f"Request #{args.id} is not open (already done, failed, cancelled or claimed).")
+    store.record_event(None, f"request-{status}", {"id": r["id"], "kind": r["kind"], "target": r["target"], "result": r.get("result")})
+    print(f"Request #{r['id']} {status}." + (f" {r['result']}" if r.get("result") else ""))
     return 0
 
 
@@ -756,6 +800,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--pause", type=int, default=20, help="seconds without typing before a 'paused' event (default 20)")
     p.add_argument("--idle", type=int, default=600, help="seconds of no activity before an 'idle' event (default 600)")
     p.add_argument("--for", dest="seconds", type=int, default=0, help="stop after this many seconds (default: run until stopped)")
+    p = cmd(sub, "requests", cmd_requests, "work the learner queued for you in the app (build a module, a variant, a path)")
+    p.add_argument("--all", action="store_true", help="include finished requests")
+    p.add_argument("--json", action="store_true")
+    p = cmd(sub, "request", cmd_request, "claim a queued request, then mark it done or failed")
+    p.add_argument("action", choices=["claim", "done", "fail"])
+    p.add_argument("id", type=int)
+    p.add_argument("--result", help="done: the question key you built; fail: the reason, in one line")
     p = cmd(sub, "note", cmd_note, "show a short remark to the learner in the app, next to their code")
     p.add_argument("key", help="module/question")
     p.add_argument("text")

@@ -82,9 +82,10 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
 
 ## Using the app
 
-- **Catalog:** problems that companies actually ask, as compact rows you can filter by company, round and status, and browse with `/`, `j`, `k` and Enter. Each one opens to the reports: the question, follow-ups and sources.
+- **Catalog:** problems that companies actually ask, opening on **For you** (your focus, your paths and the companies you target). Filter by company, round and status, browse with `/`, `j`, `k` and Enter, add a topic to your focus, or press Build.
+- **Build buttons** queue a request for your own agent. Start it in this folder and say *"watch Whetstone"*: it picks up requests while you practise, and the button turns into Start when the question is ready. The top bar shows when an agent is connected.
 - **Paths:** pick a system to build. Each path shows its modules as a strip. Your started paths come first, with the next step, and one request ("Fill in my path") asks your agent to build every module that is missing.
-- **Practice:** your dashboard. It shows your profile, your *edges* (how sharp each skill is today; skills dull with time and stay sharp longer once mastered), what to do next, 26 weeks of practice, honest numbers, milestones, the companies you target, and recent runs. In a question:
+- **Practice:** opens on **Today**: one next step and one alternative, then **your focus**: the skills, companies and paths you want to keep sharp, each with its edge (how sharp it is today). Add or remove any of them in the app, or with + Focus in the Catalog. Calendar, numbers and milestones live on the Progress page. In a question:
   1. Read the **Problem**. For most questions the **Lesson** opens after your first test run, because trying first makes it stick.
   2. Write code in `solution.py`.
   3. Press **Run tests** (Ctrl/Cmd + Enter) for the visible tests, or **Submit** (Ctrl/Cmd + Shift + Enter) for all of them.

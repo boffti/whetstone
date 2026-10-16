@@ -11,6 +11,14 @@ from pathlib import Path
 WEEK_TARGET = 3  # practice days per week that keep the weekly streak
 EVENTS_KEPT = 5000
 PAIR_MODES = ("off", "quiet", "coach", "interviewer")
+# What the app can ask the learner's agent to do, and what each target is.
+REQUEST_KINDS = {
+    "build": "module",  # build the next question of a module
+    "variant": "question",  # build a spaced-review variant of a question
+    "fill-path": "path",  # build the first question of every unbuilt module in a path
+    "review": "question",  # review the learner's solution
+    "profile": "",  # set up or refresh the profile
+}
 
 # Each migration upgrades the database by one version (SQLite's user_version). Append new ones at
 # the end; never edit or reorder old ones. Write them so they are safe to run twice.
@@ -87,6 +95,19 @@ CREATE TABLE IF NOT EXISTS explanations (
     test TEXT NOT NULL,
     text TEXT NOT NULL,
     created_at TEXT NOT NULL
+);
+""",
+    # 5: the agent inbox. The app queues work (build a module, a review variant, a whole path);
+    # the learner's own agent, watching with `whetstone watch`, claims it and reports back.
+    """
+CREATE TABLE IF NOT EXISTS requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    target TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued',
+    result TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 """,
 ]
@@ -305,6 +326,46 @@ class Store:
                 "SELECT test, text, created_at FROM explanations WHERE challenge = ? ORDER BY id DESC LIMIT 1", (key,)
             ).fetchone()
             return dict(row) if row else None
+
+    # ---------- Agent inbox ----------
+    def add_request(self, kind: str, target: str) -> dict:
+        """Queue work for the learner's agent. An open request for the same thing is reused."""
+        now = datetime.now().isoformat(timespec="seconds")
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM requests WHERE kind = ? AND target = ? AND status IN ('queued', 'claimed')", (kind, target)
+            ).fetchone()
+            if row:
+                return dict(row)
+            cur = conn.execute(
+                "INSERT INTO requests (kind, target, status, created_at, updated_at) VALUES (?, ?, 'queued', ?, ?)",
+                (kind, target, now, now),
+            )
+            return dict(conn.execute("SELECT * FROM requests WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+    def requests(self, open_only: bool = False, limit: int = 50) -> list[dict]:
+        where = "WHERE status IN ('queued', 'claimed')" if open_only else ""
+        with self._conn() as conn:
+            return [dict(r) for r in conn.execute(f"SELECT * FROM requests {where} ORDER BY id DESC LIMIT ?", (limit,))]
+
+    def update_request(self, request_id: int, status: str, result: str | None = None, only_from: tuple[str, ...] = ()) -> dict | None:
+        """Move a request to `status`. With `only_from`, only when it is currently in one of those."""
+        now = datetime.now().isoformat(timespec="seconds")
+        with self._conn() as conn:
+            row = conn.execute("SELECT status FROM requests WHERE id = ?", (request_id,)).fetchone()
+            if not row or (only_from and row["status"] not in only_from):
+                return None
+            conn.execute(
+                "UPDATE requests SET status = ?, result = COALESCE(?, result), updated_at = ? WHERE id = ?",
+                (status, result, now, request_id),
+            )
+            return dict(conn.execute("SELECT * FROM requests WHERE id = ?", (request_id,)).fetchone())
+
+    def agent_seen(self) -> str | None:
+        return self.setting("agent_seen_at", "") or None
+
+    def mark_agent_seen(self) -> None:
+        self.set_setting("agent_seen_at", datetime.now().isoformat(timespec="seconds"))
 
     # ---------- Live pair ----------
     def record_event(self, key: str | None, kind: str, data: dict | None = None) -> None:
