@@ -11616,6 +11616,22 @@ problems:
   companies: []
   rounds: []
   reports: []
+- id: cqrs-read-model
+  title: CQRS read model
+  summary: Split commands from queries so writes append events and a projector builds a denormalized read
+    model. Reads stop contending with writes but lag behind them, so serve read-your-writes and rebuild
+    the model by replay.
+  format: hands-on
+  track: null
+  tags:
+  - cqrs
+  - projections
+  - eventual-consistency
+  - read-your-writes
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
 - id: crdt-sync
   title: CRDTs and convergent state
   summary: Build last-writer-wins registers, counters, sets and a sequence CRDT, then show replicas converge
@@ -12376,6 +12392,23 @@ problems:
   - semaphores
   - deadlock
   - scheduling
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
+- id: realtime-push
+  title: Real-time push
+  summary: Push updates over long polling, server-sent events and WebSockets. Each open connection pins a
+    client to one server, so broadcasts need cross-server fan-out and reconnects must resume from the last
+    event id.
+  format: hands-on
+  track: null
+  tags:
+  - websockets
+  - server-sent-events
+  - long-polling
+  - pub-sub
+  - reconnect
   report_count: 0
   companies: []
   rounds: []
