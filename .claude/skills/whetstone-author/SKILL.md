@@ -19,7 +19,7 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
    - **Assisted solves or many runs:** stay on the concept, and target the misconception they hit.
    - **A variant for review** (the curator chose one): same idea, new surface. Use a new domain, new names and new data. Set `variant_of` to the *original* question's key.
    - **Their stack and what they hand off to AI at work:** use these for the scenario and the tie-in.
-3. Choose the type: **build**, **predict**, **fix**, **review**, **tests** or **design**. Take the brief's suggestion unless the progress gives a reason not to, and say the reason.
+3. Choose the type: **build**, **predict**, **fix**, **review**, **tests**, **design** or **whiteboard**. A `design` request from the app always means **whiteboard**: run the brief with `--type whiteboard`. Take the brief's suggestion unless the progress gives a reason not to, and say the reason.
 4. Run `bin/whetstone question new <module> <slug>`. Write every file in `my/.staging/<slug>/`.
    - For **predict** and **review**, the code to read goes in `subject.py`, listed in `support`.
    - Copy the quality of `examples/memoize/` (build) or `examples/retry-tests/` (tests).
@@ -37,6 +37,14 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
 - [ ] Concurrency tests force the ordering with hooks (or the race amplifier). Nothing relies on luck or long sleeps.
 - [ ] From question 3 of a module on, an idea from an earlier module appears without being named.
 - [ ] The tie-in uses the learner's real stack from the profile.
+
+## A system design question (whiteboard)
+
+1. `bin/whetstone question brief <module> --type whiteboard`, then `bin/whetstone question new <module> <slug> --type whiteboard`.
+2. Base the prompt on the system design reports in the brief. Set real scale numbers in `problem.md`; leave the approach out.
+3. Write `solution.md` as the design a staff engineer would give: every section filled in, a Mermaid flowchart in High-level design, and the estimate arithmetic shown.
+4. Write `rubric.yaml`: 5 to 10 points, 3 or more `must: true`. One point per misconception in the lesson. `look_for` says what evidence in the learner's text earns the point.
+5. Copy the quality of `examples/short-links-whiteboard/`. Then file it with `question add` as usual.
 
 ## Filling a module or a path
 

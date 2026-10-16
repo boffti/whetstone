@@ -17,6 +17,8 @@ REQUEST_KINDS = {
     "variant": "question",  # build a spaced-review variant of a question
     "fill-path": "path",  # build the first question of every unbuilt module in a path
     "review": "question",  # review the learner's solution
+    "design": "module",  # build a system design (whiteboard) question for a module
+    "grade": "question",  # grade the learner's system design against its rubric
     "profile": "",  # set up or refresh the profile
 }
 
@@ -109,6 +111,18 @@ CREATE TABLE IF NOT EXISTS requests (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+""",
+    # 6: system design reviews. The learner's agent grades a whiteboard design against its rubric
+    # (`whetstone grade`); each point gets covered, partial or missing, with a quote and a note.
+    """
+CREATE TABLE IF NOT EXISTS reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenge TEXT NOT NULL,
+    points TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS reviews_by_challenge ON reviews (challenge, id);
 """,
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
@@ -326,6 +340,22 @@ class Store:
                 "SELECT test, text, created_at FROM explanations WHERE challenge = ? ORDER BY id DESC LIMIT 1", (key,)
             ).fetchone()
             return dict(row) if row else None
+
+    # ---------- System design reviews ----------
+    def add_review(self, key: str, points: list[dict], summary: str) -> int:
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO reviews (challenge, points, summary, created_at) VALUES (?, ?, ?, ?)",
+                (key, json.dumps(points), summary, datetime.now().isoformat(timespec="seconds")),
+            )
+            return cur.lastrowid
+
+    def latest_review(self, key: str) -> dict | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT id, points, summary, created_at FROM reviews WHERE challenge = ? ORDER BY id DESC LIMIT 1", (key,)
+            ).fetchone()
+        return {**dict(row), "points": json.loads(row["points"])} if row else None
 
     # ---------- Agent inbox ----------
     def add_request(self, kind: str, target: str) -> dict:

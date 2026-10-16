@@ -18,6 +18,7 @@ const state = {
   noteDecos: [],
   lessonLocked: false,
   activeFile: "solution.py",
+  mainFile: "solution.py",  // the learner's file: solution.py, or design.md for a system design
   editor: null,
   models: {},
   useFallback: false,
@@ -27,6 +28,9 @@ const state = {
   paths: [],
   pathFilter: { q: "", foryou: false, ready: false, domain: "", company: "", module: "", sort: "" },
   filters: { q: "", company: "", round: "", status: "" },
+  designs: [],
+  designFilter: { q: "", company: "", status: "", chosen: false },
+  timer: null,
 };
 
 /* ---------- Utilities ---------- */
@@ -147,7 +151,7 @@ async function initEditor() {
     $("#editor").hidden = true;
     const ta = $("#fallback-editor");
     ta.hidden = false;
-    ta.addEventListener("input", () => { if (state.activeFile === "solution.py") scheduleSave(); });
+    ta.addEventListener("input", () => { if (state.activeFile === state.mainFile) scheduleSave(); });
     ta.addEventListener("keydown", (e) => {
       if (e.key === "Tab" && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
@@ -182,13 +186,16 @@ async function initEditor() {
 
 function getCode() {
   if (state.useFallback) {
-    return state.fallbackShowing === "solution.py" ? $("#fallback-editor").value : state.fallbackCode;
+    return state.fallbackShowing === state.mainFile ? $("#fallback-editor").value : state.fallbackCode;
   }
-  return state.models["solution.py"] ? state.models["solution.py"].getValue() : "";
+  return state.models[state.mainFile] ? state.models[state.mainFile].getValue() : "";
 }
 
+const FILE_LANG = { py: "python", md: "markdown", sh: "shell", yaml: "yaml", yml: "yaml", json: "json", ts: "typescript", js: "javascript" };
+function fileLanguage(name) { return FILE_LANG[name.split(".").pop()] || "plaintext"; }
+
 function setFiles(code, files) {
-  const all = [{ name: "solution.py", content: code, editable: true }, ...files.map((f) => ({ ...f, editable: false }))];
+  const all = [{ name: state.mainFile, content: code, editable: true }, ...files.map((f) => ({ ...f, editable: false }))];
   if (state.useFallback) {
     state.fallbackFiles = all;
     state.fallbackCode = code;
@@ -198,13 +205,14 @@ function setFiles(code, files) {
     state.models = {};
     for (const f of all) {
       const uri = monaco.Uri.parse(`file:///${state.challenge.track}/${state.challenge.id}/${f.name}`);
-      const model = monaco.editor.createModel(f.content, "python", uri);
+      const model = monaco.editor.createModel(f.content, fileLanguage(f.name), uri);
       if (f.editable) model.onDidChangeContent(() => scheduleSave());
       state.models[f.name] = model;
     }
   }
-  renderFileTabs(all);
-  showFile("solution.py");
+  // A design gets a rendered preview, with its Mermaid diagrams drawn.
+  renderFileTabs(isBoard() ? [...all, { name: PREVIEW, preview: true }] : all);
+  showFile(state.mainFile);
 }
 
 function renderFileTabs(files) {
@@ -213,20 +221,25 @@ function renderFileTabs(files) {
     class: "file-tab", role: "tab", type: "button", "data-file": f.name,
     "aria-selected": f.name === state.activeFile ? "true" : "false",
     onclick: () => showFile(f.name),
-  }, f.name, f.editable ? null : el("span", { class: "ro", text: "read-only" }))));
+  }, f.name, f.editable || f.preview ? null : el("span", { class: "ro", text: "read-only" }))));
 }
 
 function showFile(name) {
-  if (state.useFallback) {
+  const preview = name === PREVIEW;
+  $(".editor-wrap").classList.toggle("previewing", preview);
+  if (preview) {
+    if (state.useFallback && state.fallbackShowing === state.mainFile) state.fallbackCode = $("#fallback-editor").value;
+    renderPreview();
+  } else if (state.useFallback) {
     const ta = $("#fallback-editor");
-    if (state.fallbackShowing === "solution.py") state.fallbackCode = ta.value;
+    if (state.fallbackShowing === state.mainFile) state.fallbackCode = ta.value;
     const file = state.fallbackFiles.find((f) => f.name === name);
-    ta.value = name === "solution.py" ? state.fallbackCode : file.content;
-    ta.readOnly = name !== "solution.py";
+    ta.value = name === state.mainFile ? state.fallbackCode : file.content;
+    ta.readOnly = name !== state.mainFile;
     state.fallbackShowing = name;
   } else {
     state.editor.setModel(state.models[name]);
-    state.editor.updateOptions({ readOnly: name !== "solution.py" });
+    state.editor.updateOptions({ readOnly: name !== state.mainFile, wordWrap: name.endsWith(".md") ? "on" : "off" });
   }
   state.activeFile = name;
   $$(".file-tab").forEach((t) => t.setAttribute("aria-selected", t.dataset.file === name ? "true" : "false"));
@@ -330,7 +343,8 @@ async function openChallenge(trackId, cid) {
   state.hintReady = c.hint_ready;
   // Problem first: some lessons open only after the first test run (docs/PEDAGOGY.md, rule 1).
   state.lessonLocked = c.lesson_mode === "after-run" && c.runs === 0 && !c.solved;
-  state.activeFile = "solution.py";
+  state.mainFile = c.file;
+  state.activeFile = c.file;
   document.title = `${c.title} · Whetstone`;
 
   $("#challenge-title").textContent = c.title;
@@ -348,17 +362,22 @@ async function openChallenge(trackId, cid) {
   colorize($("#panel-problem"));
   $("#hint-list").replaceChildren(...c.hints.map((html) => { const li = el("li"); li.innerHTML = html; return li; }));
   colorize($("#hint-list"));
+  setupBoard(c);
   updateHintButton();
   updateSolutionGate();
   $("#solution-code").hidden = true;
+  $("#solution-doc").hidden = true;
   selectTab(c.runs > 0 || state.lessonLocked ? "problem" : "lesson");
 
   setFiles(c.code, c.files);
   $("#save-state").textContent = c.code !== c.starter ? "Draft restored" : "";
   clearResults();
-  $("#results").replaceChildren(el("p", { class: "results-empty", text: c.solved
-    ? "You solved this one. Run it again any time, or try a cleaner solution."
-    : "Run the tests to see results here. Visible tests check the basics. Submit also runs hidden tests for edge cases." }));
+  $("#results").replaceChildren(el("p", { class: "results-empty", text: isBoard()
+    ? "Check your sections to see what is still empty. When the design is done, ask your agent for a review: it grades the design against a rubric, point by point."
+    : c.solved
+      ? "You solved this one. Run it again any time, or try a cleaner solution."
+      : "Run the tests to see results here. Visible tests check the basics. Submit also runs hidden tests for edge cases." }));
+  if (c.review) renderReview(c.review);
   renderRail();
   $(".reader-body").scrollTop = 0;
   state.notes = [];
@@ -370,7 +389,11 @@ async function openChallenge(trackId, cid) {
 /* ---------- Agent inbox ---------- */
 // Build buttons queue a request; the learner's own agent, watching with `whetstone watch`,
 // claims it and reports back. Whetstone never starts an agent itself.
-const REQUEST_LABEL = { build: "Prepare", variant: "Prepare review variant", "fill-path": "Prepare all missing modules", review: "Ask for a review", profile: "Set up my profile" };
+const REQUEST_LABEL = {
+  build: "Prepare", variant: "Prepare review variant", "fill-path": "Prepare all missing modules", review: "Ask for a review",
+  profile: "Set up my profile", design: "Prepare", grade: "Ask for review",
+};
+const REVIEWING = new Set(["review", "grade"]);
 const RECENT_MS = 10 * 60 * 1000;
 
 function requestButton(kind, target, label) {
@@ -387,16 +410,18 @@ function renderRequest(wrap) {
   const button = (text, cls, onclick) => el("button", { type: "button", class: `btn ${cls}`, onclick }, text);
   let nodes;
   if (!r) {
-    nodes = [button(wrap.dataset.label, "btn-secondary", () => sendRequest(kind, target))];
+    nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", () => sendRequest(kind, target))];
   } else if (r.status === "queued") {
     nodes = [el("span", { class: "req-state", text: state.agent.connected ? "Queued for your agent" : "Waiting for your agent" }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "claimed") {
-    nodes = [el("span", { class: "req-state working", text: "Your agent is preparing it…" })];
+    nodes = [el("span", { class: "req-state working", text: REVIEWING.has(kind) ? "Your agent is reviewing…" : "Your agent is preparing it…" })];
+  } else if (r.status === "done" && REVIEWING.has(kind)) {
+    nodes = [el("span", { class: "req-state done", text: "Reviewed" }), button("Ask again", "btn-text", () => sendRequest(kind, target))];
   } else if (r.status === "done") {
     nodes = r.result && r.result.includes("/") ? [el("a", { class: "btn btn-primary", href: `#/${r.result}` }, "Start")] : [el("span", { class: "req-state done", text: "Done" })];
   } else {
-    nodes = [el("span", { class: "req-state failed", text: `Not prepared: ${r.result || "your agent could not do it."}` }),
+    nodes = [el("span", { class: "req-state failed", text: `${REVIEWING.has(kind) ? "Not reviewed" : "Not prepared"}: ${r.result || "your agent could not do it."}` }),
       button("Try again", "btn-text", () => sendRequest(kind, target))];
   }
   wrap.replaceChildren(...nodes);
@@ -404,6 +429,7 @@ function renderRequest(wrap) {
 
 async function sendRequest(kind, target) {
   try {
+    if (kind === "grade") await saveDraft();  // the agent grades what is saved
     const r = await api("/api/requests", { method: "POST", body: { kind, target } });
     state.requests[`${kind}:${r.target}`] = r;
     $$(".req").forEach(renderRequest);
@@ -442,6 +468,10 @@ async function pollRequests() {
     await loadTracks();
     if (!$("#home").hidden) loadHome();
     else if (!$("#paths").hidden) loadPaths();
+    else if (!$("#design").hidden) loadDesign();
+    const c = state.challenge;
+    const graded = c && next[`grade:${c.track}/${c.id}`];
+    if (graded && graded.status === "done" && (before[`grade:${c.track}/${c.id}`] || {}).status !== "done" && !$("#workspace").hidden) await refreshReview();
   }
 }
 
@@ -503,7 +533,7 @@ async function dismissNote(id) {
 
 function goToLine(line) {
   selectTab("code");
-  showFile("solution.py");
+  showFile(state.mainFile);
   if (state.editor) { state.editor.revealLineInCenter(line); state.editor.setPosition({ lineNumber: line, column: 1 }); state.editor.focus(); }
 }
 
@@ -561,7 +591,7 @@ async function colorize(root, fallback) {
 function renderLesson() {
   const panel = $("#panel-lesson");
   if (state.lessonLocked) {
-    panel.replaceChildren(el("p", { class: "panel-intro", text: "Try the problem first. The lesson opens after your first test run: attempting it before reading makes the idea stick." }));
+    panel.replaceChildren(el("p", { class: "panel-intro", text: `Try the problem first. The lesson opens after your first ${isBoard() ? "section check" : "test run"}: attempting it before reading makes the idea stick.` }));
   } else {
     panel.innerHTML = state.challenge.lesson_html;
     colorize(panel);
@@ -576,7 +606,7 @@ function updateHintButton() {
   btn.disabled = !state.hintReady;
   btn.textContent = state.hintReady
     ? `Show hint ${state.hintsShown + 1} of ${total}`
-    : `Hint ${state.hintsShown + 1} unlocks after your next test run`;
+    : `Hint ${state.hintsShown + 1} unlocks after your next ${isBoard() ? "section check" : "test run"}`;
 }
 
 async function showNextHint() {
@@ -598,18 +628,30 @@ async function showNextHint() {
 function updateSolutionGate() {
   const open = state.challenge.solution_open;
   $("#solution-gate").hidden = false;
+  const board = isBoard();
   $("#solution-intro").textContent = open
-    ? "Compare the reference with your code. Name one difference, and why it matters."
-    : "The reference opens after you solve it. If you are truly stuck, you can give up: that counts as solved with help, and a variant comes back in 2 days.";
-  $("#reveal-solution").textContent = open ? "Show the reference solution" : "I give up: show the solution";
+    ? board ? "Compare the reference design with yours. Name one decision it makes differently, and why." : "Compare the reference with your code. Name one difference, and why it matters."
+    : board
+      ? "The reference design opens after your agent's review passes. If you are truly stuck, you can give up: that counts as solved with help, and a variant comes back in 2 days."
+      : "The reference opens after you solve it. If you are truly stuck, you can give up: that counts as solved with help, and a variant comes back in 2 days.";
+  $("#reveal-solution").textContent = open ? `Show the reference ${board ? "design" : "solution"}` : `I give up: show the ${board ? "design" : "solution"}`;
 }
 
 async function revealSolution() {
   const { track, id, solution_open: open } = state.challenge;
-  if (!open && !confirm("Give up and see the reference solution? This question will count as solved with help.")) return;
+  if (!open && !confirm(`Give up and see the reference ${isBoard() ? "design" : "solution"}? This question will count as solved with help.`)) return;
   const s = await api(`/api/challenges/${track}/${id}/solution`, { method: "POST", body: { give_up: !open } });
   state.challenge.solution_open = true;
   $("#solution-gate").hidden = true;
+  if (s.html) {
+    const doc = $("#solution-doc");
+    doc.innerHTML = s.html;
+    doc.hidden = false;
+    await renderMermaid(doc);
+    colorize(doc);
+    if (isBoard() && state.challenge.review) refreshReview();  // the rubric's hidden points open too
+    return;
+  }
   const pre = $("#solution-code");
   const code = pre.querySelector("code");
   code.textContent = s.code;
@@ -624,17 +666,17 @@ async function resetCode() {
   const r = await api(`/api/challenges/${track}/${id}/reset`, { method: "POST" });
   if (state.useFallback) {
     state.fallbackCode = r.code;
-    if (state.activeFile === "solution.py") $("#fallback-editor").value = r.code;
+    if (state.activeFile === state.mainFile) $("#fallback-editor").value = r.code;
   } else {
-    state.models["solution.py"].setValue(r.code);
+    state.models[state.mainFile].setValue(r.code);
   }
-  showFile("solution.py");
+  showFile(state.mainFile);
   $("#save-state").textContent = "Reset to starter";
 }
 
 /* ---------- Running tests ---------- */
 const STATUS_TEXT = { new: "not started", attempted: "in progress", assisted: "solved with help", solved: "solved", mastered: "mastered" };
-const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review", tests: "Write the tests", design: "Design" };
+const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review", tests: "Write the tests", design: "Design", whiteboard: "System design" };
 const VERDICT = { passed: "Passed", failed: "Not yet", error: "Could not run", timeout: "Timed out", blocked: "Blocked" };
 
 /* ---------- Predict then explain (docs/PEDAGOGY.md, rule 8) ---------- */
@@ -645,7 +687,7 @@ function setPredict(on) { try { localStorage.setItem(PREDICT_KEY, on ? "on" : "o
 // Ask on the first run of a question, and before each Submit until it is solved.
 function wantsGuess(mode) {
   const c = state.challenge;
-  if (!predictOn()) return false;
+  if (!predictOn() || isBoard()) return false;
   return mode === "run" ? c.runs === 0 && c.visible_tests.length > 0 : !c.solved;
 }
 
@@ -724,6 +766,11 @@ function explainBox(r) {
 
 async function run(mode, guess) {
   if (!state.challenge || state.running) return;
+  if (isBoard() && mode === "submit") {  // a design is graded by the agent, not by tests
+    const ask = $("#review-req button");
+    if (ask) ask.click();
+    return;
+  }
   if (guess === undefined && state.guessing && state.guessing.mode === mode) { state.guessing.send(); return; }
   if (guess === undefined && wantsGuess(mode)) { showGuess(mode); return; }
   state.guessing = null;
@@ -732,9 +779,9 @@ async function run(mode, guess) {
   const runBtn = $("#run-btn"), subBtn = $("#submit-btn");
   runBtn.disabled = subBtn.disabled = true;
   // Set only the leading text node, so the shortcut hint inside the button survives.
-  (mode === "run" ? runBtn : subBtn).firstChild.nodeValue = mode === "run" ? "Running… " : "Submitting… ";
-  showResults("running", "Running…");
-  $("#results").replaceChildren(el("p", { class: "results-empty", text: mode === "run" ? "Running the visible tests…" : "Running all tests, including hidden ones…" }));
+  (mode === "run" ? runBtn : subBtn).firstChild.nodeValue = isBoard() ? "Checking… " : mode === "run" ? "Running… " : "Submitting… ";
+  showResults("running", isBoard() ? "Checking…" : "Running…");
+  $("#results").replaceChildren(el("p", { class: "results-empty", text: isBoard() ? "Checking your sections…" : mode === "run" ? "Running the visible tests…" : "Running all tests, including hidden ones…" }));
   try {
     const { track, id } = state.challenge;
     const report = await api(`/api/challenges/${track}/${id}/run`, { method: "POST", body: { code: getCode(), mode, prediction: guess || null } });
@@ -753,7 +800,7 @@ async function run(mode, guess) {
   } finally {
     state.running = false;
     runBtn.disabled = subBtn.disabled = false;
-    runBtn.firstChild.nodeValue = "Run tests ";
+    runBtn.firstChild.nodeValue = isBoard() ? "Check sections " : "Run tests ";
     subBtn.firstChild.nodeValue = "Submit ";
   }
 }
@@ -789,7 +836,7 @@ function renderReport(r, mode) {
   if (r.first_solve) nodes.push(explainBox(r) || "");
   nodes.push(el("div", { class: "verdict", "data-status": r.status },
     el("span", { class: "verdict-word", text: VERDICT[r.status] || r.status }),
-    el("span", { class: "verdict-sum", text: `${r.summary} (${r.duration.toFixed(1)} s)` })));
+    el("span", { class: "verdict-sum", text: isBoard() ? r.summary : `${r.summary} (${r.duration.toFixed(1)} s)` })));
 
   if (r.tests.length) {
     nodes.push(el("div", { class: "strip", "aria-hidden": "true" },
@@ -810,7 +857,7 @@ function rank(t) { return { failed: 0, error: 0, skipped: 1, passed: 2 }[t.outco
 
 function testRow(t) {
   const name = el("span", { class: "test-name" }, t.label, t.hidden ? el("span", { class: "vis", text: "hidden" }) : null);
-  const time = el("span", { class: "test-time", text: `${(t.duration * 1000).toFixed(0)} ms` });
+  const time = isBoard() ? null : el("span", { class: "test-time", text: `${(t.duration * 1000).toFixed(0)} ms` });
   const dot = el("span", { class: `dot ${t.outcome}`, "aria-label": t.outcome });
   if (t.outcome === "passed") {
     return el("li", { class: "test-row" }, el("div", { class: "test-line" }, dot, name, time));
@@ -820,6 +867,227 @@ function testRow(t) {
       el("summary", {}, dot, name, time),
       t.message ? el("p", { class: "test-msg", text: t.message }) : null,
       t.details ? el("pre", { class: "trace", text: t.details }) : null));
+}
+
+/* ---------- System design: the scratchpad ---------- */
+// A "whiteboard" question is a design interview. The learner writes Markdown with Mermaid
+// diagrams; Check counts what is still empty, and their own agent grades the design against a
+// rubric (`whetstone grade`), which the app shows like test results.
+const PREVIEW = "Preview";
+const MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js";
+let mermaidLoad = null;
+
+function isBoard() { return Boolean(state.challenge && state.challenge.type === "whiteboard"); }
+
+function setupBoard(c) {
+  const board = c.type === "whiteboard";
+  clearInterval(state.timer);
+  $("#workspace").classList.toggle("board", board);
+  $(".tab-code").textContent = board ? "Design" : "Code";
+  $("#run-btn").firstChild.nodeValue = board ? "Check sections " : "Run tests ";
+  $("#run-btn").title = board ? "Check which sections are still empty (Ctrl or Cmd + Enter)" : "Run visible tests (Ctrl or Cmd + Enter)";
+  $("#submit-btn").hidden = board;
+  $("#review-req").replaceChildren(...(board ? [requestButton("grade", `${c.track}/${c.id}`, "Ask for review")] : []));
+  $("#hints-intro").textContent = `Four rungs: a question, the idea, a next step, then a skeleton. Each one opens after a ${board ? "section check, so write something" : "test run, so try something"} between hints.`;
+  if (board) $("#challenge-meta").append(timerButton(c));
+}
+
+/** An interview clock: counts down from the question's minutes. It only informs; nothing stops. */
+function timerButton(c) {
+  const key = `whetstone.timer.${c.track}/${c.id}`;
+  const read = () => { try { return Number(localStorage.getItem(key)) || 0; } catch (_) { return 0; } };
+  const write = (end) => { try { if (end) localStorage.setItem(key, String(end)); else localStorage.removeItem(key); } catch (_) { /* per-viewer only */ } };
+  const btn = el("button", { type: "button", class: "timer", title: "Start or stop the interview clock" });
+  const tick = () => {
+    const end = read();
+    const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+    btn.dataset.on = String(Boolean(end));
+    btn.textContent = !end ? `Start a ${c.minutes}-minute clock` : left ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left` : "Time is up";
+  };
+  btn.addEventListener("click", () => { write(read() ? 0 : Date.now() + c.minutes * 60_000); tick(); });
+  state.timer = setInterval(tick, 1000);
+  tick();
+  return btn;
+}
+
+function loadMermaid() {
+  mermaidLoad ??= new Promise((resolve) => {
+    document.head.append(el("script", { src: MERMAID_SRC, onload: () => resolve(window.mermaid || null), onerror: () => resolve(null) }));
+  });
+  return mermaidLoad;
+}
+
+/** Draw every ```mermaid block in `root`. A broken diagram shows its error instead. */
+async function renderMermaid(root) {
+  const blocks = $$("code.language-mermaid").filter((c) => root.contains(c));
+  if (!blocks.length) return;
+  const mermaid = await loadMermaid();
+  if (!mermaid) {
+    blocks.forEach((c) => c.closest("pre").before(el("p", { class: "diagram-error", text: "Diagrams need the Mermaid script from cdn.jsdelivr.net, which did not load. The text is below." })));
+    return;
+  }
+  // Draw in the app's own colors, so a diagram reads as part of the page in either theme.
+  const css = getComputedStyle(document.documentElement);
+  const v = (name) => css.getPropertyValue(name).trim();
+  mermaid.initialize({
+    startOnLoad: false, securityLevel: "strict", theme: "base",
+    themeVariables: {
+      darkMode: isDark(), fontFamily: "IBM Plex Sans, system-ui, sans-serif", fontSize: "14px",
+      background: v("--stone-raised"), primaryColor: v("--stone-sunk"), primaryBorderColor: v("--grit"), primaryTextColor: v("--ink"),
+      secondaryColor: v("--stone"), tertiaryColor: v("--stone-raised"), lineColor: v("--grit"), textColor: v("--ink"),
+    },
+  });
+  for (const code of blocks) {
+    const pre = code.closest("pre") || code;
+    const id = `mmd-${Math.random().toString(36).slice(2)}`;
+    try {
+      await mermaid.parse(code.textContent);
+      const { svg } = await mermaid.render(id, code.textContent);
+      const box = el("div", { class: "diagram" });
+      box.innerHTML = svg;
+      pre.replaceWith(box);
+    } catch (err) {
+      document.getElementById(`d${id}`)?.remove();  // mermaid leaves its scratch element behind on errors
+      pre.before(el("p", { class: "diagram-error", text: `This diagram does not parse: ${String(err.message || err).split("\n").slice(0, 2).join(" ")}` }));
+    }
+  }
+}
+
+async function renderPreview() {
+  const box = $("#preview");
+  box.replaceChildren(el("p", { class: "results-empty", text: "Drawing the preview…" }));
+  try {
+    const { html } = await api("/api/render", { method: "POST", body: { text: getCode() } });
+    box.innerHTML = html;
+    await renderMermaid(box);
+    colorize(box);
+  } catch (err) {
+    box.replaceChildren(el("p", { class: "results-empty", text: `The preview could not be drawn: ${err.message}` }));
+  }
+}
+
+async function refreshReview() {
+  const c = state.challenge;
+  const r = await api(`/api/challenges/${c.track}/${c.id}/review`);
+  if (state.challenge !== c || !r.review) return;
+  const firstSolve = r.solved && !c.solved;
+  c.review = r.review;
+  if (firstSolve) {
+    c.solved = c.solution_open = true;
+    updateSolutionGate();
+  }
+  if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
+  renderReview(r.review, firstSolve);
+  await Promise.all([loadTracks().then(renderRail), loadStats()]);
+}
+
+const POINT_DOT = { covered: "passed", partial: "partial", missing: "failed" };
+const POINT_ORDER = { missing: 0, partial: 1, covered: 2 };
+
+function renderReview(rv, firstSolve) {
+  const open = rv.points.filter((p) => p.must && p.verdict !== "covered").length;
+  showResults(rv.passed ? "passed" : "failed", rv.passed ? "Passed" : "Not yet", `${rv.covered}/${rv.points.length}`);
+  const rows = [...rv.points].sort((a, b) => POINT_ORDER[a.verdict] - POINT_ORDER[b.verdict] || Number(b.must) - Number(a.must));
+  $("#results").replaceChildren(
+    firstSolve ? el("p", { class: "solved-note", text: "Passed review. A variant of this design comes back in a few days, to make it stick." }) : "",
+    el("div", { class: "verdict", "data-status": rv.passed ? "passed" : "failed" },
+      el("span", { class: "verdict-word", text: rv.passed ? "Passed review" : "Not yet" }),
+      el("span", { class: "verdict-sum", text: `${rv.covered} of ${plural(rv.points.length, "rubric point")} covered. ${open ? `${plural(open, "must-have")} still open.` : "Every must-have is covered."} Reviewed ${shortDate(rv.created_at)}.` })),
+    el("p", { class: "review-summary", text: rv.summary }),
+    el("ul", { class: "test-list" }, rows.map(reviewRow)));
+  $("#results").scrollTop = 0;
+}
+
+function reviewRow(p) {
+  // A point the design misses stays hidden, like a hidden test: only the agent's question shows.
+  const label = p.point || (p.verdict === "partial" ? "Partly covered" : "Not covered yet");
+  const name = el("span", { class: "test-name" }, label, p.must ? el("span", { class: "vis", text: "must-have" }) : null);
+  const head = [el("span", { class: `dot ${POINT_DOT[p.verdict] || ""}`, "aria-label": p.verdict }), name, el("span", { class: "test-time", text: p.section })];
+  return el("li", { class: "test-row" }, el("details", { open: p.verdict !== "covered" },
+    el("summary", {}, ...head),
+    p.quote ? el("blockquote", { class: "review-quote", text: p.quote }) : null,
+    p.note ? el("p", { class: "review-note", text: p.note }) : null));
+}
+
+/* ---------- Design: the system design page ---------- */
+function initDesign() {
+  $("#d-search").addEventListener("input", (e) => { state.designFilter.q = e.target.value.trim().toLowerCase(); renderDesign(); });
+  $("#d-company").addEventListener("change", (e) => { state.designFilter.company = e.target.value; renderDesign(); });
+  $$("#d-status .chip").forEach((c) => c.addEventListener("click", () => {
+    state.designFilter.status = c.dataset.status;
+    state.designFilter.chosen = true;
+    renderDesign();
+  }));
+}
+
+async function loadDesign() {
+  const [d, profile] = await Promise.all([api("/api/design"), api("/api/profile"), loadTracks()]);
+  state.profile = profile;
+  state.designs = d.prompts;
+  const f = state.designFilter;
+  const mine = pathInterests();
+  if (!f.chosen) f.status = mine.focus.size || mine.targets.size ? "for-you" : "";
+  const counts = new Map();
+  for (const p of d.prompts) for (const co of p.companies) counts.set(co, (counts.get(co) || 0) + 1);
+  f.company = fillSelect($("#d-company"), "All companies", [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])), f.company);
+  const reports = d.prompts.reduce((n, p) => n + p.reports, 0);
+  $("#design-lede").textContent = d.prompts.length
+    ? `${plural(d.prompts.length, "design question")} from ${plural(reports, "interview report")} at ${plural(counts.size, "company", "companies")}. Write your design on a scratchpad your agent can watch, then ask it to review the design against a rubric.`
+    : "No system design questions in the catalog yet.";
+  renderDesign();
+}
+
+function renderDesign() {
+  const f = state.designFilter;
+  const mine = pathInterests();
+  const forYou = (p) => mine.focus.has(p.id) || p.companies.some((c) => mine.targets.has(c.toLowerCase()));
+  const keep = (p) => (!f.company || p.companies.includes(f.company))
+    && (!f.status || (f.status === "for-you" ? forYou(p) : f.status === "ready" ? p.questions.length > 0 : !p.questions.length))
+    && (!f.q || `${p.title} ${p.summary} ${p.companies.join(" ")} ${p.asked.join(" ")}`.toLowerCase().includes(f.q));
+  const rows = state.designs.filter(keep).sort((a, b) => b.reports - a.reports || a.title.localeCompare(b.title));
+  $$("#d-status .chip").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.status === f.status)));
+  const rank = { attempted: 0, new: 1 };
+  const yours = state.designs.flatMap((p) => p.questions.map((q) => ({ ...q, prompt: p.title }))).sort((a, b) => (rank[a.status] ?? 2) - (rank[b.status] ?? 2));
+  $("#design-yours").replaceChildren(...(yours.length ? [el("h2", { text: "Your designs" }), el("ul", { class: "home-list" }, yours.map(designQuestionRow))] : []));
+  $("#design-count").textContent = rows.length
+    ? `Showing ${plural(rows.length, "design question")}, most asked first.${f.status === "for-you" ? " For you means your focus and the companies you target." : ""}`
+    : f.status === "for-you" ? "Nothing here for you yet. Choose All, or add skills and companies to your focus." : "Nothing matches. Clear a filter or try another word.";
+  const max = Math.max(1, ...rows.map((p) => p.reports));
+  $("#design-list").replaceChildren(...rows.map((p) => el("li", {}, designRow(p, max))));
+}
+
+const BOARD_STATUS = { new: "Not started", attempted: "In progress", assisted: "Passed with help", solved: "Passed review", mastered: "Mastered" };
+function boardAction(q) { return q.status === "new" ? "Start" : q.status === "attempted" ? "Continue" : "Open"; }
+
+function designQuestionRow(q) {
+  const review = q.points ? `${q.covered} of ${q.points} rubric points covered` : q.status === "new" ? "" : "Not reviewed yet";
+  return el("li", { class: "home-row" },
+    el("a", { class: "home-text link-like", href: `#/${q.key}` },
+      el("span", { class: "home-title", text: q.title }),
+      el("span", { class: "home-sub", text: [q.prompt, BOARD_STATUS[q.status] || q.status, review].filter(Boolean).join(". ") + "." })),
+    el("a", { class: `btn ${q.status === "attempted" ? "btn-primary" : "btn-secondary"}`, href: `#/${q.key}` }, boardAction(q)));
+}
+
+/** One design question: who asks it and how often. Opening the row shows how it was asked. */
+function designRow(p, max) {
+  const shown = p.companies.slice(0, 3).join(", ") + (p.companies.length > 3 ? ` and ${p.companies.length - 3} more` : "");
+  const q = p.questions.find((x) => x.status === "attempted") || p.questions.find((x) => x.status === "new") || p.questions[0];
+  const action = q ? el("a", { class: "btn btn-quiet btn-small", href: `#/${q.key}` }, boardAction(q)) : requestButton("design", p.id);
+  const asked = p.asked.length ? el("ul", { class: "design-asked", hidden: true }, p.asked.map((t) => el("li", { text: t }))) : null;
+  return el("div", { class: "row-item" },
+    el("button", { type: "button", class: "row", "aria-expanded": "false", onclick: (e) => {
+      if (!asked) return;
+      asked.hidden = !asked.hidden;
+      e.currentTarget.setAttribute("aria-expanded", String(!asked.hidden));
+    } },
+      el("span", { class: "row-main" },
+        el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), el("span", { class: "row-cos", text: shown })),
+        el("span", { class: "row-sub", text: p.asked[0] || p.summary })),
+      el("span", { class: "row-asked" },
+        el("span", { class: "freq", style: `--w:${Math.round((p.reports / max) * 100)}%`, "aria-hidden": "true" }),
+        el("span", {}, el("strong", { text: p.reports }), p.reports === 1 ? " report" : " reports"))),
+    el("span", { class: "row-actions" }, action),
+    asked);
 }
 
 /* ---------- Generate drawer ---------- */
@@ -965,7 +1233,6 @@ function forYou(p) {
 }
 
 function problemStatus(p) {
-  if (p.format === "design") return { kind: "design", text: "Discussion only" };
   if (!p.links.length) return { kind: "none", text: "Not ready yet" };
   const total = p.links.reduce((s, l) => s + l.total, 0);
   const solved = p.links.reduce((s, l) => s + l.solved, 0);
@@ -983,9 +1250,8 @@ function catalogRow(p, hits, max) {
   const focus = (state.profile && state.profile.focus) || [];
   const inFocus = focus.includes(p.id);
   const link = p.links[0];
-  const practise = p.format === "design" ? el("span", { class: "status", "data-s": "design", text: "Discussion only" })
-    : link ? el("a", { class: "btn btn-quiet btn-small", href: `#/${link.track}/${link.challenge}` }, link.solved ? "Continue" : "Start")
-      : requestButton("build", p.id);
+  const practise = link ? el("a", { class: "btn btn-quiet btn-small", href: `#/${link.track}/${link.challenge}` }, link.solved ? "Continue" : "Start")
+    : requestButton(p.format === "design" ? "design" : "build", p.id);
   return el("div", { class: "row-item" },
     el("button", { type: "button", class: "row", title: rounds, onclick: () => openProblem(p.id) },
       el("span", { class: "row-main" },
@@ -1057,7 +1323,9 @@ function renderProblemActions(p) {
   }, l.solved ? `Continue: ${l.title} (${l.solved} of ${l.total} solved)` : `Start: ${l.title}`));
   const own = p.links.some((l) => l.own);
   if (p.format === "design") {
-    nodes.push(el("p", { class: "note", text: "This is a discussion round, so there are no tests to run. Read what people were asked and sketch your answer." }));
+    nodes.push(el("div", { class: "agent-ask" },
+      el("p", { class: "note", text: "This is a system design round. Your agent prepares a design question: you write the design on a scratchpad it can watch, and it reviews the design against a rubric." }),
+      requestButton("design", p.id, "Prepare a design question")));
   } else if (state.config && state.config.generator_enabled) {
     nodes.push(el("button", {
       type: "button", class: `btn ${p.links.length ? "btn-quiet" : "btn-primary"}`, id: "build-btn", onclick: () => buildProblem(p),
@@ -1719,11 +1987,11 @@ function homeRow(title, sub, action) {
 function listKeys(e) {
   if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector("dialog[open]")) return;
   if (e.target.closest("input, textarea, select, [contenteditable='true'], .monaco-editor")) return;
-  const view = !$("#catalog").hidden ? "catalog" : !$("#paths").hidden ? "paths" : null;
+  const view = !$("#catalog").hidden ? "catalog" : !$("#paths").hidden ? "paths" : !$("#design").hidden ? "design" : null;
   if (!view) return;
   if (e.key === "/") {
     e.preventDefault();
-    $(view === "catalog" ? "#f-search" : "#p-search").focus();
+    $({ catalog: "#f-search", paths: "#p-search", design: "#d-search" }[view]).focus();
   } else if (view === "catalog" && (e.key === "j" || e.key === "k")) {
     const rows = $$("#catalog-grid .row");
     if (!rows.length) return;
@@ -1740,9 +2008,10 @@ function showView(view) {
   $("#home").hidden = view !== "home";
   $("#catalog").hidden = view !== "catalog";
   $("#paths").hidden = view !== "paths";
+  $("#design").hidden = view !== "design";
   $("#workspace").hidden = view !== "practice";
   const nav = view === "home" ? "practice" : view;
-  for (const v of ["catalog", "paths", "practice"]) $(`#nav-${v}`).setAttribute("aria-current", nav === v ? "page" : "false");
+  for (const v of ["catalog", "paths", "design", "practice"]) $(`#nav-${v}`).setAttribute("aria-current", nav === v ? "page" : "false");
 }
 
 // A page that cannot load says why, instead of staying blank.
@@ -1778,6 +2047,12 @@ async function showRoute() {
     showView("paths");
     document.title = "Paths · Whetstone";
     await loadPaths();
+    return;
+  }
+  if (parts[0] === "design") {
+    showView("design");
+    document.title = "Design · Whetstone";
+    await loadDesign();
     return;
   }
   if (parts[0] === "catalog") {
@@ -1819,6 +2094,7 @@ async function boot() {
   PANE.addEventListener("change", onLayoutChange);
   PHONE.addEventListener("change", onLayoutChange);
   initPaths();
+  initDesign();
   initPair();
   document.addEventListener("keydown", listKeys);
 

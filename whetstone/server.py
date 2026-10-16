@@ -51,6 +51,10 @@ class RunBody(CodeBody):
     prediction: dict | None = None
 
 
+class RenderBody(BaseModel):
+    text: str = Field(max_length=200_000)
+
+
 class ExplainBody(BaseModel):
     test: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1, max_length=2000)
@@ -221,6 +225,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c = get_challenge(track, cid)
         draft = store.get_draft(c.key)
         store.record_event(c.key, "opened", {"title": c.title, "type": c.kind})
+        solved = c.key in store.solved_keys()
+        reveal = solved or "solution" in store.reveals(c.key)
         return {
             "track": track,
             "id": cid,
@@ -237,14 +243,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "visible_tests": visible_test_names(c),
             "hints": [render_md(h) for h in c.hints()[: _hints_opened(store, c.key)]],
             "hint_ready": store.hint_ready(c.key),
-            "solution_open": c.key in store.solved_keys() or "solution" in store.reveals(c.key),
-            "starter": c.read("starter.py"),
-            "code": draft if draft is not None else c.read("starter.py"),
+            "solution_open": reveal,
+            "file": c.editor_file,
+            "language": "markdown" if c.is_whiteboard else "python",
+            "starter": c.read(c.starter_file),
+            "code": draft if draft is not None else c.read(c.starter_file),
+            "review": review_view(store.latest_review(c.key), reveal) if c.is_whiteboard else None,
             "files": [{"name": n, "content": c.read(n)} for n in c.support]
             + [{"name": f"tests/{f.name}", "content": f.read_text(encoding="utf-8")} for f in c.visible_test_files()],
-            "solved": c.key in store.solved_keys(),
+            "solved": solved,
             "runs": store.run_count(c.key),
         }
+
+    @app.get("/api/challenges/{track}/{cid}/review")
+    def review(track: str, cid: str):
+        c = get_challenge(track, cid)
+        reveal = c.key in store.solved_keys() or "solution" in store.reveals(c.key)
+        return {"review": review_view(store.latest_review(c.key), reveal), "solved": c.key in store.solved_keys()}
 
     @app.get("/api/challenges/{track}/{cid}/hints/{index}")
     def hint(track: str, cid: str, index: int):
@@ -268,7 +283,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if "solution" not in store.reveals(c.key):
             store.record_event(c.key, "solution", {"gave_up": body.give_up})
         store.record_reveal(c.key, "solution")
-        return {"code": c.read("solution.py")}
+        code = c.read(c.solution_file)
+        return {"code": code, "html": render_md(code)} if c.is_whiteboard else {"code": code}
 
     @app.get("/api/challenges/{track}/{cid}/notes")
     def notes(track: str, cid: str, after: int = 0):
@@ -373,24 +389,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c = get_challenge(track, cid)
         store.delete_draft(c.key)
         store.record_event(c.key, "reset")
-        return {"code": c.read("starter.py")}
+        return {"code": c.read(c.starter_file)}
 
     @app.post("/api/challenges/{track}/{cid}/run")
     def run(track: str, cid: str, body: RunBody):
         c = get_challenge(track, cid)
         store.save_draft(c.key, body.code)
-        report = run_tests(c, body.code, body.mode, settings)
-        first_solve = store.record_run(c.key, body.mode, report.status, report.passed, report.total, report.duration, body.code)
+        # A design is solved only by the agent's rubric review (`whetstone grade`), never by the section check.
+        mode = "run" if c.is_whiteboard else body.mode
+        report = run_tests(c, body.code, mode, settings)
+        first_solve = store.record_run(c.key, mode, report.status, report.passed, report.total, report.duration, body.code)
         solve = store.solve(c.key, f"hint-{len(c.hints()) - 1}") if first_solve else None
-        prediction = score_prediction(body.prediction, body.mode, report) if body.prediction else None
+        prediction = score_prediction(body.prediction, mode, report) if body.prediction and not c.is_whiteboard else None
         if prediction and prediction["total"]:
-            store.record_prediction(c.key, body.mode, prediction["correct"], prediction["total"], prediction.get("confidence"))
+            store.record_prediction(c.key, mode, prediction["correct"], prediction["total"], prediction.get("confidence"))
         failing = [t.name for t in report.tests if t.outcome in ("failed", "error")][:5]
         store.record_event(
             c.key,
             "ran",
             {
-                "mode": body.mode,
+                "mode": mode,
                 "status": report.status,
                 "passed": report.passed,
                 "total": report.total,
@@ -408,6 +426,59 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store.add_explanation(c.key, body.test, body.text.strip())
         store.record_event(c.key, "explained", {"test": body.test, "text": body.text.strip()[:300]})
         return {"saved": True}
+
+    @app.post("/api/render")
+    def render(body: RenderBody, request: Request):
+        """The learner's Markdown as HTML, for the design scratchpad's preview."""
+        require_json(request)
+        return {"html": render_md(body.text)}
+
+    @app.get("/api/design")
+    def design():
+        """System design prompts: catalog problems asked in system design rounds, most asked first
+        on the page, with the learner's whiteboard questions for each."""
+        tracks = load_tracks(settings.tracks_dir)
+        rows = {r["key"]: r for r in progress_rows(store, tracks)}
+        boards: dict[str, list[dict]] = {}
+        for t in tracks:
+            for c in t.challenges:
+                if c.is_whiteboard:
+                    last = store.latest_review(c.key)
+                    boards.setdefault(t.id, []).append(
+                        {
+                            "key": c.key,
+                            "title": c.title,
+                            "status": _status(rows[c.key]),
+                            "covered": sum(p["verdict"] == "covered" for p in last["points"]) if last else None,
+                            "points": len(last["points"]) if last else None,
+                        }
+                    )
+        prompts = []
+        for p in load_catalog(settings):
+            asked = [r for r in p.get("reports", []) if r.get("round") == "system-design"]
+            if not asked and p.get("format") != "design":
+                continue
+            module = slugify(p["id"])
+            counts: dict[str, int] = {}
+            for r in asked:
+                counts[r["company"]] = counts.get(r["company"], 0) + 1
+            prompts.append(
+                {
+                    "id": module,
+                    "title": p["title"],
+                    "summary": p.get("summary", ""),
+                    "reports": len(asked),
+                    "companies": sorted(counts, key=lambda co: (-counts[co], co)),
+                    "asked": [r["question"] for r in asked[:3]],
+                    "questions": boards.pop(module, []),
+                }
+            )
+        titles = {t.id: t.title for t in tracks}
+        prompts += [
+            {"id": m, "title": titles.get(m, m), "summary": "", "reports": 0, "companies": [], "asked": [], "questions": qs}
+            for m, qs in boards.items()
+        ]
+        return {"prompts": prompts}
 
     @app.get("/api/catalog")
     def catalog():
@@ -519,6 +590,21 @@ def agent_status(store: Store) -> dict:
     return {"connected": fresh, "seen_at": seen}
 
 
+def review_view(review: dict | None, reveal: bool) -> dict | None:
+    """The agent's latest grade of a design, for the app. Like hidden tests, a point the design
+    misses shows only the agent's question until the learner solves it or gives up."""
+    if not review:
+        return None
+    points = [p | {"point": p["point"] if reveal or p["verdict"] == "covered" else ""} for p in review["points"]]
+    return {
+        "summary": review["summary"],
+        "created_at": review["created_at"],
+        "points": points,
+        "covered": sum(p["verdict"] == "covered" for p in points),
+        "passed": all(p["verdict"] == "covered" for p in points if p["must"]),
+    }
+
+
 def request_ask(r: dict) -> str:
     """The plain-words job, as the learner would say it to their agent."""
     return {
@@ -526,5 +612,7 @@ def request_ask(r: dict) -> str:
         "variant": f"Build a Whetstone variant of {r['target']} for review.",
         "fill-path": f"Fill in my {r['target']} Whetstone path.",
         "review": f"Review my solution to {r['target']}.",
+        "design": f"Build a Whetstone system design question (whiteboard) for the {r['target']} module.",
+        "grade": f"Grade my system design for {r['target']} against its rubric.",
         "profile": "Set up or refresh my Whetstone profile.",
     }[r["kind"]]

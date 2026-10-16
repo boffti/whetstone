@@ -38,14 +38,15 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone path show <path>` | Lists the path's modules in order, with progress, and says which modules are not built. |
 | `bin/whetstone module create <id> [--from-catalog <problem>]` | Creates an empty module. `question add` also creates a module when it needs one. |
 | `bin/whetstone module list` | Lists all modules, with progress. |
-| `bin/whetstone question brief <module> [--topic "..."]` | Gives instructions for the module's next question: what to read, what exists, real reports, and the suggested question type. |
-| `bin/whetstone question new <module> <slug>` | Creates the question's files to fill in, in `my/.staging/<slug>/`. |
+| `bin/whetstone question brief <module> [--topic "..."] [--type whiteboard]` | Gives instructions for the module's next question: what to read, what exists, real reports, and the suggested question type. `--type whiteboard` gives a system design brief. |
+| `bin/whetstone question new <module> <slug> [--type whiteboard]` | Creates the question's files to fill in, in `my/.staging/<slug>/`. `--type whiteboard` scaffolds a system design question. |
 | `bin/whetstone question add <folder> --module <id>` | Checks the format, that the reference solution passes and that the starter fails, then files the question as the module's next one. |
 | `bin/whetstone question check [module or module/question]` | Checks questions again. Run it to catch flaky tests. |
 | `bin/whetstone draft <module/question>` | Shows the learner's current code. |
 | `bin/whetstone test <module/question> [--all]` | Runs the tests on the learner's code. These runs are not recorded. |
 | `bin/whetstone watch [--key K] [--for SECONDS]` | Streams what the learner does in the app (opened, paused typing, ran, hint, solution, idle) as JSON lines, with the pair mode they chose. Run it in the background to pair live. |
 | `bin/whetstone note <module/question> "..." [--line N]` | Shows a short remark to the learner over their editor, with a marker at line N. |
+| `bin/whetstone grade <module/question> < grade.json` | Records your grade of a system design (a `whiteboard` question) against its rubric: covered, partial or missing per point, with a quote and a note. |
 | `bin/whetstone requests [--json]` | Lists the work the learner queued in the app: build a module, a review variant, a whole path, a review, a profile refresh. |
 | `bin/whetstone request claim\|done\|fail <id> [--result ...]` | Claims a request, then marks it done (with the question key) or failed (with the reason). The app shows each step. |
 
@@ -63,7 +64,7 @@ Each job has a skill file with the full steps. Claude Code loads them automatica
 | "Build the next question for X", "Fill in my path", "Make a variant" | [.claude/skills/whetstone-author/SKILL.md](.claude/skills/whetstone-author/SKILL.md) |
 | "I'm stuck on X", "Why does this fail?" | [.claude/skills/whetstone-tutor/SKILL.md](.claude/skills/whetstone-tutor/SKILL.md) |
 | "Pair with me", "Watch me solve this", "Be my interviewer while I code" | [.claude/skills/whetstone-pair/SKILL.md](.claude/skills/whetstone-pair/SKILL.md) |
-| "Review my solution" | [.claude/skills/whetstone-review/SKILL.md](.claude/skills/whetstone-review/SKILL.md) |
+| "Review my solution", "Grade my design", or the learner presses Ask for review | [.claude/skills/whetstone-review/SKILL.md](.claude/skills/whetstone-review/SKILL.md) |
 | "Interview me on X", "Mock interview" | [.claude/skills/whetstone-interview/SKILL.md](.claude/skills/whetstone-interview/SKILL.md) |
 
 All of them follow the teaching contract in [docs/PEDAGOGY.md](docs/PEDAGOGY.md). In short:

@@ -68,3 +68,11 @@ Failure mode: a slow insert under heavy contention.
     assert _design_note(filled).outcome == "passed"
     note = _design_note('"""\nOptions: ...\nChoice: lock\n"""')
     assert note.outcome == "failed" and "options, trade-off, failure mode" in note.message
+
+
+def test_the_system_design_example_is_valid(tmp_path):
+    """examples/short-links-whiteboard is the quality bar for whiteboard questions."""
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 60)
+    result = validate_challenge(load_challenge(EXAMPLE.parent / "short-links-whiteboard", "examples"), settings, strict=True)
+    assert result.ok, result.problems
+    assert "reference design: all 9 parts filled in" in result.notes

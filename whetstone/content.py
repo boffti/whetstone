@@ -12,7 +12,11 @@ import yaml
 REQUIRED_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter.py", "solution.py"]
 DIFFICULTIES = ("easy", "medium", "hard")
 # What the learner does in a question. See AUTHORING.md and docs/PEDAGOGY.md.
-QUESTION_TYPES = ("build", "predict", "fix", "review", "tests", "design")
+QUESTION_TYPES = ("build", "predict", "fix", "review", "tests", "design", "whiteboard")
+# A whiteboard question is a system design interview: the learner writes a design in Markdown,
+# with Mermaid diagrams, instead of code. Whetstone checks that every section is filled in; the
+# learner's own agent grades it against rubric.yaml (`whetstone grade`).
+WHITEBOARD_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter.md", "solution.md", "rubric.yaml"]
 # When the lesson opens: before the problem, or after the learner's first test run (problem first).
 LESSON_MODES = ("first", "after-run")
 
@@ -49,6 +53,33 @@ class Challenge:
 
     def read(self, name: str) -> str:
         return (self.path / name).read_text(encoding="utf-8")
+
+    @property
+    def is_whiteboard(self) -> bool:
+        return self.kind == "whiteboard"
+
+    @property
+    def starter_file(self) -> str:
+        return "starter.md" if self.is_whiteboard else "starter.py"
+
+    @property
+    def solution_file(self) -> str:
+        return "solution.md" if self.is_whiteboard else "solution.py"
+
+    @property
+    def editor_file(self) -> str:
+        """The file name the learner sees in the editor."""
+        return "design.md" if self.is_whiteboard else "solution.py"
+
+    @property
+    def required_files(self) -> list[str]:
+        return WHITEBOARD_FILES if self.is_whiteboard else REQUIRED_FILES
+
+    def rubric(self) -> list[dict]:
+        """A whiteboard question's rubric points: id, section, point, must, look_for."""
+        data = yaml.safe_load(self.read("rubric.yaml")) or {}
+        points = data.get("points", []) if isinstance(data, dict) else data
+        return [p for p in points or [] if isinstance(p, dict)]
 
     def test_files(self, include_hidden: bool) -> list[Path]:
         files = sorted((self.path / "tests").glob("*.py"))

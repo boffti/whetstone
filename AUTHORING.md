@@ -67,6 +67,7 @@ summary: One sentence about what the learner does.
 | `review` | reviews AI-written code (`subject.py`) with 2 or 3 seeded defects | an empty `FINDINGS` list | tests compare their (line, category) findings with the seeded defects |
 | `tests` | writes the tests for working code (`subject.py`) | one weak happy-path test | their tests must pass on `subject.py`, and on Submit each hidden mutant must make one of them fail |
 | `design` | writes a short design note, then code for the option they chose | the API, plus an empty design note | a check that the note is filled in, plus tests of the guarantee the note promises |
+| `whiteboard` | answers a system design interview prompt in Markdown, with Mermaid diagrams | `starter.md`: the section headings, each with a comment | a check that every section is filled in, then the learner's agent grades it against `rubric.yaml` |
 
 ### build
 The core type. The starter is often a naive version that "works for one thread", so the learner sees exactly why it breaks.
@@ -120,9 +121,39 @@ A system-level trade-off, decided and then built.
 - `solution.py` opens with a design note that has four lines: `Options:`, `Trade-off:`, `Choice:` and `Failure mode:` (the one the learner accepts). Whetstone checks that the note is filled in. The reviewer and interviewer skills judge what it says.
 - The code declares its choice, for example `GUARANTEE = "at-least-once"`. Hidden tests check the guarantee that was declared, and attack it with an adversary such as a crash between write and ack, duplicate delivery, or clock skew.
 
+### whiteboard
+A system design interview, answered on a scratchpad the learner's agent can watch. There is no code and no pytest. The files differ from the other types:
+
+```
+<NN-slug>/
+  challenge.yaml     # type: whiteboard, lesson: after-run, minutes: 45
+  lesson.md
+  problem.md         # ## Task, ## Scale, ## Out of scope, ## What the interviewer looks for
+  hints.md           # exactly 4 hints; rung 3 names a section instead of a test
+  starter.md         # the section headings, each with an HTML comment saying what goes there
+  solution.md        # the reference design: every section filled in, with Mermaid diagrams
+  rubric.yaml        # 5 to 10 points the agent grades against
+```
+
+- **Sections.** The design has these `##` sections, in order: Requirements, Estimates, API, Data model, High-level design, Deep dives, Trade-offs, Failure modes. `bin/whetstone question new <module> <slug> --type whiteboard` writes the starter. **Check sections** (the app's run button) passes when every section has at least 12 words and the design has one ` ```mermaid ` block. It never solves the question.
+- **The rubric** is the hidden test suite:
+  ```yaml
+  points:
+    - id: unique-codes             # lowercase-with-dashes, unique
+      section: Deep dives          # one of the sections above
+      must: true                   # 3 or more points are must-haves
+      point: Codes are unique without one server handing out every id.
+      look_for: Counter ranges per server, or random codes with a collision check.
+  ```
+  Each misconception in the lesson has a rubric point. The learner sees a point's text only once the design covers it, or after they solve or give up. Until then they see the agent's question about it.
+- **Grading.** The learner presses **Ask for review**. Their agent reads the design (`bin/whetstone draft <key>`) and the rubric, and records a verdict per point with `bin/whetstone grade <key>` (see the `whetstone-review` skill). The question is solved when every must-have point is covered.
+- **The lesson** uses `## Numbers to know` (latencies, sizes, capacity rules of thumb) in place of `## In Python`. Its subgoals are the design stages for this system.
+- **Diagrams** are Mermaid text, so the agent can read them: flowchart for components, sequenceDiagram for a request path. The app draws them in the Preview tab.
+- See `examples/short-links-whiteboard/`.
+
 ## mutants/
 
-Every `build`, `fix`, `design` and `tests` question has 2 to 5 mutants. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. Its docstring's first line names it:
+Every `build`, `fix`, `design` and `tests` question has 2 to 5 mutants. A `whiteboard` question has a rubric instead. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. Its docstring's first line names it:
 
 ```python
 """Misconception: a dict in the class body belongs to each object."""

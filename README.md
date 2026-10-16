@@ -85,6 +85,7 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
 - **Catalog:** problems that companies actually ask, opening on **For you** (your focus, your paths and the companies you target). Filter by company, round and status, browse with `/`, `j`, `k` and Enter, add a topic to your focus, or press Prepare.
 - **Prepare buttons** queue a request for your own agent. Start it in this folder and say *"watch Whetstone"*: it picks up requests while you practise, and the button turns into Start when the question is ready. The top bar shows when an agent is connected.
 - **Paths:** pick a system to build. Each path shows its modules as a strip. Your started paths come first, with the next step, and one request ("Fill in my path") asks your agent to build every module that is missing.
+- **Design:** the system design questions companies ask, most asked first, opening on **For you**. Press Prepare and your agent writes a design question for that system. You answer it on a whiteboard: a Markdown scratchpad with sections (requirements, estimates, API, data model, high-level design, deep dives, trade-offs, failure modes), Mermaid diagrams in the Preview tab, and an optional interview clock. **Check sections** shows what is still empty. Your agent can watch you write and ask questions in the margin, as an interviewer would. **Ask for review** has it grade the design against a rubric, point by point; you pass when every must-have point is covered.
 - **Practice:** opens on **Today**: one next step and one alternative, then **your focus**: the skills, companies and paths you want to keep sharp, each with its edge (how sharp it is today). Add or remove any of them in the app, or with + Focus in the Catalog. Calendar, numbers and milestones live on the Progress page. In a question:
   1. Read the **Problem**. For most questions the **Lesson** opens after your first test run, because trying first makes it stick.
   2. Write code in `solution.py`.
@@ -119,8 +120,8 @@ bin/whetstone path add <path> <module> [<module> ...]
 bin/whetstone module create <id> [--from-catalog <problem>] [--title "..."] [--description "..."]
 bin/whetstone module list [--json]
 
-bin/whetstone question brief <module> [--topic "..."] [--difficulty medium] [--notes "..."]
-bin/whetstone question new <module> <slug> [--title "..."]
+bin/whetstone question brief <module> [--topic "..."] [--type whiteboard] [--difficulty medium] [--notes "..."]
+bin/whetstone question new <module> <slug> [--title "..."] [--type whiteboard]
 bin/whetstone question add <folder> --module <module>
 bin/whetstone question check [module | module/question ...]      # also: bin/whetstone validate
 
@@ -130,6 +131,7 @@ bin/whetstone draft <module/question>
 bin/whetstone test <module/question> [--all]
 bin/whetstone watch [--key K] [--for SECONDS]           # stream app activity for a pairing agent
 bin/whetstone note <module/question> "..." [--line N]    # show a remark over the learner's editor
+bin/whetstone grade <module/question> < grade.json       # record a system design grade against its rubric
 
 bin/whetstone generate "<topic>" [--module generated] [--difficulty medium] [--notes "..."]   # optional; needs ANTHROPIC_API_KEY
 ```

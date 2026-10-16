@@ -919,3 +919,31 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 
 /* Inside lists, inbox buttons stay small; the Today card keeps the full-size main action. */
 .edge .req .btn, .row-actions .req .btn, .row-actions .btn, .today-item:not(.main) .req .btn, .path-step .req .btn, .home-row .req .btn { padding: 0.25rem 0.7rem; font-size: var(--step--1); }
+
+/* ---------- System design: the whiteboard ---------- */
+/* The preview covers the editor while it shows; the design stays in the editor's model. */
+.editor-wrap .preview { display: none; }
+.editor-wrap.previewing .preview {
+  display: block; position: absolute; inset: 0; overflow: auto;
+  max-width: none; padding: 1rem 1.2rem 3rem; background: var(--stone-raised); font-size: var(--step-0);
+}
+.editor-wrap.previewing .editor, .editor-wrap.previewing .fallback-editor { visibility: hidden; }
+.diagram { margin: 0 0 1rem; overflow-x: auto; }
+.diagram svg { max-width: 100%; height: auto; }
+.diagram-error { margin: 0 0 0.4rem; color: var(--rust); font-family: var(--font-ui); font-size: var(--step--1); }
+.solution-doc { max-width: 66ch; }
+.preview h1, .solution-doc h1 { font-family: var(--font-display); font-weight: 600; font-size: var(--step-2); margin: 0 0 0.6rem; }
+.dot.partial { background: var(--amber); }
+.review-summary { margin: 0 0 0.7rem; color: var(--ink-soft); max-width: 66ch; }
+.review-note { margin: 0.3rem 0 0.2rem 1.25rem; color: var(--ink); max-width: 64ch; }
+.review-quote { margin: 0.35rem 0 0.3rem 1.25rem; padding-left: 0.7rem; border-left: 2px solid var(--rule); color: var(--ink-soft); font-size: var(--step--1); }
+.timer {
+  font: inherit; font-size: var(--step--1); cursor: pointer; color: var(--ink-soft);
+  background: none; border: 1px solid var(--rule); border-radius: 999px; padding: 0.05rem 0.6rem;
+}
+.timer[data-on="true"] { color: var(--ink); border-color: var(--ink); font-variant-numeric: tabular-nums; }
+#review-req:empty { display: none; }
+.design-asked { grid-column: 1 / -1; margin: 0 0 0.7rem; padding: 0 0.8rem 0 1.6rem; color: var(--ink-soft); font-size: var(--step--1); line-height: 1.5; }
+.design-asked li + li { margin-top: 0.35rem; }
+a.home-text { color: inherit; text-decoration: none; display: grid; }
+a.home-text:hover .home-title { text-decoration: underline; }

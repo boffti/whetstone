@@ -1,0 +1,76 @@
+# What a strong design covers. A design passes when every must-have point is covered.
+points:
+  - id: unique-codes  # lesson misconception: a hash of the long URL makes a good short code
+    section: Deep dives
+    must: true
+    point: Short codes are unique without one shared bottleneck on every create, for example ID blocks per server or random base62 codes with a conditional insert that retries on a clash.
+    look_for: >-
+      A named mechanism that guarantees uniqueness (claimed ID ranges, or put-if-absent with retry) and a code
+      length justified by the code space. Missing if every create calls one shared counter or lock, or if codes
+      come from a hash of the long URL with no clash check (the same URL also needs a different code per channel).
+      Full credit also names the cost of the choice: the allocator, or the retry and collision odds.
+
+  - id: cached-read-path
+    section: High-level design
+    must: true
+    point: The redirect path reads from a cache in front of the database, sized from the estimates, so almost no redirect reaches the database even at the launch peak.
+    look_for: >-
+      Peak redirects per second worked out from the daily number (about 10,000 to 15,000 per second here), a cache
+      size from active links times record size (a few GB, fits in RAM), a stated hit rate and the database load that
+      follows, and an edge or multi-region layer near visitors. Partial if a cache is drawn but nothing ties its size
+      or the server count to the numbers.
+
+  - id: redirect-status  # lesson misconception: a 301 and a 302 are the same to the business
+    section: API
+    must: true
+    point: The redirect is a 302 or 307 with no caching, chosen because a 301 is cached by browsers, so repeat clicks, edits, switch-offs and expiry would never reach the service.
+    look_for: >-
+      An explicit status code with the reason tied to click counts and to changing or expiring a link. Missing if the
+      design returns a 301, or names a status without saying what the choice does to the campaign report.
+
+  - id: async-click-counting  # lesson misconception: counting a click is one small write in the redirect
+    section: Deep dives
+    must: true
+    point: The redirect answers first and records the click asynchronously (buffer, log or queue, aggregator), so counting never slows or breaks a redirect, and the counts stay correct.
+    look_for: >-
+      Click events sent off the request path in batches to a log or queue, aggregated per link and time bucket, with
+      duplicates handled (an event id, or exactly-once processing) and a stated lag. Missing if each redirect does a
+      synchronous counter update in the database or in a single counter key. Full credit keeps a hot link off a single
+      queue partition.
+
+  - id: expiry  # lesson misconception: an expired code is free to reuse
+    section: Data model
+    must: false
+    point: Each link stores its expiry time, the redirect checks it on every read so no cache entry outlives the link, an expired link shows the fallback page or a 410, and codes are never reused.
+    look_for: >-
+      An expires_at field (or equivalent), a check at read time or a cache TTL capped at the time to expiry, what the
+      visitor sees after expiry, and a statement that expired codes are not handed out again (printed QR codes and old
+      emails still point at them).
+
+  - id: launch-hot-keys
+    section: Deep dives
+    must: false
+    point: The design survives the launch spike on a few very hot links, with steps taken before the spike, not only reactions to it.
+    look_for: >-
+      At least two of: pre-warming the cache before the launch, a scheduled scale-up, a short-lived in-process cache on
+      each redirect server, request coalescing (single flight) on a miss, replicas for a hot cache key, and keeping the
+      click pipeline free of a hot partition. Each one tied to the TV link or the 20:00 launch.
+
+  - id: abuse
+    section: Deep dives
+    must: false
+    point: The service resists misuse of a trusted domain and scanning of codes, with checks at create time and limits at the edge.
+    look_for: >-
+      Who may create links (staff and API keys, rate limited and revocable), destination checks (an allowlist or a
+      malware and phishing check, ideally repeated later), a fast way to switch a link off, and codes that are not
+      sequential plus limits on 404s so nobody can walk the code space to personal links.
+
+  - id: failure-modes
+    section: Failure modes
+    must: false
+    point: The design says what visitors and the marketing team see when the cache, the database, a region, the click pipeline or the code allocator fails, and redirects keep working through each.
+    look_for: >-
+      At least four concrete failure cases, each with the fallback and what is lost (for example: creates pause while
+      redirects continue, counts arrive late but are not wrong, a few buffered clicks are lost in a region crash).
+      Partial if failures are listed without the behavior that follows, or if a single cache or database is a single
+      point of failure for redirects.

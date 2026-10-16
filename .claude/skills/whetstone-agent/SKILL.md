@@ -28,6 +28,8 @@ Each event has `id`, `kind`, `target` and `ask`. `ask` is the job in plain words
    | `variant` | a question key | `whetstone-author`: a variant for spaced review, with `variant_of` set |
    | `fill-path` | a path id | `whetstone-author`: the first question of each unbuilt module in the path |
    | `review` | a question key | `whetstone-review`, then put the main points in the app with `bin/whetstone note` |
+   | `design` | a module id | `whetstone-author`: a system design question (`--type whiteboard`) for the module |
+   | `grade` | a question key | `whetstone-review`, "Grading a system design": record it with `bin/whetstone grade`, then mark the request done with the key |
    | `profile` | (none) | `whetstone-profile`. It needs the learner's consent, so ask in the chat first. |
 
 3. Finish the request:

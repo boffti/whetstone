@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=18">
+  <link rel="stylesheet" href="/static/app.css?v=19">
 </head>
 <body>
   <header class="topbar">
@@ -16,6 +16,7 @@
     <nav class="topnav" aria-label="Views">
       <a href="#/practice" id="nav-practice">Practice</a>
       <a href="#/paths" id="nav-paths">Paths</a>
+      <a href="#/design" id="nav-design">Design</a>
       <a href="#/catalog" id="nav-catalog">Catalog</a>
     </nav>
     <div class="topbar-stats" id="stats" aria-live="polite"></div>
@@ -107,6 +108,32 @@
     <ul class="grid" id="paths-list"></ul>
   </main>
 
+  <main class="catalog design" id="design" hidden aria-labelledby="design-title">
+    <div class="catalog-head">
+      <h1 id="design-title">Design it on the whiteboard</h1>
+      <p class="catalog-lede" id="design-lede"></p>
+    </div>
+    <div class="filters" role="search">
+      <label class="filter-search">
+        <span class="visually-hidden">Search design questions</span>
+        <input type="search" id="d-search" placeholder="Search: payments, feed, chat…" autocomplete="off">
+      </label>
+      <label class="filter-select">
+        <span class="visually-hidden">Company</span>
+        <select id="d-company"><option value="">All companies</option></select>
+      </label>
+      <div class="chips" id="d-status" role="group" aria-label="Status">
+        <button type="button" class="chip" data-status="for-you" aria-pressed="false">For you</button>
+        <button type="button" class="chip" data-status="" aria-pressed="true">All</button>
+        <button type="button" class="chip" data-status="ready" aria-pressed="false">Ready to practise</button>
+        <button type="button" class="chip" data-status="none" aria-pressed="false">Not ready yet</button>
+      </div>
+    </div>
+    <section class="paths-yours" id="design-yours" aria-label="Your designs"></section>
+    <p class="catalog-count"><span id="design-count" aria-live="polite"></span> <span class="keys-hint">Press <kbd>/</kbd> to search.</span></p>
+    <ol class="rows" id="design-list"></ol>
+  </main>
+
   <main class="workspace" id="workspace" hidden>
     <nav class="rail" aria-label="Questions in this module">
       <div class="rail-head">
@@ -148,7 +175,7 @@
         <article class="prose" role="tabpanel" data-panel="lesson" id="panel-lesson"></article>
         <article class="prose" role="tabpanel" data-panel="problem" id="panel-problem" hidden></article>
         <div class="prose" role="tabpanel" data-panel="hints" id="panel-hints" hidden>
-          <p class="panel-intro">Four rungs: a question, the idea, a next step, then a skeleton. Each one opens after a test run, so try something between hints.</p>
+          <p class="panel-intro" id="hints-intro">Four rungs: a question, the idea, a next step, then a skeleton. Each one opens after a test run, so try something between hints.</p>
           <ol class="hint-list" id="hint-list"></ol>
           <button class="btn btn-quiet" id="next-hint" type="button">Show hint 1</button>
         </div>
@@ -158,6 +185,7 @@
             <button class="btn btn-quiet" id="reveal-solution" type="button">Show the reference solution</button>
           </div>
           <pre class="solution-code" id="solution-code" hidden><code></code></pre>
+          <div class="solution-doc" id="solution-doc" hidden></div>
         </div>
       </div>
     </section>
@@ -167,11 +195,13 @@
       <div class="editor-wrap">
         <div id="editor" class="editor"></div>
         <textarea id="fallback-editor" class="fallback-editor" spellcheck="false" wrap="off" hidden aria-label="Code editor"></textarea>
+        <div class="preview prose" id="preview" aria-label="Preview of your design"></div>
         <ol class="pair-notes" id="pair-notes" aria-live="polite" aria-label="Notes from your agent"></ol>
       </div>
       <div class="actions">
         <button class="btn btn-secondary" id="run-btn" type="button" title="Run visible tests (Ctrl or Cmd + Enter)">Run tests <kbd class="kbd" data-keys="run"></kbd></button>
         <button class="btn btn-primary" id="submit-btn" type="button" title="Run all tests, including hidden ones (Ctrl or Cmd + Shift + Enter)">Submit <kbd class="kbd" data-keys="submit"></kbd></button>
+        <span id="review-req"></span>
         <button class="btn btn-text" id="reset-btn" type="button">Reset<span class="long-label"> to starter</span></button>
         <button class="btn btn-text results-toggle" id="results-toggle" type="button" aria-controls="results" aria-expanded="true"></button>
         <span class="save-state" id="save-state" aria-live="polite"></span>
@@ -266,6 +296,6 @@
     window.MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
-  <script src="/static/app.js?v=22"></script>
+  <script src="/static/app.js?v=23"></script>
 </body>
 </html>

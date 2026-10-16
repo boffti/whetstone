@@ -44,6 +44,37 @@ TEMPLATE = {
 }
 
 
+def whiteboard_template() -> dict[str, str]:
+    """Files for a system design (whiteboard) question. See AUTHORING.md, "whiteboard"."""
+    from .runner import WHITEBOARD_SECTIONS
+
+    starter = "# {title}\n\n" + "".join(f"## {name}\n\n<!-- {what} -->\n\n" for name, what in WHITEBOARD_SECTIONS.items())
+    return {
+        "challenge.yaml": (
+            "title: {title}  # name the scenario, not the technique\n"
+            "type: whiteboard\n"
+            "lesson: after-run  # the lesson opens after the learner's first section check\n"
+            "difficulty: medium\nminutes: 45\ntags: []\n"
+            "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
+            "summary: One sentence about the system the learner designs.\n"
+        ),
+        "lesson.md": "## The idea\n\n## Subgoals\n\n## Numbers to know\n\n## Misconceptions\n\n## Interview angle\n\n## Tie-in to your work\n",
+        "problem.md": "## Task\n\n## Scale\n\n## Out of scope\n\n## What the interviewer looks for\n",
+        "hints.md": TEMPLATE["hints.md"].replace("tied to a named test", "tied to a named section"),
+        "starter.md": starter,
+        "solution.md": starter.replace("<!-- ", "").replace(" -->", ""),
+        "rubric.yaml": (
+            "# 5 to 10 points a strong design covers. Mark 3 or more must: true.\n"
+            "points:\n"
+            "  - id: example-point\n"
+            "    section: API  # one of the design sections\n"
+            "    must: true\n"
+            "    point: What a strong design does here, in one sentence.\n"
+            "    look_for: What to look for in the learner's text when you grade it.\n"
+        ),
+    }
+
+
 def plural(n: int, word: str) -> str:
     return f"{n} {word}{'' if n == 1 else 's'}"
 
@@ -240,12 +271,12 @@ def cmd_question_brief(args) -> int:
     problem = find_problem(settings, args.module)
     track = next((t for t in load_tracks(settings.tracks_dir) if t.id == module), None)
     if problem and not args.topic:
-        text = make_brief(settings, problem, difficulty=args.difficulty, notes=args.notes or "")
+        text = make_brief(settings, problem, difficulty=args.difficulty, notes=args.notes or "", kind=args.type)
     else:
         topic = args.topic or (f"{track.title}: {track.description}" if track else None)
         if not topic:
             return fail(f'{module} is not a module or a catalog problem yet. Pass --topic "..." to say what it teaches.', 2)
-        text = make_brief(settings, topic=topic, track=module, difficulty=args.difficulty, notes=args.notes or "")
+        text = make_brief(settings, topic=topic, track=module, difficulty=args.difficulty, notes=args.notes or "", kind=args.type)
     print(text)
     return 0
 
@@ -257,7 +288,8 @@ def cmd_question_new(args) -> int:
     if stage.exists():
         return fail(f"{stage} already exists. Fill it in, or pick another slug.")
     title = args.title or slug.replace("-", " ").capitalize()
-    for rel, body in TEMPLATE.items():
+    files = whiteboard_template() if args.type == "whiteboard" else TEMPLATE
+    for rel, body in files.items():
         dest = stage / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(body.format(title=title), encoding="utf-8")
@@ -441,7 +473,7 @@ def cmd_draft(args) -> int:
     if c is None:
         return 1
     code, last, opened = store.get_draft(c.key), store.last_run(c.key), store.reveals(c.key)
-    starter = c.read("starter.py")
+    starter = c.read(c.starter_file)
     if code == starter:
         code = None
     print(f"# {c.key}: {c.title}")
@@ -449,8 +481,49 @@ def cmd_draft(args) -> int:
     print(
         f"Hints opened: {sum(w.startswith('hint') for w in opened)} of {len(c.hints())}. Solution viewed: {'yes' if 'solution' in opened else 'no'}."
     )
-    print(f"\n## The learner's solution.py{' (untouched starter)' if code is None else ''}\n")
+    if c.is_whiteboard:
+        review = store.latest_review(c.key)
+        print(f"Rubric: {_rel(c.path / 'rubric.yaml')}. Last review: {review['created_at'] if review else 'none yet'}.")
+        print(f"Grade it with: {CLI} grade {c.key} < grade.json   (see the whetstone-review skill)")
+    print(f"\n## The learner's {c.editor_file}{' (untouched starter)' if code is None else ''}\n")
     print(code if code is not None else starter)
+    return 0
+
+
+def cmd_grade(args) -> int:
+    """Record your grade of the learner's system design, point by point against its rubric."""
+    from .runner import grade_design
+
+    settings = load_settings()
+    store, _ = _state(settings)
+    c = _question_or_none(settings, args.key)
+    if c is None:
+        return 1
+    if not c.is_whiteboard:
+        return fail(f"{c.key} is a {c.kind} question. grade is for system designs (type: whiteboard); use note for code.")
+    raw = Path(args.file).read_text(encoding="utf-8") if args.file else sys.stdin.read()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return fail(f"The grade is not valid JSON: {exc}")
+    grade, problems = grade_design(c, payload)
+    if problems:
+        print("NOT RECORDED. Fix these, then run the same command again:")
+        for p in problems:
+            print(f"  ! {p}")
+        return 1
+    design = store.get_draft(c.key) or c.read(c.starter_file)
+    store.add_review(c.key, grade["points"], grade["summary"])
+    first = store.record_run(c.key, "submit", grade["status"], grade["covered"], grade["total"], 0.0, design)
+    musts = [p for p in grade["points"] if p["must"] and p["verdict"] != "covered"]
+    store.record_event(
+        c.key, "reviewed", {"covered": grade["covered"], "total": grade["total"], "passed": grade["status"] == "passed", "solved": first}
+    )
+    print(f"Recorded: {grade['covered']} of {plural(grade['total'], 'point')} covered.", end=" ")
+    if grade["status"] == "passed":
+        print("Every must-have is covered" + (": solved." if first else "."))
+    else:
+        print(f"{plural(len(musts), 'must-have')} still open: {', '.join(p['id'] for p in musts)}.")
     return 0
 
 
@@ -464,7 +537,7 @@ def cmd_test(args) -> int:
         return 1
     code = store.get_draft(c.key)
     # ponytail: not recorded as a run, so the learner's progress only reflects their own runs
-    report = run_tests(c, code if code is not None else c.read("starter.py"), "submit" if args.all else "run", settings)
+    report = run_tests(c, code if code is not None else c.read(c.starter_file), "submit" if args.all else "run", settings)
     print(f"{report.status.upper()}: {report.summary}")
     for t in report.tests:
         if t.outcome != "passed":
@@ -764,6 +837,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p = cmd(questions, "brief", cmd_question_brief, "instructions for writing the next question in a module")
     p.add_argument("module", help="module id, or a catalog problem id")
+    p.add_argument("--type", choices=["whiteboard"], help="whiteboard: a system design question instead of the module's next step")
     p.add_argument("--topic", help="what the question teaches, for a module that is not in the catalog")
     p.add_argument("--difficulty", default="medium", choices=["easy", "medium", "hard"])
     p.add_argument("--notes", help="what the learner asked for")
@@ -771,6 +845,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("module")
     p.add_argument("slug")
     p.add_argument("--title")
+    p.add_argument("--type", choices=["whiteboard"], help="whiteboard: scaffold a system design question (Markdown, rubric)")
     p = cmd(questions, "add", cmd_question_add, "check a written question and file it as the module's next question")
     p.add_argument("dir")
     p.add_argument("--module", required=True)
@@ -807,10 +882,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("action", choices=["claim", "done", "fail"])
     p.add_argument("id", type=int)
     p.add_argument("--result", help="done: the question key you built; fail: the reason, in one line")
+    p = cmd(sub, "grade", cmd_grade, "record your grade of a system design against its rubric (JSON on stdin or --file)")
+    p.add_argument("key", help="module/question")
+    p.add_argument("--file", help="read the grade from this file instead of stdin")
     p = cmd(sub, "note", cmd_note, "show a short remark to the learner in the app, next to their code")
     p.add_argument("key", help="module/question")
     p.add_argument("text")
-    p.add_argument("--line", type=int, help="pin the note to a line of solution.py")
+    p.add_argument("--line", type=int, help="pin the note to a line of the learner's file (solution.py or design.md)")
 
     p = cmd(sub, "generate", cmd_generate, "write a question with the Anthropic API (needs ANTHROPIC_API_KEY)")
     p.add_argument("topic")

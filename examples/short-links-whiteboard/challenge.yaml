@@ -1,0 +1,7 @@
+title: Short links for a launch campaign
+type: whiteboard
+lesson: after-run
+difficulty: medium
+minutes: 45
+tags: [system-design, caching, id-generation, read-heavy, analytics]
+summary: Design the short link service for a product launch, with links made in bulk, a redirect spike at launch, expiring offers and click counts the campaign report can trust.

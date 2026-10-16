@@ -61,6 +61,8 @@ def _tail(text: str, limit: int = 6000) -> str:
 
 def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) -> RunReport:
     """mode = 'run' (visible tests only) or 'submit' (all tests)."""
+    if challenge.is_whiteboard:
+        return check_whiteboard(code)
     if challenge.kind == "tests":
         return _grade_learner_tests(challenge, code, mode, settings)
     include_hidden = mode == "submit"
@@ -234,6 +236,133 @@ def _design_note(code: str) -> TestResult:
     )
 
 
+# ---------- "whiteboard" questions: a system design in Markdown ----------
+# The sections of a design interview, in order, with what each one should hold. The starter
+# template and the check's messages both come from here.
+WHITEBOARD_SECTIONS = {
+    "Requirements": "What it must do, what it need not do, and the numbers it must meet.",
+    "Estimates": "Rough load: requests per second, data size, growth. Show the arithmetic.",
+    "API": "The calls clients make, with their inputs, outputs and errors.",
+    "Data model": "What you store, the keys you look it up by, and where it lives.",
+    "High-level design": "The main components and how a request flows through them. Draw it in a mermaid block.",
+    "Deep dives": "The two or three hardest parts, worked through in detail.",
+    "Trade-offs": "What you chose, what you gave up, and why.",
+    "Failure modes": "What breaks: a node, a region, a dependency, a retry storm. What happens then.",
+}
+SECTION_MIN_WORDS = 12
+
+
+def whiteboard_sections(text: str) -> dict[str, str]:
+    """The design's level-2 sections ("## Name"), by lowercased name, without HTML comments."""
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    parts = re.split(r"^##[ \t]+(.+?)[ \t]*#*[ \t]*$", text, flags=re.M)
+    return {parts[i].strip().lower(): parts[i + 1] for i in range(1, len(parts) - 1, 2)}
+
+
+def check_whiteboard(text: str) -> RunReport:
+    """Every section has some substance, and there is at least one diagram. The design itself is
+    graded by the learner's agent against the rubric; this only says what is still empty."""
+    sections = whiteboard_sections(text)
+    tests = []
+    for name, what in WHITEBOARD_SECTIONS.items():
+        body = sections.get(name.lower())
+        words = len(re.findall(r"[A-Za-z0-9]+", body or ""))
+        if body is None:
+            message = f"Add a '## {name}' section. {what}"
+        elif words < SECTION_MIN_WORDS:
+            message = f"{name} has {plural_words(words)}. {what}"
+        else:
+            message = ""
+        tests.append(TestResult(f"section_{slug_name(name)}", f"{name} is filled in", "failed" if message else "passed", 0.0, message))
+    drawn = re.search(r"^```mermaid[ \t]*$", text, flags=re.M)
+    tests.append(
+        TestResult(
+            "diagram",
+            "a diagram shows the main components",
+            "passed" if drawn else "failed",
+            0.0,
+            "" if drawn else "Draw the high-level design in a ```mermaid block, for example: flowchart LR, then client --> api.",
+        )
+    )
+    passed = sum(t.outcome == "passed" for t in tests)
+    status = "passed" if passed == len(tests) else "failed"
+    summary = "Every section is filled in. Ask for a review." if status == "passed" else f"{passed} of {len(tests)} parts are ready."
+    return RunReport(status, summary, passed=passed, failed=len(tests) - passed, total=len(tests), tests=tests)
+
+
+def plural_words(n: int) -> str:
+    return f"{n} word" if n == 1 else f"{n} words"
+
+
+def slug_name(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
+RUBRIC_VERDICTS = ("covered", "partial", "missing")
+
+
+def rubric_problems(challenge: Challenge) -> list[str]:
+    """What is wrong with a whiteboard question's rubric.yaml."""
+    try:
+        points = challenge.rubric()
+    except Exception as exc:  # a YAML error names the line
+        return [f"rubric.yaml does not parse: {exc}"]
+    problems = []
+    if not 5 <= len(points) <= 10:
+        problems.append(f"rubric.yaml needs 5 to 10 points under 'points:' (it has {len(points)})")
+    ids = [str(p.get("id", "")) for p in points]
+    if any(not re.fullmatch(r"[a-z0-9-]+", i) for i in ids) or len(set(ids)) != len(ids):
+        problems.append("every rubric point needs a unique id in lowercase-with-dashes")
+    sections = {n.lower() for n in WHITEBOARD_SECTIONS}
+    for p in points:
+        if not str(p.get("point", "")).strip():
+            problems.append(f"rubric point {p.get('id')} needs a 'point': what a strong design does")
+        if str(p.get("section", "")).lower() not in sections:
+            problems.append(f"rubric point {p.get('id')}: section must be one of {', '.join(WHITEBOARD_SECTIONS)}")
+    if sum(bool(p.get("must")) for p in points) < 3:
+        problems.append("mark 3 or more rubric points with 'must: true': the ones a design cannot pass without")
+    return problems
+
+
+def grade_design(challenge: Challenge, payload: object) -> tuple[dict, list[str]]:
+    """Check an agent's grade of a whiteboard design against the question's rubric. The design
+    passes when every must-have point is covered. Returns (grade, problems)."""
+    rubric = {str(p.get("id")): p for p in challenge.rubric()}
+    given = payload.get("points") if isinstance(payload, dict) else None
+    if not isinstance(given, dict):
+        return {}, ['The grade needs "points": {"<rubric id>": {"verdict": "covered", "quote": "...", "note": "..."}, ...}']
+    problems = [f"{pid} is not in rubric.yaml" for pid in given if pid not in rubric]
+    problems += [f"{pid} has no verdict: grade every rubric point" for pid in rubric if pid not in given]
+    points = []
+    for pid, point in rubric.items():
+        g = given.get(pid) if isinstance(given.get(pid), dict) else {}
+        verdict = str(g.get("verdict", "")).lower()
+        quote, note = str(g.get("quote", "")).strip(), str(g.get("note", "")).strip()
+        if pid in given and verdict not in RUBRIC_VERDICTS:
+            problems.append(f"{pid}: verdict must be one of {', '.join(RUBRIC_VERDICTS)}")
+        if verdict in ("partial", "missing") and not note:
+            problems.append(f"{pid}: a {verdict} point needs a note, one question that leads the learner to it")
+        if len(note) > 400 or len(quote) > 300:
+            problems.append(f"{pid}: keep the note under 400 characters and the quote under 300")
+        points.append(
+            {
+                "id": pid,
+                "section": str(point.get("section", "")),
+                "point": str(point.get("point", "")).strip(),
+                "must": bool(point.get("must")),
+                "verdict": verdict,
+                "quote": quote,
+                "note": note,
+            }
+        )
+    summary = str(payload.get("summary", "")).strip()
+    if not summary or len(summary) > 600:
+        problems.append('Add a "summary": one to three sentences on the design as a whole, under 600 characters.')
+    covered = sum(p["verdict"] == "covered" for p in points)
+    status = "passed" if all(p["verdict"] == "covered" for p in points if p["must"]) else "failed"
+    return {"points": points, "summary": summary, "covered": covered, "total": len(points), "status": status}, problems
+
+
 def _parse_junit(path: Path) -> list[TestResult]:
     results: list[TestResult] = []
     root = ET.parse(path).getroot()
@@ -284,6 +413,8 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
         problems.append(f"lesson must be one of {', '.join(LESSON_MODES)}")
     if challenge.variant_of and not re.fullmatch(r"[a-z0-9-]+/\d{2}-[a-z0-9-]+", challenge.variant_of):
         problems.append("variant_of must be a question key, like rate-limiter/01-token-bucket")
+    if challenge.is_whiteboard:
+        return _validate_whiteboard(challenge, problems, notes)
     if challenge.kind in ("predict", "review") and not challenge.support:
         problems.append(f"a {challenge.kind} question needs the code to read as a support file (support: [subject.py])")
     for name in REQUIRED_FILES:
@@ -306,7 +437,7 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
     if problems:
         return Validation(challenge.key, False, problems, notes)
 
-    ref = run_tests(challenge, challenge.read("solution.py"), "submit", settings)
+    ref = run_tests(challenge, challenge.read(challenge.solution_file), "submit", settings)
     if ref.status == "blocked":
         notes.append("Redis is not reachable, so the Redis tests were skipped. Start Redis and validate again.")
         return Validation(challenge.key, False, [ref.summary], notes)
@@ -319,7 +450,7 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
     if challenge.kind == "fix":
         notes.append(_fix_size(challenge))
 
-    starter = run_tests(challenge, challenge.read("starter.py"), "submit", settings)
+    starter = run_tests(challenge, challenge.read(challenge.starter_file), "submit", settings)
     if starter.status == "passed":
         problems.append("starter passes every test, so the challenge teaches nothing; make the starter incomplete")
     else:
@@ -329,6 +460,31 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
         gate, gate_notes = _mutation_gate(challenge, settings, strict)
         problems += gate
         notes += gate_notes
+    return Validation(challenge.key, not problems, problems, notes)
+
+
+def _validate_whiteboard(challenge: Challenge, problems: list[str], notes: list[str]) -> Validation:
+    """The files exist, the rubric is sound, the reference design fills every section, and the
+    starter does not. There are no tests or mutants: the learner's agent grades the design."""
+    for name in challenge.required_files:
+        if not (challenge.path / name).exists():
+            problems.append(f"missing {name}")
+    if challenge.difficulty not in DIFFICULTIES:
+        problems.append(f"difficulty must be one of {', '.join(DIFFICULTIES)}")
+    if problems:
+        return Validation(challenge.key, False, problems, notes)
+    problems += rubric_problems(challenge)
+    ref = check_whiteboard(challenge.read("solution.md"))
+    if ref.status != "passed":
+        problems.append(f"the reference design (solution.md) is not complete: {ref.summary}")
+        problems += [f"{t.label}: {t.message}" for t in ref.tests if t.outcome != "passed"]
+    else:
+        notes.append(f"reference design: all {ref.total} parts filled in")
+    starter = check_whiteboard(challenge.read("starter.md"))
+    if starter.status == "passed":
+        problems.append("starter.md fills every section already; leave the sections for the learner")
+    rubric = challenge.rubric() if not any("rubric.yaml does not parse" in p for p in problems) else []
+    notes.append(f"rubric: {len(rubric)} points, {sum(bool(p.get('must')) for p in rubric)} of them must-haves")
     return Validation(challenge.key, not problems, problems, notes)
 
 

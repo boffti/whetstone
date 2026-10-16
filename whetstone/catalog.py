@@ -101,12 +101,18 @@ def make_brief(
     track: str | None = None,
     difficulty: str = "medium",
     notes: str = "",
+    kind: str | None = None,
 ) -> str:
-    """Instructions for an AI agent to write a module's next question, for a catalog problem or a free topic."""
+    """Instructions for an AI agent to write a module's next question, for a catalog problem or a free topic.
+    kind="whiteboard" asks for a system design question instead of the module's next step."""
+    whiteboard = kind == "whiteboard"
     if problem:
         track_id, track_title = slugify(problem["id"]), problem["title"]
         topic = f"{problem['title']}: {problem.get('summary', '')}"
-        reports = problem.get("reports", [])[:8]
+        reports = problem.get("reports", [])
+        if whiteboard:
+            reports = [r for r in reports if r.get("round") == "system-design"] or reports
+        reports = reports[:8]
     elif topic and track:
         track_id, track_title, reports = slugify(track), track, []
     else:
@@ -118,16 +124,22 @@ def make_brief(
     position = len(existing) + 1
 
     lines = [
-        f'# Whetstone brief: the next question in the "{track_title}" module',
+        f'# Whetstone brief: {"a system design question" if whiteboard else "the next question"} in the "{track_title}" module',
         "",
-        "You are writing one hands-on question for Whetstone. The learner reads a lesson, writes code in "
+        "You are writing one system design question for Whetstone: an interview prompt the learner answers in "
+        "Markdown, with Mermaid diagrams, on a scratchpad you can watch. Whetstone checks every section is filled "
+        "in; later you grade the design against the rubric you write now (bin/whetstone grade)."
+        if whiteboard
+        else "You are writing one hands-on question for Whetstone. The learner reads a lesson, writes code in "
         "solution.py, and is graded by pytest. You do the writing; Whetstone checks your work.",
         "",
         "## Read first",
         "- AUTHORING.md: the file format, the question types, the test-writing rules and mutants/. Follow it exactly.",
         "- docs/PEDAGOGY.md: why the format works this way. Skim it once.",
         f"- {_rel(settings.profile_path)}: who the learner is, their goals, and how to write for them.",
-        f"- {_rel(EXAMPLE)}/ and examples/retry-tests/: finished questions to match for quality.",
+        "- examples/short-links-whiteboard/: a finished system design question to match for quality."
+        if whiteboard
+        else f"- {_rel(EXAMPLE)}/ and examples/retry-tests/: finished questions to match for quality.",
     ]
     if settings.profile_path.name == "profile.example.md":
         lines.append("- The learner has no profile yet. First create my/profile.md from that template (see AGENTS.md, 'First run').")
@@ -135,17 +147,28 @@ def make_brief(
     if notes:
         lines.append(f"Learner's notes: {notes}")
     if existing:
-        lines += ["Already in this module (write the next step up, do not repeat these):", *existing]
+        lines += [
+            "Already in this module (for context; design the system around these ideas):"
+            if whiteboard
+            else "Already in this module (write the next step up, do not repeat these):",
+            *existing,
+        ]
     else:
         lines.append("This module is empty: write the core version of the problem.")
-    lines += ["", "## Question type", _recipe_line(position)]
+    lines += [
+        "",
+        "## Question type",
+        "whiteboard: follow the whiteboard section of AUTHORING.md. Copy the quality of examples/short-links-whiteboard/."
+        if whiteboard
+        else _recipe_line(position),
+    ]
     if reports:
         lines += ["", "## Real interview reports to ground it in", *[report_line(r) for r in reports]]
         lines.append("Use the reports for realism. Paraphrase them; do not name the source sites in the lesson.")
     lines += [
         "",
         "## Steps",
-        f"1. Pick a short slug and run: {CLI} question new {track_id} <slug>",
+        f"1. Pick a short slug and run: {CLI} question new {track_id} <slug>{' --type whiteboard' if whiteboard else ''}",
         f"   It creates the files to fill in, in {_rel(settings.staging_dir)}/<slug>/.",
         f"2. Write every file. Then run: {CLI} question add {_rel(settings.staging_dir)}/<slug> --module {track_id}",
         "   It checks that the reference solution passes every test and the starter fails at least one, then files",
