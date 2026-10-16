@@ -20,4 +20,6 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Live pair: the app records what you do (migration 3). `whetstone watch` streams it for your agent, `whetstone note` shows its remarks over your editor with a margin marker, and a Pair switch (off, quiet, coach, interviewer) sets how often it speaks. New `whetstone-pair` skill.
 - Catalog as compact rows with an All / Ready / Not built filter, keyboard navigation (`/`, `j`, `k`, Enter) and grouped sources. Paths show each path as a strip of modules, list your started paths first, and offer one "Fill in my path" request.
 - Code blocks in lessons, problems, hints and solutions are syntax highlighted.
+- Predict then explain: guess which tests pass before your first run and before Submit, explain one hidden case after a solve, and see prediction accuracy on the dashboard (migration 4). Skippable, with an off switch.
+- Pages that cannot load now say why instead of staying blank.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.

@@ -11,6 +11,7 @@ Good review feedback names the principle, shows the evidence, and gives a next s
 
 1. Run `bin/whetstone draft <key>` and `bin/whetstone test <key> --all`. Read `problem.md`, the `Misconceptions` section of the lesson, and `solution.py`.
 2. Ask the learner one question first: "What are you least sure about in this code?" Review that area first.
+3. If `bin/whetstone progress --json` shows an `explanation` for this question (the sentence the learner wrote after solving), compare it with the code. A gap between what they say and what the code does is the best first comment.
 
 ## Write the review
 

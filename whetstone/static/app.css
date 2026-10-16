@@ -804,3 +804,15 @@ a.btn { display: inline-block; text-decoration: none; }
 /* Shown when a page cannot load, for example when the server is stopped. */
 .app-error { grid-row: 2; margin: 0; padding: 0.6rem clamp(1rem, 3vw, 2.4rem); display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; background: color-mix(in srgb, var(--rust) 14%, var(--stone)); border-bottom: 1px solid var(--rust); color: var(--ink); font-size: var(--step--1); }
 .app-error[hidden] { display: none; }
+
+/* Predict then explain: a guess before the run, one sentence after a solve. */
+.predict, .explain { display: grid; gap: 0.5rem; padding: 0.8rem 0.9rem; margin-bottom: 0.8rem; background: var(--stone-raised); border: 1px solid var(--rule); border-left: 3px solid var(--steel); }
+.predict-q { margin: 0; font-weight: 600; }
+.guess-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.guess-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 1rem; }
+.guess-pick { display: inline-flex; gap: 0.3rem; }
+.predict-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+.explain textarea { font: inherit; color: var(--ink); background: var(--stone); border: 1px solid var(--rule); border-radius: var(--radius-s); padding: 0.45rem 0.55rem; resize: vertical; }
+.prediction-note { margin: 0 0 0.6rem; font-size: var(--step--1); color: var(--ink-soft); }
+.prediction-note[data-right="true"] { color: var(--honed); }
+.results-toggle[data-status="predict"] { color: var(--steel); }

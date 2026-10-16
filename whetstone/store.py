@@ -69,6 +69,26 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """,
+    # 4: predict then explain (docs/PEDAGOGY.md, rule 8). A guess before a run, scored after it,
+    # and one sentence after a solve on why the code handles a hidden case.
+    """
+CREATE TABLE IF NOT EXISTS predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenge TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    correct INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    confidence INTEGER,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS explanations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenge TEXT NOT NULL,
+    test TEXT NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+""",
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 
@@ -255,6 +275,37 @@ class Store:
             )
             return [dict(r) for r in rows]
 
+    # ---------- Predict then explain ----------
+    def record_prediction(self, key: str, mode: str, correct: int, total: int, confidence: int | None = None) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO predictions (challenge, mode, correct, total, confidence, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (key, mode, correct, total, confidence, datetime.now().isoformat(timespec="seconds")),
+            )
+
+    def prediction_rate(self, since: date, until: date) -> tuple[int, int]:
+        """(right, guessed) for predictions made on days in [since, until)."""
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(correct), 0), COALESCE(SUM(total), 0) FROM predictions WHERE created_at >= ? AND created_at < ?",
+                (since.isoformat(), until.isoformat()),
+            ).fetchone()
+            return row[0], row[1]
+
+    def add_explanation(self, key: str, test: str, text: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO explanations (challenge, test, text, created_at) VALUES (?, ?, ?, ?)",
+                (key, test, text, datetime.now().isoformat(timespec="seconds")),
+            )
+
+    def explanation(self, key: str) -> dict | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT test, text, created_at FROM explanations WHERE challenge = ? ORDER BY id DESC LIMIT 1", (key,)
+            ).fetchone()
+            return dict(row) if row else None
+
     # ---------- Live pair ----------
     def record_event(self, key: str | None, kind: str, data: dict | None = None) -> None:
         with self._conn() as conn:
@@ -340,6 +391,7 @@ def progress_rows(store: Store, tracks) -> list[dict]:
                     "hints_opened": sum(w.startswith("hint") for w in opened),
                     "solution_viewed": "solution" in opened,
                     "last_run": last,
+                    "explanation": store.explanation(c.key),
                 }
             )
     add_reviews(rows)

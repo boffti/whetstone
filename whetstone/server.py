@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -45,6 +46,14 @@ class CodeBody(BaseModel):
 
 class RunBody(CodeBody):
     mode: str = Field(default="run", pattern="^(run|submit)$")
+    # A guess made before the run. run: {"tests": {"test_name": true}}, true = will pass.
+    # submit: {"all_pass": true, "confidence": 1..5}.
+    prediction: dict | None = None
+
+
+class ExplainBody(BaseModel):
+    test: str = Field(min_length=1, max_length=200)
+    text: str = Field(min_length=1, max_length=2000)
 
 
 class PairBody(BaseModel):
@@ -178,7 +187,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "week": week,
             "active_days": days,
             "edges": dash.edges(rows, facts, titles, profile, catalog, today),
-            "numbers": dash.numbers(rows, facts, today),
+            "numbers": dash.numbers(rows, facts, today) | dash.predictions(store, today),
             "milestones": dash.milestones(rows, facts, week),
             "records": dash.records(rows, facts, store.active_days(last=3650), week["target"]),
             "targets": dash.targets(profile, catalog, {t.id for t in all_tracks if t.challenges}),
@@ -214,6 +223,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "lesson_html": render_md(c.read("lesson.md")),
             "problem_html": render_md(c.read("problem.md")),
             "hint_count": len(c.hints()),
+            "visible_tests": visible_test_names(c),
             "hints": [render_md(h) for h in c.hints()[: _hints_opened(store, c.key)]],
             "hint_ready": store.hint_ready(c.key),
             "solution_open": c.key in store.solved_keys() or "solution" in store.reveals(c.key),
@@ -293,6 +303,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         report = run_tests(c, body.code, body.mode, settings)
         first_solve = store.record_run(c.key, body.mode, report.status, report.passed, report.total, report.duration, body.code)
         solve = store.solve(c.key, f"hint-{len(c.hints()) - 1}") if first_solve else None
+        prediction = score_prediction(body.prediction, body.mode, report) if body.prediction else None
+        if prediction and prediction["total"]:
+            store.record_prediction(c.key, body.mode, prediction["correct"], prediction["total"], prediction.get("confidence"))
         failing = [t.name for t in report.tests if t.outcome in ("failed", "error")][:5]
         store.record_event(
             c.key,
@@ -304,9 +317,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "total": report.total,
                 "failing": failing,
                 "solved": bool(first_solve),
+                "predicted": {k: prediction[k] for k in ("correct", "total")} if prediction else None,
             },
         )
-        return {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None}
+        return {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None, "prediction": prediction}
+
+    @app.post("/api/challenges/{track}/{cid}/explanation")
+    def explain(track: str, cid: str, body: ExplainBody, request: Request):
+        require_json(request)
+        c = get_challenge(track, cid)
+        store.add_explanation(c.key, body.test, body.text.strip())
+        store.record_event(c.key, "explained", {"test": body.test, "text": body.text.strip()[:300]})
+        return {"saved": True}
 
     @app.get("/api/catalog")
     def catalog():
@@ -380,3 +402,27 @@ def _status(row: dict) -> str:
     if row["solve"] == "assisted":
         return "assisted"
     return row["status"]
+
+
+def visible_test_names(c) -> list[dict]:
+    """The visible tests, in file order, for the learner to predict before their first run."""
+    names = [m for f in c.visible_test_files() for m in re.findall(r"^\s*def (test_\w+)", f.read_text(encoding="utf-8"), flags=re.M)]
+    return [{"name": n, "label": n[5:].replace("_", " ")} for n in dict.fromkeys(names)]
+
+
+def score_prediction(guess: dict, mode: str, report) -> dict:
+    """Compare a guess made before the run with what happened."""
+    if mode == "submit":
+        will_pass = bool(guess.get("all_pass"))
+        confidence = guess.get("confidence")
+        confidence = int(confidence) if isinstance(confidence, (int, float)) and 1 <= confidence <= 5 else None
+        right = will_pass == (report.status == "passed")
+        return {"correct": int(right), "total": 1, "all_pass": will_pass, "confidence": confidence, "details": []}
+    actual = {t.name: t.outcome == "passed" for t in report.tests}
+    guesses = guess.get("tests") or {}
+    details = [
+        {"test": name, "label": name[5:].replace("_", " "), "predicted": bool(will), "actual": actual[name]}
+        for name, will in list(guesses.items())[:100]
+        if name in actual
+    ]
+    return {"correct": sum(d["predicted"] == d["actual"] for d in details), "total": len(details), "details": details}

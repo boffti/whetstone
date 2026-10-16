@@ -14,7 +14,7 @@ Unrestricted AI help raises practice scores and lowers what people can do alone 
    - `bin/whetstone test <key>`: the visible tests;
    - `bin/whetstone progress --json`: runs and hints for this question.
 
-   Also read the question's `problem.md`, `hints.md` and `solution.py`. Base correctness on the tests and the reference, not on memory.
+   Also read the question's `problem.md`, `hints.md` and `solution.py`. Base correctness on the tests and the reference, not on memory. If progress shows an `explanation` from an earlier solve, use their own words as the starting point.
 2. In one or two lines, say what you see. Example: "Two tests fail. Both involve a second caller arriving while the first is still computing."
 3. Ask for the learner's hypothesis: "What do you think happens when the second caller arrives?"
 

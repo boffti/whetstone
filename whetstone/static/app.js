@@ -322,6 +322,7 @@ async function openChallenge(trackId, cid) {
   state.challenge = c;
   state.trackId = trackId;
   state.hintsShown = c.hints.length;
+  state.guessing = null;
   state.hintReady = c.hint_ready;
   // Problem first: some lessons open only after the first test run (docs/PEDAGOGY.md, rule 1).
   state.lessonLocked = c.lesson_mode === "after-run" && c.runs === 0 && !c.solved;
@@ -531,8 +532,95 @@ const STATUS_TEXT = { new: "not started", attempted: "in progress", assisted: "s
 const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review" };
 const VERDICT = { passed: "Passed", failed: "Not yet", error: "Could not run", timeout: "Timed out", blocked: "Blocked" };
 
-async function run(mode) {
+/* ---------- Predict then explain (docs/PEDAGOGY.md, rule 8) ---------- */
+const PREDICT_KEY = "whetstone.predict";
+function predictOn() { try { return localStorage.getItem(PREDICT_KEY) !== "off"; } catch (_) { return true; } }
+function setPredict(on) { try { localStorage.setItem(PREDICT_KEY, on ? "on" : "off"); } catch (_) { /* per-viewer only */ } }
+
+// Ask on the first run of a question, and before each Submit until it is solved.
+function wantsGuess(mode) {
+  const c = state.challenge;
+  if (!predictOn()) return false;
+  return mode === "run" ? c.runs === 0 && c.visible_tests.length > 0 : !c.solved;
+}
+
+function showGuess(mode) {
+  const c = state.challenge;
+  const go = (guess) => { state.guessing = null; run(mode, guess); };
+  showResults("predict", "Your guess");
+  let body, send;
+  if (mode === "run") {
+    const guess = {};
+    body = el("ul", { class: "guess-list" }, c.visible_tests.map((t) => {
+      const pick = (v, label) => el("button", { type: "button", class: "chip", "aria-pressed": "false", onclick: (e) => {
+        guess[t.name] = v;
+        e.target.parentElement.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", String(b === e.target)));
+      } }, label);
+      return el("li", { class: "guess-row" }, el("span", { text: t.label }), el("span", { class: "guess-pick" }, pick(true, "Pass"), pick(false, "Fail")));
+    }));
+    send = () => go(Object.keys(guess).length ? { tests: guess } : null);
+  } else {
+    let allPass = null, sure = 3;
+    const chips = (items, onPick, current) => el("span", { class: "guess-pick" }, items.map(([v, label]) => el("button", {
+      type: "button", class: "chip", "aria-pressed": String(v === current), onclick: (e) => {
+        onPick(v);
+        e.target.parentElement.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", String(b === e.target)));
+      } }, label)));
+    body = el("ul", { class: "guess-list" },
+      el("li", { class: "guess-row" }, el("span", { text: "Every hidden test will pass" }), chips([[true, "Yes"], [false, "No"]], (v) => { allPass = v; }, null)),
+      el("li", { class: "guess-row" }, el("span", { text: "How sure are you?" }), chips([1, 2, 3, 4, 5].map((n) => [n, String(n)]), (v) => { sure = v; }, 3)));
+    send = () => go(allPass === null ? null : { all_pass: allPass, confidence: sure });
+  }
+  state.guessing = { mode, send };
+  $("#results").replaceChildren(el("div", { class: "predict" },
+    el("p", { class: "predict-q", text: mode === "run" ? "Before you run: which tests will pass?" : "Before you submit: what will the hidden tests say?" }),
+    el("p", { class: "home-sub", text: "Guessing first trains you to read code before you run it. Mark only what you are sure about." }),
+    body,
+    el("div", { class: "predict-actions" },
+      el("button", { type: "button", class: "btn btn-primary", onclick: send }, mode === "run" ? "Run with my guess" : "Submit with my guess"),
+      el("button", { type: "button", class: "btn btn-text", onclick: () => go(null) }, "Skip"),
+      el("button", { type: "button", class: "btn btn-text", onclick: () => { setPredict(false); go(null); } }, "Stop asking"))));
+}
+
+function guessLine(p) {
+  if (!p || !p.total) return null;
+  if (p.details.length === 0) {
+    const said = p.all_pass ? "every hidden test would pass" : "some hidden test would fail";
+    return el("p", { class: "prediction-note", "data-right": String(Boolean(p.correct)) },
+      `You said ${said}${p.confidence ? `, ${p.confidence} of 5 sure` : ""}. ${p.correct ? "Right." : "Not this time."}`);
+  }
+  const misses = p.details.filter((d) => d.predicted !== d.actual).slice(0, 3)
+    .map((d) => `you expected “${d.label}” to ${d.predicted ? "pass" : "fail"}, and it ${d.actual ? "passed" : "failed"}`);
+  return el("p", { class: "prediction-note", "data-right": String(p.correct === p.total) },
+    `Your guess: ${p.correct} of ${p.total} right.${misses.length ? ` ${capital(misses.join("; "))}.` : ""}`);
+}
+
+/** After a solve: one question about a hidden case, answered in your own words. */
+function explainBox(r) {
+  const passed = r.tests.filter((t) => t.outcome === "passed");
+  const pool = passed.filter((t) => t.hidden).length ? passed.filter((t) => t.hidden) : passed;
+  if (!pool.length || !predictOn()) return null;
+  const t = pool[Math.floor(Math.random() * pool.length)];
+  const text = el("textarea", { rows: "2", placeholder: "One or two sentences, in your own words.", "aria-label": "Your explanation" });
+  const box = el("div", { class: "explain" },
+    el("label", { class: "predict-q", text: `One question: why does your code handle “${t.label}”?` }),
+    text,
+    el("div", { class: "predict-actions" },
+      el("button", { type: "button", class: "btn btn-secondary", onclick: async () => {
+        if (!text.value.trim()) { text.focus(); return; }
+        const { track, id } = state.challenge;
+        await api(`/api/challenges/${track}/${id}/explanation`, { method: "POST", body: { test: t.name, text: text.value } });
+        box.replaceChildren(el("p", { class: "home-sub", text: "Saved. Your agent reads it when it reviews your work or tutors you." }));
+      } }, "Save"),
+      el("button", { type: "button", class: "btn btn-text", onclick: () => box.remove() }, "Skip")));
+  return box;
+}
+
+async function run(mode, guess) {
   if (!state.challenge || state.running) return;
+  if (guess === undefined && state.guessing && state.guessing.mode === mode) { state.guessing.send(); return; }
+  if (guess === undefined && wantsGuess(mode)) { showGuess(mode); return; }
+  state.guessing = null;
   state.running = true;
   clearTimeout(state.saveTimer);
   const runBtn = $("#run-btn"), subBtn = $("#submit-btn");
@@ -543,7 +631,9 @@ async function run(mode) {
   $("#results").replaceChildren(el("p", { class: "results-empty", text: mode === "run" ? "Running the visible tests…" : "Running all tests, including hidden ones…" }));
   try {
     const { track, id } = state.challenge;
-    const report = await api(`/api/challenges/${track}/${id}/run`, { method: "POST", body: { code: getCode(), mode } });
+    const report = await api(`/api/challenges/${track}/${id}/run`, { method: "POST", body: { code: getCode(), mode, prediction: guess || null } });
+    state.challenge.runs += 1;
+    if (report.first_solve) state.challenge.solved = true;
     renderReport(report, mode);
     $("#save-state").textContent = "Saved";
     state.hintReady = true;
@@ -570,7 +660,7 @@ function showResults(status, word, count) {
   bench.classList.remove("results-hidden");
   chip.dataset.status = status;
   // On phones only the count shows; the color still carries the verdict.
-  chip.replaceChildren(el("span", { class: "chip-word", text: count ? `${word} ` : word }), count ? el("span", { text: count }) : null);
+  chip.replaceChildren(el("span", { class: "chip-word", text: count ? `${word} ` : word }), ...(count ? [el("span", { text: count })] : []));
   chip.setAttribute("aria-expanded", "true");
 }
 
@@ -586,10 +676,11 @@ function toggleResults() {
 function renderReport(r, mode) {
   showResults(r.status, VERDICT[r.status] || r.status, `${r.passed}/${r.total}`);
   const box = $("#results");
-  const nodes = [];
+  const nodes = [guessLine(r.prediction)].filter(Boolean);
   if (r.first_solve) nodes.push(el("p", { class: "solved-note", text: r.solve === "assisted"
     ? "Solved with help. A variant of this question comes back for review in 2 days."
     : "Solved on your own. A variant comes back for review in 3 days, to make it stick." }));
+  if (r.first_solve) nodes.push(explainBox(r) || "");
   nodes.push(el("div", { class: "verdict", "data-status": r.status },
     el("span", { class: "verdict-word", text: VERDICT[r.status] || r.status }),
     el("span", { class: "verdict-sum", text: `${r.summary} (${r.duration.toFixed(1)} s)` })));
@@ -1162,6 +1253,7 @@ function ledger(n) {
     ["Runs to solve", n.median_runs, "median"],
     ["Hints per solve", n.hints_per_solve, `opened before solving${trend}`],
     ["First Submit", n.first_submit_rate === null ? null : `${n.first_submit_rate}%`, `passed every hidden test on the first try (${plural(n.first_submits, "question")})`],
+    ["Predictions", n.predict_now === null ? null : `${n.predict_now}%`, `of test results you guessed right this month${n.predict_before !== null ? `, ${n.predict_now > n.predict_before ? "up" : n.predict_now < n.predict_before ? "down" : "level"} from ${n.predict_before}%` : ""}`],
   ].filter(([, v]) => v !== null && v !== undefined);
   return el("dl", { class: "ledger" }, rows.flatMap(([k, v, why]) => [
     el("dt", { text: k }), el("dd", {}, el("span", { class: "ledger-value", text: String(v) }), el("span", { class: "home-sub", text: why }))]));
@@ -1192,6 +1284,8 @@ function interestRows(d, paths) {
     const go = el("button", { type: "button", class: "btn btn-quiet", onclick: () => { state.filters.company = t.company; location.hash = "#/catalog"; } }, "See what they ask");
     rows.push(homeRow(t.company, `${plural(t.problems, "problem")} in the catalog, ${t.ready} ready to practise.`, go));
   }
+  if (!predictOn()) rows.push(homeRow("Predict and explain is off", "Guessing before a run, and explaining after a solve, train you to read code before you run it.",
+    el("button", { type: "button", class: "btn btn-quiet", onclick: () => { setPredict(true); renderHome(); } }, "Turn on")));
   if (!gameOn()) rows.push(homeRow("Grit and milestones are hidden", "Turn them back on any time.",
     el("button", { type: "button", class: "btn btn-quiet", onclick: () => { setGame(true); renderHome(); } }, "Show")));
   return rows;

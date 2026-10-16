@@ -90,6 +90,8 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
   3. Press **Run tests** (Ctrl/Cmd + Enter) for the visible tests, or **Submit** (Ctrl/Cmd + Shift + Enter) for all of them.
   4. If you're stuck, open hints one at a time. Each hint unlocks after a test run. The reference solution opens after you solve the question, or if you give up.
 
+  On your first run of a question, and before each Submit, Whetstone asks you to guess which tests will pass. After a solve it asks one question about a hidden case. Both take seconds, both can be skipped, and the dashboard shows how often your guesses were right. "Stop asking" turns them off.
+
   A solve without the last hint or the solution counts as clean. Solved ideas come back as variants after 3 days, 3 weeks and 3 months. Your weekly streak counts weeks with 3 practice days, and forgives one missed week. Your drafts and progress are saved in `my/whetstone.db`.
 
 ## Contributing

@@ -130,6 +130,16 @@ def numbers(rows: list[dict], facts: dict, today: date) -> dict:
     }
 
 
+def predictions(store, today: date) -> dict:
+    """Share of test results guessed right before runs: this month, and the month before."""
+    month = timedelta(days=30)
+    end = today + timedelta(days=1)
+    now = store.prediction_rate(end - month, end)
+    before = store.prediction_rate(end - 2 * month, end - month)
+    rate = lambda r: round(100 * r[0] / r[1]) if r[1] else None  # noqa: E731
+    return {"predict_now": rate(now), "predict_before": rate(before), "predicted": now[1]}
+
+
 def milestones(rows: list[dict], facts: dict, week: dict) -> list[dict]:
     """Earned for habits that predict learning, each saying what the learner can now do."""
     out = []

@@ -102,3 +102,38 @@ def test_hints_and_solution_open_in_order(tmp_path):
     assert client.post("/api/challenges/m/01-q/solution", json={}).status_code == 409
     assert client.post("/api/challenges/m/01-q/solution", json={"give_up": True}).json() == {"code": "ANSWER = 1\n"}
     assert Store(settings.db_path).reveals("m/01-q") == ["hint-0", "hint-1", "solution"]
+
+
+def test_predictions_are_scored_and_explanations_kept(tmp_path):
+    """A guess before a run is scored against the result; an explanation after a solve is kept."""
+    import shutil
+
+    from fastapi.testclient import TestClient
+
+    from whetstone.config import EXAMPLE
+
+    shutil.copytree(EXAMPLE, tmp_path / "my/tracks/m/01-memo")
+    (tmp_path / "content").mkdir()
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 60)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+    q = client.get("/api/challenges/m/01-memo").json()
+    names = [t["name"] for t in q["visible_tests"]]
+    assert names == ["test_returns_correct_values", "test_computes_each_input_once", "test_stats_count_hits_and_misses"]
+
+    starter = (EXAMPLE / "starter.py").read_text()
+    guess = {"tests": {"test_returns_correct_values": True, "test_computes_each_input_once": True}}
+    r = client.post("/api/challenges/m/01-memo/run", json={"code": starter, "mode": "run", "prediction": guess}).json()
+    assert (r["prediction"]["correct"], r["prediction"]["total"]) == (1, 2), "the starter computes twice, so one guess was wrong"
+
+    solution = (EXAMPLE / "solution.py").read_text()
+    r = client.post(
+        "/api/challenges/m/01-memo/run", json={"code": solution, "mode": "submit", "prediction": {"all_pass": True, "confidence": 4}}
+    ).json()
+    assert r["first_solve"] and (r["prediction"]["correct"], r["prediction"]["confidence"]) == (1, 4)
+
+    assert client.post(
+        "/api/challenges/m/01-memo/explanation", json={"test": "test_errors_are_not_cached", "text": "I save only after compute returns."}
+    ).json() == {"saved": True}
+    assert Store(settings.db_path).explanation("m/01-memo")["text"] == "I save only after compute returns."
+    numbers = client.get("/api/dashboard").json()["numbers"]
+    assert (numbers["predict_now"], numbers["predicted"]) == (67, 3), "2 of 3 guesses right"
