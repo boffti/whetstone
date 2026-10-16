@@ -8,24 +8,32 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=5">
+  <link rel="stylesheet" href="/static/app.css?v=6">
 </head>
 <body>
   <header class="topbar">
     <a class="wordmark" href="#/" aria-label="Whetstone home">Whetstone</a>
     <nav class="topnav" aria-label="Views">
-      <a href="#/" id="nav-catalog">Catalog</a>
-      <a href="#/paths" id="nav-paths">Paths</a>
       <a href="#/practice" id="nav-practice">Practice</a>
+      <a href="#/paths" id="nav-paths">Paths</a>
+      <a href="#/catalog" id="nav-catalog">Catalog</a>
     </nav>
     <div class="topbar-stats" id="stats" aria-live="polite"></div>
     <div class="topbar-actions">
-      <button class="btn btn-quiet" id="open-generate" type="button" title="New challenge"><span class="btn-plus" aria-hidden="true">+</span><span class="btn-label">New challenge</span></button>
+      <button class="btn btn-quiet" id="open-generate" type="button" title="New question"><span class="btn-plus" aria-hidden="true">+</span><span class="btn-label">New question</span></button>
       <button class="btn btn-icon" id="theme-toggle" type="button" aria-label="Switch light or dark theme" title="Switch theme">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" fill="currentColor"/></svg>
       </button>
     </div>
   </header>
+
+  <main class="home" id="home" hidden aria-labelledby="home-title">
+    <div class="catalog-head">
+      <h1 id="home-title">Practice</h1>
+      <p class="catalog-lede" id="home-lede"></p>
+    </div>
+    <div class="home-body" id="home-body"></div>
+  </main>
 
   <main class="catalog" id="catalog" hidden aria-labelledby="catalog-title">
     <div class="catalog-head">
@@ -42,7 +50,7 @@
         <select id="f-company"><option value="">All companies</option></select>
       </label>
       <div class="chips" id="f-rounds" role="group" aria-label="Round type"></div>
-      <label class="filter-check"><input type="checkbox" id="f-tracked"> Has a track</label>
+      <label class="filter-check"><input type="checkbox" id="f-tracked"> Ready to practise</label>
     </div>
     <p class="catalog-count" id="catalog-count" aria-live="polite"></p>
     <ul class="grid" id="catalog-grid"></ul>
@@ -65,7 +73,7 @@
   </main>
 
   <main class="workspace" id="workspace" hidden>
-    <nav class="rail" aria-label="Challenges">
+    <nav class="rail" aria-label="Questions in this module">
       <div class="rail-head">
         <label class="track-picker">
           <span class="visually-hidden">Module</span>
@@ -93,7 +101,7 @@
       <div class="reader-head">
         <h1 id="challenge-title">Loading…</h1>
         <div class="meta" id="challenge-meta"></div>
-        <div class="tabs" role="tablist" aria-label="Challenge sections">
+        <div class="tabs" role="tablist" aria-label="Question sections">
           <button role="tab" class="tab" data-tab="lesson" aria-selected="true">Lesson</button>
           <button role="tab" class="tab" data-tab="problem" aria-selected="false">Problem</button>
           <button role="tab" class="tab" data-tab="hints" aria-selected="false">Hints</button>
@@ -105,13 +113,13 @@
         <article class="prose" role="tabpanel" data-panel="lesson" id="panel-lesson"></article>
         <article class="prose" role="tabpanel" data-panel="problem" id="panel-problem" hidden></article>
         <div class="prose" role="tabpanel" data-panel="hints" id="panel-hints" hidden>
-          <p class="panel-intro">Hints go from a gentle push to almost the answer. Open one at a time.</p>
+          <p class="panel-intro">Four rungs: a question, the idea, a next step, then a skeleton. Each one opens after a test run, so try something between hints.</p>
           <ol class="hint-list" id="hint-list"></ol>
           <button class="btn btn-quiet" id="next-hint" type="button">Show hint 1</button>
         </div>
         <div class="prose" role="tabpanel" data-panel="solution" id="panel-solution" hidden>
           <div id="solution-gate">
-            <p class="panel-intro">The reference solution passes every test. Try the hints first; you learn more from the struggle.</p>
+            <p class="panel-intro" id="solution-intro"></p>
             <button class="btn btn-quiet" id="reveal-solution" type="button">Show the reference solution</button>
           </div>
           <pre class="solution-code" id="solution-code" hidden><code></code></pre>
@@ -141,7 +149,7 @@
   <dialog class="drawer" id="generate-dialog" aria-labelledby="generate-title">
     <form method="dialog" class="drawer-inner" id="generate-form">
       <div class="drawer-head">
-        <h2 id="generate-title">New challenge</h2>
+        <h2 id="generate-title">New question</h2>
         <button class="btn btn-icon" value="cancel" formnovalidate aria-label="Close">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
@@ -149,7 +157,7 @@
       <div id="generate-disabled" hidden>
         <p>Claude writes a lesson, a problem, tests, and a reference solution, then Whetstone checks that the solution passes and the starter fails.</p>
         <p><strong>Use your AI subscription.</strong> Open this folder in Claude Code, Codex, Cursor or another coding agent and ask: <em>“Build a Whetstone question about … in the … module.”</em> The agent follows <code>AGENTS.md</code> and the <code>bin/whetstone</code> CLI, and Whetstone checks the question before adding it.</p>
-        <p>Or add <code>ANTHROPIC_API_KEY=…</code> to the <code>.env</code> file and restart the app to write challenges from here.</p>
+        <p>Or add <code>ANTHROPIC_API_KEY=…</code> to the <code>.env</code> file and restart the app to write questions from here.</p>
       </div>
       <div id="generate-fields">
         <label class="field">
@@ -157,8 +165,8 @@
           <textarea name="topic" rows="3" required minlength="3" placeholder="Token bucket rate limiter for a vendor API client"></textarea>
         </label>
         <label class="field">
-          <span>Track</span>
-          <input name="track" list="track-options" required placeholder="concurrency-caching or a new track name">
+          <span>Module</span>
+          <input name="track" list="track-options" required placeholder="concurrency-caching or a new module name">
           <datalist id="track-options"></datalist>
         </label>
         <fieldset class="field segmented">
@@ -172,7 +180,7 @@
           <textarea name="notes" rows="2" placeholder="Use a fake clock. Tie it to my day job."></textarea>
         </label>
         <div class="drawer-actions">
-          <button class="btn btn-primary" id="generate-btn" type="submit" value="default">Write challenge</button>
+          <button class="btn btn-primary" id="generate-btn" type="submit" value="default">Write question</button>
           <span class="save-state" id="generate-state"></span>
         </div>
         <pre class="gen-log" id="generate-log" hidden></pre>
@@ -213,6 +221,6 @@
     window.MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
-  <script src="/static/app.js?v=8"></script>
+  <script src="/static/app.js?v=9"></script>
 </body>
 </html>

@@ -77,3 +77,28 @@ def test_only_local_requests_are_answered():
     assert all(is_local_request(h, o, LOCAL_HOSTS) for h, o in ok)
     assert not any(is_local_request(h, o, LOCAL_HOSTS) for h, o in blocked)
     assert is_local_request("devbox:8000", None, LOCAL_HOSTS | {"devbox"}), "WHETSTONE_ALLOWED_HOSTS adds names"
+
+
+def test_hints_and_solution_open_in_order(tmp_path):
+    """A hint unlocks after a test run since the last one; the solution after a solve or a give-up."""
+    from fastapi.testclient import TestClient
+
+    q = tmp_path / "my/tracks/m/01-q"
+    q.mkdir(parents=True)
+    (q / "challenge.yaml").write_text("title: Q\n")
+    (q / "hints.md").write_text("one\n\n---\n\ntwo\n\n---\n\nthree\n\n---\n\nfour\n")
+    (q / "solution.py").write_text("ANSWER = 1\n")
+    (tmp_path / "content").mkdir()
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 10)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+
+    assert client.get("/api/challenges/m/01-q/hints/1").status_code == 404, "hints open in order"
+    assert client.get("/api/challenges/m/01-q/hints/0").status_code == 200
+    assert client.get("/api/challenges/m/01-q/hints/1").status_code == 409, "the next hint needs a test run first"
+    assert client.get("/api/challenges/m/01-q/hints/0").status_code == 200, "re-reading an opened hint is free"
+    Store(settings.db_path).record_run("m/01-q", "run", "failed", 0, 1, 0.1, "code")
+    assert client.get("/api/challenges/m/01-q/hints/1").status_code == 200
+
+    assert client.post("/api/challenges/m/01-q/solution", json={}).status_code == 409
+    assert client.post("/api/challenges/m/01-q/solution", json={"give_up": True}).json() == {"code": "ANSWER = 1\n"}
+    assert Store(settings.db_path).reveals("m/01-q") == ["hint-0", "hint-1", "solution"]

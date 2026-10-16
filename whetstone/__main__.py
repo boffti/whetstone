@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, timedelta
 from pathlib import Path
 
 from .catalog import CLI, _rel
@@ -392,38 +391,19 @@ def cmd_catalog(args) -> int:
 
 
 def cmd_progress(args) -> int:
+    from .store import progress_rows
+
     settings = load_settings()
     store, tracks = _state(settings)
-    rows = []
-    for t in tracks.values():
-        for c in t.challenges:
-            last, opened = store.last_run(c.key), store.reveals(c.key)
-            hint_count = len(c.hints())
-            solve = store.solve(c.key, f"hint-{hint_count - 1}")
-            rows.append(
-                {
-                    "key": c.key,
-                    "title": c.title,
-                    "type": c.kind,
-                    "variant_of": c.variant_of,
-                    "difficulty": c.difficulty,
-                    "tags": c.tags,
-                    "status": "solved" if solve else ("attempted" if last else "new"),
-                    "solve": solve[1] if solve else None,
-                    "solved_at": solve[0] if solve else None,
-                    "runs": store.run_count(c.key),
-                    "hint_count": hint_count,
-                    "hints_opened": sum(w.startswith("hint") for w in opened),
-                    "solution_viewed": "solution" in opened,
-                    "last_run": last,
-                }
-            )
-    add_reviews(rows)
+    rows = progress_rows(store, tracks.values())
+    week = store.week()
     if args.json:
-        print(json.dumps({"streak": store.streak(), "active_days": store.active_days(), "questions": rows}, indent=2))
+        print(json.dumps({"week": week, "active_days": store.active_days(), "questions": rows}, indent=2))
         return 0
     done = sum(r["status"] == "solved" for r in rows)
-    print(f"Streak: {store.streak()} days. Solved {done} of {len(rows)} questions.\n")
+    print(
+        f"This week: {week['this_week']} of {week['target']} practice days. Weekly streak: {week['streak']}. Solved {done} of {len(rows)} questions.\n"
+    )
     for r in rows:
         last = r["last_run"]
         notes = [f"runs={r['runs']}", f"hints={r['hints_opened']}/{r['hint_count']}"]
@@ -437,31 +417,6 @@ def cmd_progress(args) -> int:
             notes.append(f"last {last['mode']}: {last['status']} {last['passed']}/{last['total']}")
         print(f"{r['status']:<9} {r['key']:<46} {' '.join(notes)}")
     return 0
-
-
-# Spaced review (docs/PEDAGOGY.md, rule 3): after a clean solve, a variant is due in 3 days, then
-# 3 weeks, then 3 months. An assisted solve gets its first variant after 2 days.
-REVIEW_GAPS = (3, 21, 90)
-
-
-def add_reviews(rows: list[dict]) -> None:
-    """Add `mastered` and `review_due` to each progress row. A variant re-tests its original
-    question (variant_of); mastery is a clean solve plus a clean variant solve."""
-    variants: dict[str, list[dict]] = {}
-    for r in rows:
-        if r["variant_of"]:
-            variants.setdefault(r["variant_of"], []).append(r)
-    for r in rows:
-        clean = sorted(v["solved_at"] for v in variants.get(r["key"], []) if v["solve"] == "clean")
-        r["mastered"] = r["solve"] == "clean" and bool(clean)
-        r["review_due"] = None
-        if r["variant_of"] or not r["solve"] or len(clean) >= len(REVIEW_GAPS):
-            continue
-        if r["solve"] == "assisted" and not clean:
-            since, gap = r["solved_at"], 2
-        else:
-            since, gap = (clean[-1] if clean else r["solved_at"]), REVIEW_GAPS[len(clean)]
-        r["review_due"] = (date.fromisoformat(since[:10]) + timedelta(days=gap)).isoformat()
 
 
 def _question_or_none(settings, key: str):

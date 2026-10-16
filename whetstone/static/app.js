@@ -9,6 +9,8 @@ const state = {
   trackId: null,
   challenge: null,
   hintsShown: 0,
+  hintReady: true,
+  lessonLocked: false,
   activeFile: "solution.py",
   editor: null,
   models: {},
@@ -264,11 +266,11 @@ function renderRail() {
   $("#next-q").onclick = () => { if (step(1)) location.hash = `#/${track.id}/${step(1).id}`; };
   const list = $("#rail-list");
   list.replaceChildren(...track.challenges.map((c) => {
-    const statusText = { solved: "solved", attempted: "in progress", new: "not started" }[c.status];
+    const statusText = STATUS_TEXT[c.status];
     const isCurrent = state.challenge && state.challenge.track === track.id && state.challenge.id === c.id;
     return el("li", { class: "rail-item", "data-status": c.status, "aria-current": isCurrent ? "true" : "false" },
       el("a", { href: `#/${track.id}/${c.id}`, "aria-label": `${c.number}. ${c.title}, ${c.difficulty}, ${statusText}` },
-        el("span", { class: "notch", "aria-hidden": "true" }, c.status === "solved" ? "✓" : String(c.number)),
+        el("span", { class: "notch", "aria-hidden": "true" }, ["solved", "assisted", "mastered"].includes(c.status) ? "✓" : String(c.number)),
         el("span", {},
           el("span", { class: "rail-title", text: c.title }),
           el("span", { class: "rail-sub", text: `${capital(c.difficulty)}, ${c.minutes} min${c.requires.length ? `, needs ${c.requires.join(", ")}` : ""}` }))));
@@ -279,21 +281,34 @@ function capital(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 async function loadStats() {
   const s = await api("/api/stats");
+  const w = s.week;
+  const streak = w.streak ? `Weekly streak: ${plural(w.streak, "week")}` : `${plural(w.sessions, "practice day")} so far`;
   $("#stats").replaceChildren(
-    el("span", {}, el("strong", { text: plural(s.streak, "day") }), " streak"),
+    el("span", { title: `${streak}. A week counts at ${w.target} practice days.` }, el("strong", { text: `${w.this_week} of ${w.target}` }), " days this week"),
     el("span", {}, el("strong", { text: `${s.solved} of ${s.total}` }), " solved"),
   );
-  const active = new Set(s.active_days);
-  const days = [];
+  fillDays($("#days"), s.active_days);
+}
+
+function isoDay(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function shortDate(iso) {
+  return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** The last 28 days, one square per day, lit when you practised. */
+function fillDays(box, activeDays) {
+  const active = new Set(activeDays);
   const today = new Date();
+  const days = [];
   for (let i = 27; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const iso = isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
     days.push(el("span", { class: `day${active.has(iso) ? " on" : ""}${i === 0 ? " today" : ""}`, title: iso }));
   }
-  const box = $("#days");
   box.replaceChildren(...days);
-  box.setAttribute("aria-label", `Practiced on ${active.size} of the last 28 days`);
+  box.setAttribute("aria-label", `Practised on ${active.size} of the last 28 days`);
 }
 
 /* ---------- Challenge ---------- */
@@ -302,12 +317,16 @@ async function openChallenge(trackId, cid) {
   const c = await api(`/api/challenges/${trackId}/${cid}`);
   state.challenge = c;
   state.trackId = trackId;
-  state.hintsShown = 0;
+  state.hintsShown = c.hints.length;
+  state.hintReady = c.hint_ready;
+  // Problem first: some lessons open only after the first test run (docs/PEDAGOGY.md, rule 1).
+  state.lessonLocked = c.lesson_mode === "after-run" && c.runs === 0 && !c.solved;
   state.activeFile = "solution.py";
   document.title = `${c.title} · Whetstone`;
 
   $("#challenge-title").textContent = c.title;
   const meta = [el("span", { class: "diff", "data-d": c.difficulty, text: capital(c.difficulty) }), el("span", { text: `About ${c.minutes} min` })];
+  if (TYPE_LABEL[c.type]) meta.unshift(el("span", { class: "qtype", text: TYPE_LABEL[c.type] }));
   if (c.requires.includes("redis")) {
     const ok = state.config && state.config.redis_ok;
     meta.push(el("span", { class: `needs${ok ? " ok" : ""}`, text: ok ? "Redis connected" : "Needs Redis: not reachable" }));
@@ -315,13 +334,13 @@ async function openChallenge(trackId, cid) {
   meta.push(...c.tags.map((t) => el("span", { class: "tag", text: t })));
   $("#challenge-meta").replaceChildren(...meta);
 
-  $("#panel-lesson").innerHTML = c.lesson_html;
+  renderLesson();
   $("#panel-problem").innerHTML = c.problem_html;
-  $("#hint-list").replaceChildren();
+  $("#hint-list").replaceChildren(...c.hints.map((html) => { const li = el("li"); li.innerHTML = html; return li; }));
   updateHintButton();
-  $("#solution-gate").hidden = false;
+  updateSolutionGate();
   $("#solution-code").hidden = true;
-  selectTab(c.runs > 0 ? "problem" : "lesson");
+  selectTab(c.runs > 0 || state.lessonLocked ? "problem" : "lesson");
 
   setFiles(c.code, c.files);
   $("#save-state").textContent = c.code !== c.starter ? "Draft restored" : "";
@@ -359,26 +378,55 @@ function onLayoutChange() {
   if (!PANE.matches && current && current.dataset.tab === "code") selectTab("problem");
 }
 
+function renderLesson() {
+  const panel = $("#panel-lesson");
+  if (state.lessonLocked) {
+    panel.replaceChildren(el("p", { class: "panel-intro", text: "Try the problem first. The lesson opens after your first test run: attempting it before reading makes the idea stick." }));
+  } else {
+    panel.innerHTML = state.challenge.lesson_html;
+  }
+}
+
+// Hints are a ladder: each rung unlocks after a test run since the last one (docs/PEDAGOGY.md, rule 5).
 function updateHintButton() {
   const btn = $("#next-hint");
   const total = state.challenge ? state.challenge.hint_count : 0;
   btn.hidden = state.hintsShown >= total;
-  btn.textContent = `Show hint ${state.hintsShown + 1} of ${total}`;
+  btn.disabled = !state.hintReady;
+  btn.textContent = state.hintReady
+    ? `Show hint ${state.hintsShown + 1} of ${total}`
+    : `Hint ${state.hintsShown + 1} unlocks after your next test run`;
 }
 
 async function showNextHint() {
   const { track, id } = state.challenge;
-  const h = await api(`/api/challenges/${track}/${id}/hints/${state.hintsShown}`);
-  const li = el("li");
-  li.innerHTML = h.html;
-  $("#hint-list").append(li);
-  state.hintsShown += 1;
+  try {
+    const h = await api(`/api/challenges/${track}/${id}/hints/${state.hintsShown}`);
+    const li = el("li");
+    li.innerHTML = h.html;
+    $("#hint-list").append(li);
+    state.hintsShown += 1;
+    state.hintReady = false;
+  } catch (_) {
+    state.hintReady = false;
+  }
   updateHintButton();
 }
 
+function updateSolutionGate() {
+  const open = state.challenge.solution_open;
+  $("#solution-gate").hidden = false;
+  $("#solution-intro").textContent = open
+    ? "Compare the reference with your code. Name one difference, and why it matters."
+    : "The reference opens after you solve it. If you are truly stuck, you can give up: that counts as solved with help, and a variant comes back in 2 days.";
+  $("#reveal-solution").textContent = open ? "Show the reference solution" : "I give up: show the solution";
+}
+
 async function revealSolution() {
-  const { track, id } = state.challenge;
-  const s = await api(`/api/challenges/${track}/${id}/solution`);
+  const { track, id, solution_open: open } = state.challenge;
+  if (!open && !confirm("Give up and see the reference solution? This question will count as solved with help.")) return;
+  const s = await api(`/api/challenges/${track}/${id}/solution`, { method: "POST", body: { give_up: !open } });
+  state.challenge.solution_open = true;
   $("#solution-gate").hidden = true;
   const pre = $("#solution-code");
   pre.querySelector("code").textContent = s.code;
@@ -400,6 +448,8 @@ async function resetCode() {
 }
 
 /* ---------- Running tests ---------- */
+const STATUS_TEXT = { new: "not started", attempted: "in progress", assisted: "solved with help", solved: "solved", mastered: "mastered" };
+const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review" };
 const VERDICT = { passed: "Passed", failed: "Not yet", error: "Could not run", timeout: "Timed out", blocked: "Blocked" };
 
 async function run(mode) {
@@ -417,6 +467,10 @@ async function run(mode) {
     const report = await api(`/api/challenges/${track}/${id}/run`, { method: "POST", body: { code: getCode(), mode } });
     renderReport(report, mode);
     $("#save-state").textContent = "Saved";
+    state.hintReady = true;
+    updateHintButton();
+    if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
+    if (report.first_solve) { state.challenge.solution_open = true; updateSolutionGate(); }
     await Promise.all([loadTracks().then(renderRail), loadStats()]);
   } catch (err) {
     $("#results").replaceChildren(el("p", { class: "results-empty", text: `The run failed: ${err.message}` }));
@@ -454,7 +508,9 @@ function renderReport(r, mode) {
   showResults(r.status, VERDICT[r.status] || r.status, `${r.passed}/${r.total}`);
   const box = $("#results");
   const nodes = [];
-  if (r.first_solve) nodes.push(el("p", { class: "solved-note", text: "Solved. This challenge is now marked as done." }));
+  if (r.first_solve) nodes.push(el("p", { class: "solved-note", text: r.solve === "assisted"
+    ? "Solved with help. A variant of this question comes back for review in 2 days."
+    : "Solved on your own. A variant comes back for review in 3 days, to make it stick." }));
   nodes.push(el("div", { class: "verdict", "data-status": r.status },
     el("span", { class: "verdict-word", text: VERDICT[r.status] || r.status }),
     el("span", { class: "verdict-sum", text: `${r.summary} (${r.duration.toFixed(1)} s)` })));
@@ -521,7 +577,7 @@ function initGenerate() {
         location.hash = `#/${res.track}/${res.id}`;
         setTimeout(() => dialog.close(), 600);
       } else {
-        stateEl.textContent = "The challenge did not pass validation. Change the topic or notes and try again.";
+        stateEl.textContent = "The question did not pass the checks. Change the topic or notes and try again.";
       }
     } catch (err) {
       stateEl.textContent = err.message;
@@ -843,20 +899,106 @@ function moduleStep(m, i, isCurrent) {
       action));
 }
 
-/* ---------- Routing ---------- */
-function firstOpenChallenge() {
-  for (const t of state.tracks) {
-    const c = t.challenges.find((x) => x.status !== "solved") || t.challenges[0];
-    if (c) return [t.id, c.id];
+
+/* ---------- Practice home ---------- */
+// One obvious next step, then reviews, paths and struggles (docs/PEDAGOGY.md: spacing first,
+// autonomy through choice, no guilt about missed days).
+async function loadHome() {
+  const [prog, paths] = await Promise.all([api("/api/progress"), api("/api/paths"), loadTracks()]);
+  state.paths = paths;
+  const q = prog.questions;
+  const w = prog.week;
+  $("#home-lede").textContent = `${w.this_week} of ${w.target} practice days this week. `
+    + (w.streak ? `Weekly streak: ${plural(w.streak, "week")}${w.repaired ? ", with one missed week forgiven" : ""}.`
+      : w.sessions ? `${plural(w.sessions, "practice day")} so far.` : `A week counts toward your streak at ${w.target} practice days.`);
+
+  const today = isoDay(new Date());
+  const sections = [];
+  const setup = setupSteps(prog, paths);
+  if (setup.some((st) => !st.done)) sections.push(homeSection("Get started", el("ol", { class: "setup" }, setup.map(setupItem))));
+
+  const open = q.filter((r) => r.status === "attempted").sort((a, b) => b.last_run.created_at.localeCompare(a.last_run.created_at));
+  const fresh = q.find((r) => r.status === "new");
+  const next = open[0] || fresh;
+  if (next) {
+    const sub = next.last_run
+      ? `Last run ${shortDate(next.last_run.created_at)}: ${next.last_run.passed} of ${next.last_run.total} tests passed.`
+      : "Not started yet.";
+    sections.push(homeSection(open[0] ? "Pick up where you left off" : "Start here",
+      el("ul", { class: "home-list" }, homeRow(next.title, `${moduleTitle(next.module)}. ${sub}`,
+        el("a", { class: "btn btn-primary", href: `#/${next.key}` }, open[0] ? "Continue" : "Start")))));
   }
-  return null;
+
+  const due = q.filter((r) => r.review_due && r.review_due <= today).slice(0, 3);
+  if (due.length) {
+    sections.push(homeSection("Due for review", el("ul", { class: "home-list" }, due.map((r) => homeRow(r.title,
+      `${r.solve === "assisted" ? "Solved with help" : "Solved"} on ${shortDate(r.solved_at)}. A fresh variant checks it stuck. Ask your agent:`,
+      askLine(`Build a Whetstone variant of ${r.key} for review.`))))));
+  }
+
+  const started = paths.filter((p) => p.mine || pathStats(p).solved).slice(0, 3);
+  const steps = started.map((p) => [p, p.modules.find((m) => !m.built || m.solved < m.questions)]).filter(([, m]) => m);
+  if (steps.length) {
+    sections.push(homeSection("Next in your paths", el("ul", { class: "home-list" }, steps.map(([p, m]) => homeRow(p.title,
+      m.built ? `${m.title}: ${m.solved} of ${plural(m.questions, "question")} solved.` : `${m.title} is not built yet. Ask your agent:`,
+      m.built ? el("a", { class: "btn btn-secondary", href: `#/${m.module}/${m.next}` }, m.solved ? "Continue" : "Start")
+        : askLine(`Build the first Whetstone question for the ${m.module} module.`))))));
+  }
+
+  const stuck = q.filter((r) => r !== next && r.status === "attempted" && (r.runs >= 5 || r.hints_opened >= 2)).slice(0, 3);
+  if (stuck.length) {
+    sections.push(homeSection("Where you struggled", el("ul", { class: "home-list" }, stuck.map((r) => homeRow(r.title,
+      `${plural(r.runs, "run")}, ${r.hints_opened} of ${r.hint_count} hints. Your agent can guide you without giving it away:`,
+      askLine(`I'm stuck on ${r.key}.`))))));
+  }
+
+  const days = el("div", { class: "days", role: "img" });
+  fillDays(days, prog.active_days);
+  sections.push(homeSection("Last 4 weeks", days));
+  $("#home-body").replaceChildren(...sections);
 }
 
+function moduleTitle(id) { return (state.tracks.find((t) => t.id === id) || { title: id }).title; }
+
+function setupSteps(prog, paths) {
+  return [
+    { done: prog.has_profile, title: "Set up your profile", sub: "Your agent writes it from what it knows about you, plus a few questions.", ask: "Set up my Whetstone profile." },
+    { done: paths.some((p) => p.mine) || prog.questions.length > 0, title: "Pick a system to build", sub: "Browse the Paths page, or ask your agent for one.", link: "#/paths" },
+    { done: prog.questions.length > 0, title: "Build your first question", sub: "Your agent writes it and Whetstone checks it.", ask: "Build the first Whetstone question for my path." },
+    { done: prog.questions.some((r) => r.status === "solved"), title: "Solve it", sub: "Run the tests as you go, then Submit." },
+  ];
+}
+
+function setupItem(st) {
+  return el("li", { class: "setup-step", "data-done": st.done ? "true" : "false" },
+    el("span", { class: "setup-title", text: st.title }),
+    st.done ? null : el("span", { class: "home-sub", text: st.sub }),
+    st.done ? null : st.ask ? askLine(st.ask) : st.link ? el("a", { class: "btn btn-secondary", href: st.link }, "Open Paths") : null);
+}
+
+function homeSection(title, body) {
+  return el("section", { class: "home-section" }, el("h2", { text: title }), body);
+}
+
+function homeRow(title, sub, action) {
+  return el("li", { class: "home-row" },
+    el("span", { class: "home-text" }, el("span", { class: "home-title", text: title }), el("span", { class: "home-sub", text: sub })),
+    action);
+}
+
+function askLine(text) {
+  const copy = el("button", { type: "button", class: "btn btn-quiet", onclick: () => copyText(text, copy) }, "Copy");
+  return el("p", { class: "ask-line" }, el("code", { text }), copy);
+}
+
+/* ---------- Routing ---------- */
 function showView(view) {
+  $("#home").hidden = view !== "home";
   $("#catalog").hidden = view !== "catalog";
   $("#paths").hidden = view !== "paths";
   $("#workspace").hidden = view !== "practice";
-  for (const v of ["catalog", "paths", "practice"]) $(`#nav-${v}`).setAttribute("aria-current", view === v ? "page" : "false");
+  const nav = view === "home" ? "practice" : view;
+  for (const v of ["catalog", "paths", "practice"]) $(`#nav-${v}`).setAttribute("aria-current", nav === v ? "page" : "false");
 }
 
 async function route() {
@@ -868,24 +1010,22 @@ async function route() {
     await openChallenge(parts[0], parts[1]);
     return;
   }
-  if (parts[0] === "practice") {
-    const target = state.challenge ? [state.challenge.track, state.challenge.id] : firstOpenChallenge();
-    if (target) { location.replace(`#/${target[0]}/${target[1]}`); return; }
-    showView("practice");
-    $("#challenge-title").textContent = "No challenges yet";
-    $("#panel-lesson").innerHTML = "<p>No questions yet. Pick a system to build on the <a href=\"#/paths\">Paths</a> page, then ask your AI agent, in this folder: <em>“Build the first Whetstone question for the &lt;module&gt; module.”</em> First time here? Ask it to set up your Whetstone profile.</p>";
-    return;
-  }
   if (parts[0] === "paths") {
     showView("paths");
     document.title = "Paths · Whetstone";
     await loadPaths();
     return;
   }
-  showView("catalog");
-  document.title = "Catalog · Whetstone";
-  await loadCatalog();
-  renderCatalog();
+  if (parts[0] === "catalog") {
+    showView("catalog");
+    document.title = "Catalog · Whetstone";
+    await loadCatalog();
+    renderCatalog();
+    return;
+  }
+  showView("home");
+  document.title = "Practice · Whetstone";
+  await loadHome();
 }
 
 /* ---------- Boot ---------- */

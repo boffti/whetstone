@@ -79,13 +79,13 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
 
 - **Catalog:** problems that companies actually ask, with each report's question, follow-ups and sources.
 - **Paths:** pick a system to build; modules not built yet show the request to give your agent.
-- **Practice:**
-  1. Read the **Lesson** and **Problem** tabs.
+- **Practice:** the home page shows the question to pick up, reviews that are due, the next step in your paths, and where you struggled. In a question:
+  1. Read the **Problem**. For most questions the **Lesson** opens after your first test run, because trying first makes it stick.
   2. Write code in `solution.py`.
   3. Press **Run tests** (Ctrl/Cmd + Enter) for the visible tests, or **Submit** (Ctrl/Cmd + Shift + Enter) for all of them.
-  4. If you're stuck, open hints one at a time.
+  4. If you're stuck, open hints one at a time. Each hint unlocks after a test run. The reference solution opens after you solve the question, or if you give up.
 
-  Your drafts and progress are saved in `my/whetstone.db`.
+  A solve without the last hint or the solution counts as clean. Solved ideas come back as variants after 3 days, 3 weeks and 3 months. Your weekly streak counts weeks with 3 practice days, and forgives one missed week. Your drafts and progress are saved in `my/whetstone.db`.
 
 ## Contributing
 

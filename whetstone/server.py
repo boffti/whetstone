@@ -16,7 +16,7 @@ from .config import Settings, load_settings
 from .content import ContentError, find_challenge, load_all_paths, load_tracks, render_md, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
 from .runner import run_tests
-from .store import Store
+from .store import Store, progress_rows
 
 STATIC = Path(__file__).parent / "static"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -43,6 +43,10 @@ class CodeBody(BaseModel):
 
 class RunBody(CodeBody):
     mode: str = Field(default="run", pattern="^(run|submit)$")
+
+
+class SolutionBody(BaseModel):
+    give_up: bool = False
 
 
 class GenerateBody(BaseModel):
@@ -114,10 +118,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/tracks")
     def tracks():
-        solved = store.solved_keys()
-        attempted = store.attempted_keys()
+        all_tracks = load_tracks(settings.tracks_dir)
+        rows = {r["key"]: r for r in progress_rows(store, all_tracks)}
         out = []
-        for t in load_tracks(settings.tracks_dir):
+        for t in all_tracks:
             out.append(
                 {
                     "id": t.id,
@@ -128,11 +132,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             "id": c.dir_name,
                             "number": c.number,
                             "title": c.title,
+                            "type": c.kind,
                             "difficulty": c.difficulty,
                             "minutes": c.minutes,
                             "tags": c.tags,
                             "requires": c.requires,
-                            "status": "solved" if c.key in solved else ("attempted" if c.key in attempted else "new"),
+                            "status": _status(rows[c.key]),
                         }
                         for c in t.challenges
                     ],
@@ -140,12 +145,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return out
 
+    @app.get("/api/progress")
+    def progress():
+        """Everything the Practice home needs: each question's progress, reviews and the week."""
+        return {
+            "questions": progress_rows(store, load_tracks(settings.tracks_dir)),
+            "week": store.week(),
+            "active_days": store.active_days(),
+            "has_profile": (settings.user_dir / "profile.md").exists(),
+        }
+
     @app.get("/api/stats")
     def stats():
         all_keys = [c.key for t in load_tracks(settings.tracks_dir) for c in t.challenges]
         solved = store.solved_keys()
         return {
-            "streak": store.streak(),
+            "week": store.week(),
             "solved": len([k for k in all_keys if k in solved]),
             "total": len(all_keys),
             "active_days": store.active_days(),
@@ -168,6 +183,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "lesson_html": render_md(c.read("lesson.md")),
             "problem_html": render_md(c.read("problem.md")),
             "hint_count": len(c.hints()),
+            "hints": [render_md(h) for h in c.hints()[: _hints_opened(store, c.key)]],
+            "hint_ready": store.hint_ready(c.key),
+            "solution_open": c.key in store.solved_keys() or "solution" in store.reveals(c.key),
             "starter": c.read("starter.py"),
             "code": draft if draft is not None else c.read("starter.py"),
             "files": [{"name": n, "content": c.read(n)} for n in c.support]
@@ -179,15 +197,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/challenges/{track}/{cid}/hints/{index}")
     def hint(track: str, cid: str, index: int):
         c = get_challenge(track, cid)
-        hints = c.hints()
-        if not 0 <= index < len(hints):
-            raise HTTPException(404, "No such hint")
-        store.record_reveal(c.key, f"hint-{index}")
+        hints, opened = c.hints(), _hints_opened(store, c.key)
+        if not 0 <= index < len(hints) or index > opened:
+            raise HTTPException(404, "Open the hints in order.")
+        if index == opened:
+            if not store.hint_ready(c.key):
+                raise HTTPException(409, "Run the tests once more before the next hint.")
+            store.record_reveal(c.key, f"hint-{index}")
         return {"index": index, "html": render_md(hints[index])}
 
-    @app.get("/api/challenges/{track}/{cid}/solution")
-    def solution(track: str, cid: str):
+    @app.post("/api/challenges/{track}/{cid}/solution")
+    def solution(track: str, cid: str, body: SolutionBody, request: Request):
+        require_json(request)
         c = get_challenge(track, cid)
+        if not (body.give_up or c.key in store.solved_keys() or "solution" in store.reveals(c.key)):
+            raise HTTPException(409, "The solution opens after you solve the question, or when you give up.")
         store.record_reveal(c.key, "solution")
         return {"code": c.read("solution.py")}
 
@@ -209,7 +233,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store.save_draft(c.key, body.code)
         report = run_tests(c, body.code, body.mode, settings)
         first_solve = store.record_run(c.key, body.mode, report.status, report.passed, report.total, report.duration, body.code)
-        return {**report.to_dict(), "first_solve": first_solve}
+        solve = store.solve(c.key, f"hint-{len(c.hints()) - 1}") if first_solve else None
+        return {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None}
 
     @app.get("/api/catalog")
     def catalog():
@@ -270,3 +295,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"ok": True, "track": track, "id": cid, "log": lines}
 
     return app
+
+
+def _hints_opened(store: Store, key: str) -> int:
+    return sum(w.startswith("hint-") for w in store.reveals(key))
+
+
+def _status(row: dict) -> str:
+    """new, attempted, assisted (solved with the last hint or the solution), solved, or mastered."""
+    if row["mastered"]:
+        return "mastered"
+    if row["solve"] == "assisted":
+        return "assisted"
+    return row["status"]

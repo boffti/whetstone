@@ -2,7 +2,8 @@ import json
 
 import yaml
 
-from whetstone.__main__ import add_reviews, main
+from whetstone.__main__ import main
+from whetstone.store import add_reviews
 
 CATALOG = {
     "problems": [
@@ -103,3 +104,35 @@ def test_spaced_reviews_and_mastery():
     assert (b["mastered"], b["review_due"]) == (False, "2026-10-03"), "assisted: a variant after 2 days"
     assert c["review_due"] is None and not c["mastered"], "unsolved questions are not reviewed"
     assert a2["review_due"] is None, "variants are scheduled through their original question"
+
+
+def test_weekly_streak_forgives_one_missed_week(tmp_path):
+    from datetime import date, timedelta
+
+    from whetstone.store import Store
+
+    store = Store(tmp_path / "w.db")
+    today = date(2026, 10, 16)  # a Friday
+    monday = today - timedelta(days=today.weekday())
+
+    def practise(*days):
+        with store._conn() as conn:
+            for d in days:
+                conn.execute(
+                    "INSERT INTO runs (challenge, mode, status, passed, total, duration, code, day, created_at) VALUES ('m/01', 'run', 'failed', 0, 1, 0, '', ?, ?)",
+                    (d.isoformat(), d.isoformat() + "T10:00:00"),
+                )
+
+    weeks_ago = lambda n, *offsets: [monday - timedelta(days=7 * n) + timedelta(days=o) for o in offsets]  # noqa: E731
+    practise(*weeks_ago(3, 0, 1, 2), *weeks_ago(2, 0, 2, 4), *weeks_ago(0, 0, 1))  # week 1 ago was missed
+    w = store.week(today)
+    assert (w["this_week"], w["streak"], w["repaired"]) == (2, 2, True), "one missed week is forgiven"
+
+    practise(*weeks_ago(0, 2))
+    assert store.week(today)["streak"] == 3, "the current week counts once it reaches the target"
+
+    store2 = Store(tmp_path / "w2.db")
+    store, store2 = store2, store
+    practise(*weeks_ago(4, 0, 1, 2), *weeks_ago(0, 0))  # weeks 1-3 ago missed
+    assert store.week(today)["streak"] == 0, "a second missed week ends the streak"
+    assert store.week(today)["sessions"] == 4
