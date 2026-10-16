@@ -136,3 +136,45 @@ def test_weekly_streak_forgives_one_missed_week(tmp_path):
     practise(*weeks_ago(4, 0, 1, 2), *weeks_ago(0, 0))  # weeks 1-3 ago missed
     assert store.week(today)["streak"] == 0, "a second missed week ends the streak"
     assert store.week(today)["sessions"] == 4
+
+
+def test_old_databases_are_backed_up_and_migrated(tmp_path):
+    import sqlite3
+
+    import pytest
+
+    from whetstone.store import MIGRATIONS, SCHEMA_VERSION, Store
+
+    db = tmp_path / "whetstone.db"
+    with sqlite3.connect(db) as conn:  # a database from before versioning: schema 1, user_version 0
+        conn.executescript(MIGRATIONS[0])
+        conn.executemany("INSERT INTO reveals VALUES ('m/01', 'hint-0', ?)", [("2026-10-01T10:00:00",), ("2026-10-02T10:00:00",)])
+
+    store = Store(db)
+    assert store.schema_version() == SCHEMA_VERSION
+    assert store.backup == tmp_path / "whetstone.db.v0.bak" and store.backup.exists(), "upgrades back up first"
+    assert store.reveals("m/01") == ["hint-0"], "a re-read hint counts once"
+    store.record_reveal("m/01", "hint-0")
+    assert store.reveals("m/01") == ["hint-0"]
+    assert Store(db).backup is None, "an up-to-date database is left alone"
+
+    with sqlite3.connect(db) as conn:
+        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION + 1}")
+    with pytest.raises(RuntimeError, match="newer Whetstone"):
+        Store(db)
+
+
+def test_doctor_reports_and_explains(tmp_path, monkeypatch, capsys):
+    content = tmp_path / "content"
+    content.mkdir()
+    (content / "catalog.yaml").write_text(yaml.safe_dump(CATALOG))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(tmp_path / "my"))
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:1/0")
+
+    code = main(["doctor"])
+    out = capsys.readouterr().out
+    assert code == 0, "warnings alone don't fail the check"
+    assert "[ ! ] Your profile: not set up yet" in out and 'Ask your agent: "Set up my Whetstone profile."' in out
+    assert "Shared content: 2 modules" in out
+    assert "Redis at redis://localhost:1/0: not reachable" in out

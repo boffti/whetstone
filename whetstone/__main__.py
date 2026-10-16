@@ -3,7 +3,7 @@ the agent does the thinking on the learner's own subscription. See AGENTS.md.
 
 Content model: a learning path is an ordered list of modules toward a goal; a module
 is a topic made of ordered questions; a question is one exercise (lesson, code, tests).
-In the files, a module is a folder under content/tracks/ and a question is a folder in it.
+In the files, a module is a folder under my/tracks/ and a question is a folder in it.
 """
 
 from __future__ import annotations
@@ -40,6 +40,10 @@ TEMPLATE = {
     "tests/test_visible.py": "from solution import solve\n\n\ndef test_returns_answer():\n    assert solve() == 42\n",
     "tests/test_hidden.py": "from solution import solve\n\n\ndef test_returns_int():\n    assert isinstance(solve(), int)\n",
 }
+
+
+def plural(n: int, word: str) -> str:
+    return f"{n} {word}{'' if n == 1 else 's'}"
 
 
 def fail(message: str, code: int = 1) -> int:
@@ -468,6 +472,116 @@ def cmd_test(args) -> int:
     return 0 if report.status == "passed" else 1
 
 
+def cmd_doctor(args) -> int:
+    """Check the setup, and say how to fix each problem. Exits with 1 when something is broken."""
+    import os
+    import platform
+    import subprocess
+    import urllib.request
+
+    from .catalog import load_catalog
+    from .config import ROOT
+    from .server import _redis_ok
+    from .store import Store
+
+    settings = load_settings()
+    results: list[tuple[bool | None, str, str]] = []  # (True ok, None warning, False broken), what, fix
+
+    def check(ok: bool | None, what: str, fix: str = "") -> None:
+        results.append((ok, what, fix))
+
+    check(sys.version_info >= (3, 11), f"Python {platform.python_version()}", "Install Python 3.11 or newer, or run Whetstone with Docker.")
+
+    user = settings.user_dir
+    user.mkdir(parents=True, exist_ok=True)
+    check(os.access(user, os.W_OK), f"Your data folder: {_rel(user)}", "Make it writable, or point WHETSTONE_HOME at a folder you own.")
+    try:
+        store = Store(settings.db_path)
+        saved = f", the old one was saved as {_rel(store.backup)}" if store.backup else ""
+        check(True, f"Progress database: schema {store.schema_version()}{saved}")
+    except Exception as exc:  # noqa: BLE001 - report any database problem as a finding
+        check(False, f"Progress database: {exc}", "Update Whetstone (git pull), or restore a whetstone.db.v*.bak backup.")
+
+    has_profile = (user / "profile.md").exists()
+    check(
+        has_profile or None,
+        "Your profile: " + ("my/profile.md" if has_profile else "not set up yet"),
+        'Ask your agent: "Set up my Whetstone profile."',
+    )
+
+    problems, paths = load_catalog(settings), load_all_paths(settings.shared_paths_dir, settings.paths_dir)
+    check(
+        bool(problems), f"Shared content: {len(problems)} modules, {len(paths)} learning paths", "Run git pull, or check WHETSTONE_CONTENT."
+    )
+
+    try:
+        tracks = load_tracks(settings.tracks_dir)
+    except ContentError as exc:
+        tracks = []
+        check(False, f"Your questions: {exc}", "Fix or remove the broken question folder.")
+    questions = [c for t in tracks for c in t.challenges]
+    check(
+        bool(questions) or None,
+        f"Your questions: {len(questions)} in {plural(len(tracks), 'module')}",
+        'Ask your agent: "Build the first Whetstone question for <module>."',
+    )
+    old = [c.key for c in questions if (c.path / "hints.md").exists() and len(c.hints()) != 4]
+    if old:
+        check(
+            None,
+            f"{plural(len(old), 'question')} use the older format (not 4 hints). They still work.",
+            "To upgrade one, ask your agent to rewrite its hints as the 4-rung ladder in AUTHORING.md.",
+        )
+
+    needs = [c.key for c in questions if "redis" in c.requires]
+    redis_up = _redis_ok(settings.redis_url)
+    check(
+        redis_up or (None if not needs else False),
+        f"Redis at {settings.redis_url}: {'reachable' if redis_up else 'not reachable'}"
+        + (f", needed by {plural(len(needs), 'question')}" if needs else ""),
+        "Start it with docker compose up -d, or on a Mac: brew install redis && brew services start redis.",
+    )
+
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:8000/api/config", timeout=1) as resp:  # noqa: S310 - fixed local URL
+            app_up = resp.status == 200
+    except OSError:
+        app_up = False
+    check(
+        app_up or None,
+        f"Web app at http://localhost:8000: {'running' if app_up else 'not running'}",
+        "Start it with docker compose up -d, or bin/whetstone serve.",
+    )
+
+    if (ROOT / ".git").exists() and user.resolve().is_relative_to(ROOT):
+        rel = user.resolve().relative_to(ROOT).as_posix()
+        ignored = subprocess.run(["git", "-C", str(ROOT), "check-ignore", "-q", rel], check=False).returncode == 0
+        tracked = subprocess.run(["git", "-C", str(ROOT), "ls-files", rel], capture_output=True, text=True, check=False).stdout.split()
+        check(
+            ignored and not tracked,
+            f"Git ignores {rel}/, so your work can't be pushed by accident"
+            if ignored and not tracked
+            else f"Git does not fully ignore {rel}/",
+            f"Keep {rel}/ in .gitignore, and run: git rm -r --cached {rel}",
+        )
+
+    skills = sorted((ROOT / ".claude" / "skills").glob("*/SKILL.md"))
+    check(
+        bool(skills) or None,
+        f"Agent skills: {', '.join(s.parent.name for s in skills) or 'none found'}",
+        "Run git pull to get .claude/skills/.",
+    )
+
+    marks = {True: "ok ", None: " ! ", False: "ERR"}
+    for ok, what, fix in results:
+        print(f"[{marks[ok]}] {what}")
+        if ok is not True and fix:
+            print(f"        {fix}")
+    broken, warnings = sum(r[0] is False for r in results), sum(r[0] is None for r in results)
+    print(f"\n{'All good.' if not broken and not warnings else f'{broken} to fix, {warnings} to look at.'}")
+    return 1 if broken else 0
+
+
 # ---------- Parser ----------
 
 
@@ -480,6 +594,7 @@ def main(argv: list[str] | None = None) -> int:
         p.set_defaults(func=func)
         return p
 
+    cmd(sub, "doctor", cmd_doctor, "check the setup and say how to fix each problem")
     p = cmd(sub, "serve", cmd_serve, "start the web app")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8000)

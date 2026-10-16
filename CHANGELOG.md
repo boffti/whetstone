@@ -12,4 +12,6 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Interface: IBM Plex type, slate and wet-stone colors in dark and light, keyboard hints on Run tests and Submit, and a per-test edge meter after each run.
 - Teaching: five agent skills (curate, author, tutor, review, interview) built on `docs/PEDAGOGY.md`. Questions now have a type (build, predict, fix, review), problem-first lessons, a four-rung hint ladder and spaced variants. `progress` reports clean or assisted solves, mastery and review dates.
 - App: a Practice home page, which is now the landing page. Problem-first lessons, hints that unlock one test run at a time, a solution that opens after a solve or a confirmed give-up, clean, assisted and mastered statuses, and a weekly streak with one forgiven week. The UI says question and module instead of challenge and track.
+- `whetstone doctor` checks the setup and explains each fix. The progress database is versioned: upgrades run automatically, after a backup to `whetstone.db.v<N>.bak`.
+- Shared content: the "Six pressures of system design" foundations path, with `realtime-push` and `cqrs-read-model` modules.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.

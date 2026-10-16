@@ -19,6 +19,8 @@ docker compose up -d --build        # http://localhost:8000 (includes Redis)
 claude                              # or codex, or open the folder in Cursor
 ```
 
+If something doesn't work, run `bin/whetstone doctor`. It checks Python, your data folder and database, Redis, the web app, and that git ignores `my/`, and it says how to fix each problem.
+
 Then ask your agent, in plain words:
 
 - *"Set up my Whetstone profile."* It writes `my/profile.md` from what it knows about you, plus a few questions.
@@ -101,6 +103,7 @@ Whetstone runs the code you submit, so it only answers requests from your own ma
 
 ```
 bin/whetstone serve [--host 127.0.0.1] [--port 8000]
+bin/whetstone doctor                                   # check the setup; says how to fix each problem
 
 bin/whetstone path list [--domain D] [--json]
 bin/whetstone path show <path> [--json]

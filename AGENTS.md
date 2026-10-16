@@ -29,6 +29,7 @@ If `my/profile.md` does not exist, create it before anything else. Copy `content
 
 | Command | What it does |
 |---|---|
+| `bin/whetstone doctor` | Checks the setup (Python, data folder, database, Redis, web app, git ignoring `my/`) and says how to fix each problem. Run it first when something fails. |
 | `bin/whetstone catalog [--company X] [--round R] [--search W]` | Lists catalog problems, most asked first. `catalog <id>` shows one in full. |
 | `bin/whetstone progress` | Shows each question's runs, hints opened and solution views, whether a solve was clean or assisted, mastery, and when its spaced review is due. |
 | `bin/whetstone path list [--domain D]` | Lists paths grouped by domain, for example "Payments & fintech" or "Trading & markets". |

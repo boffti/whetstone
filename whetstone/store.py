@@ -9,7 +9,10 @@ from pathlib import Path
 
 WEEK_TARGET = 3  # practice days per week that keep the weekly streak
 
-SCHEMA = """
+# Each migration upgrades the database by one version (SQLite's user_version). Append new ones at
+# the end; never edit or reorder old ones. Write them so they are safe to run twice.
+MIGRATIONS = [
+    """
 CREATE TABLE IF NOT EXISTS drafts (
     challenge TEXT PRIMARY KEY,
     code TEXT NOT NULL,
@@ -36,14 +39,46 @@ CREATE TABLE IF NOT EXISTS reveals (
     what TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
-"""
+""",
+    # 2: a hint or the solution counts once, however often it is re-read.
+    """
+DELETE FROM reveals WHERE rowid NOT IN (SELECT MIN(rowid) FROM reveals GROUP BY challenge, what);
+CREATE UNIQUE INDEX IF NOT EXISTS reveals_once ON reveals (challenge, what);
+CREATE INDEX IF NOT EXISTS runs_by_challenge ON runs (challenge, created_at);
+""",
+]
+SCHEMA_VERSION = len(MIGRATIONS)
 
 
 class Store:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.backup: Path | None = None
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Bring the database up to SCHEMA_VERSION. An existing database is copied to
+        whetstone.db.v<N>.bak first, so an upgrade can never lose progress."""
         with self._conn() as conn:
-            conn.executescript(SCHEMA)
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+            if version > SCHEMA_VERSION:
+                raise RuntimeError(f"{self.path} is from a newer Whetstone (schema {version}). Update Whetstone with git pull.")
+            if version == SCHEMA_VERSION:
+                return
+            if conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'").fetchone()[0]:
+                self.backup = self.path.with_name(f"{self.path.name}.v{version}.bak")
+                if not self.backup.exists():
+                    copy = sqlite3.connect(self.backup)
+                    try:
+                        conn.backup(copy)
+                    finally:
+                        copy.close()
+            for number, sql in enumerate(MIGRATIONS[version:], start=version + 1):
+                conn.executescript(f"BEGIN; {sql} PRAGMA user_version = {number}; COMMIT;")
+
+    def schema_version(self) -> int:
+        with self._conn() as conn:
+            return conn.execute("PRAGMA user_version").fetchone()[0]
 
     @contextmanager
     def _conn(self):
@@ -93,11 +128,10 @@ class Store:
     def record_reveal(self, key: str, what: str) -> None:
         """Record the first time a hint or the solution is opened. Re-reading it is free."""
         with self._conn() as conn:
-            if not conn.execute("SELECT 1 FROM reveals WHERE challenge = ? AND what = ?", (key, what)).fetchone():
-                conn.execute(
-                    "INSERT INTO reveals (challenge, what, created_at) VALUES (?, ?, ?)",
-                    (key, what, datetime.now().isoformat(timespec="seconds")),
-                )
+            conn.execute(
+                "INSERT OR IGNORE INTO reveals (challenge, what, created_at) VALUES (?, ?, ?)",
+                (key, what, datetime.now().isoformat(timespec="seconds")),
+            )
 
     def hint_ready(self, key: str) -> bool:
         """The next hint unlocks only after a test run since the last one opened (docs/PEDAGOGY.md, rule 5)."""

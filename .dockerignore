@@ -6,3 +6,6 @@ __pycache__/
 .pytest_cache/
 .git/
 my/
+.claude/worktrees/
+.claude/launch.json
+.claude/settings.local.json
