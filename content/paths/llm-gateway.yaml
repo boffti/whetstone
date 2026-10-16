@@ -1,0 +1,16 @@
+title: Build an LLM gateway like OpenRouter
+goal: Route chat requests across fake model providers with fallback, token streaming,
+  exact usage metering, and per-key budgets.
+domain: AI & developer platforms
+companies:
+- OpenRouter
+- OpenAI
+- Anthropic
+modules:
+- api-integration
+- retry-backoff
+- rate-limiter
+- ledger
+- streaming-responses
+- provider-routing
+- token-metering

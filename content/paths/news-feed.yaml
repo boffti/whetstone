@@ -1,0 +1,16 @@
+title: Build a news feed
+goal: 'Ship a social feed end to end: a follow graph, hybrid fan-out timelines, hot-post
+  caching and like counters, a ranked and experiment-driven feed, and notifications
+  for new activity.'
+domain: Social & media
+companies:
+- Meta
+- LinkedIn
+modules:
+- graph-relationships
+- lru-ttl-cache
+- sharded-counters
+- feed-fanout
+- recommendation-ranking
+- experiment-assignment
+- notification-service

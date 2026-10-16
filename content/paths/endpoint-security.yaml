@@ -1,0 +1,15 @@
+title: Build an endpoint security platform like CrowdStrike
+goal: Ingest host telemetry, match detection rules and event sequences in real time,
+  scan uploaded files, and triage alerts by risk.
+domain: AI & developer platforms
+companies:
+- CrowdStrike
+- Cloudflare
+modules:
+- telemetry-ingestion
+- top-k-streaming
+- event-stream-processing
+- rules-engine
+- pattern-detection
+- scan-pipeline
+- indexed-priority-queue

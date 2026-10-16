@@ -1,0 +1,16 @@
+title: Build a data integration and lineage platform
+goal: Ingest messy sources, reconcile them into linked entities, trace lineage and
+  enforce governed access, as Palantir Foundry does.
+domain: Data & infrastructure
+companies:
+- Palantir
+- Snowflake
+modules:
+- log-csv-aggregation
+- schema-evolution
+- entity-resolution
+- graph-relationships
+- data-lineage
+- access-control
+- audit-log
+- decomposition

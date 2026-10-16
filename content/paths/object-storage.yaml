@@ -1,0 +1,17 @@
+title: Build an object storage service
+goal: Store large objects as replicated, erasure-coded chunks behind a bucket and
+  key namespace with resumable uploads, as S3 does.
+domain: Data & infrastructure
+companies:
+- Amazon
+- Oracle
+- Snowflake
+- Databricks
+modules:
+- load-balancer
+- multipart-upload
+- file-sync-dedup
+- versioned-kv-store
+- object-namespace
+- replica-placement-repair
+- erasure-coding

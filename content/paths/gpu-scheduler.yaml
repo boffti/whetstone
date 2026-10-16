@@ -1,0 +1,16 @@
+title: Build a GPU cluster job scheduler
+goal: Schedule training and inference jobs across a simulated GPU cluster with fair
+  shares, gang placement, failure recovery, and queue metrics.
+domain: AI & developer platforms
+companies:
+- Nvidia
+- OpenAI
+- Anthropic
+modules:
+- job-scheduler
+- task-queue-workers
+- time-window-metrics
+- failure-detector
+- task-manager-quotas
+- fair-queueing
+- cluster-placement

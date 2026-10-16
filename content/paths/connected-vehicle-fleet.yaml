@@ -1,0 +1,16 @@
+title: Build a connected vehicle fleet platform
+goal: Ingest fleet telemetry, detect faults, and roll signed firmware out in health-gated
+  waves with safe on-device updates.
+domain: Devices & industry
+companies:
+- Tesla
+- Samsung
+- Qualcomm
+modules:
+- dependency-dag
+- telemetry-ingestion
+- time-window-metrics
+- stream-anomaly-detection
+- fault-correlation
+- ota-update-agent
+- staged-rollout

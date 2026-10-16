@@ -1,0 +1,17 @@
+title: Build a relational database engine
+goal: Assemble indexes, a buffer pool, a write-ahead log, transactions and a query
+  engine into a small replicated SQL database like Oracle.
+domain: Data & infrastructure
+companies:
+- Oracle
+- IBM
+- Amazon
+- MongoDB
+modules:
+- btree-index
+- buffer-pool
+- write-ahead-log
+- mvcc-transactions
+- lock-manager
+- query-engine
+- leader-follower-replication

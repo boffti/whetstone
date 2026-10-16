@@ -1,0 +1,20 @@
+title: Build a market data platform
+goal: Ingest vendor and exchange data, normalize instruments, aggregate ticks into
+  bars, store history that can be queried as of any time, and serve live quotes to
+  subscribers.
+domain: Trading & markets
+companies:
+- Bloomberg
+- Robinhood
+- Citadel
+- Jane Street
+- Nasdaq
+modules:
+- parsers-codecs
+- api-integration
+- market-data-feed
+- security-master
+- tick-aggregation-bars
+- time-series-store
+- lru-ttl-cache
+- pub-sub

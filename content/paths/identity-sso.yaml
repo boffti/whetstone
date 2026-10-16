@@ -1,0 +1,15 @@
+title: Build an identity provider with single sign-on like Okta
+goal: Authenticate users with hashed passwords and one-time codes, issue signed tokens,
+  run OAuth flows, and share one login across several apps.
+domain: AI & developer platforms
+companies:
+- Okta
+- Cloudflare
+modules:
+- credential-vault
+- rate-limiter
+- one-time-passwords
+- token-sessions
+- access-control
+- oauth-authorization
+- single-sign-on

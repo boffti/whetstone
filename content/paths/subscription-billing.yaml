@@ -1,0 +1,18 @@
+title: Build a subscription billing system
+goal: Charge customers on a schedule with tiers, discounts and proration, issue exact
+  invoices, recover failed payments with dunning and send the right emails.
+domain: Payments & fintech
+companies:
+- Stripe
+- Shopify
+- Zuora
+- Chargebee
+modules:
+- tiered-pricing
+- billing-proration
+- coupon-redemption
+- invoicing
+- subscription-lifecycle
+- job-scheduler
+- retry-backoff
+- notification-service

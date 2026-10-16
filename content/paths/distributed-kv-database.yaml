@@ -1,0 +1,18 @@
+title: Build a distributed key-value database
+goal: Build a durable, partitioned, quorum-replicated key-value store that resolves
+  conflicting writes, in the style of DynamoDB.
+domain: Data & infrastructure
+companies:
+- Amazon
+- Databricks
+- Snowflake
+- Confluent
+- Oracle
+modules:
+- kv-store-transactions
+- write-ahead-log
+- lsm-tree
+- load-balancer
+- quorum-replication
+- vector-clocks
+- distributed-algorithms

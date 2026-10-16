@@ -1,0 +1,18 @@
+title: Build a home and hotel booking platform
+goal: Build a lodging marketplace that searches availability by date range, books
+  without double-booking, keeps inventory in sync across channels, holds guest funds
+  until payout, and collects reviews.
+domain: Marketplaces & mobility
+companies:
+- Airbnb
+- Booking Holdings
+- Expedia
+modules:
+- availability-search
+- search-ranking
+- inventory-reservation
+- idempotent-api
+- inventory-sync
+- ledger
+- escrow-payouts
+- ratings-reviews

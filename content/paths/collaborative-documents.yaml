@@ -1,0 +1,17 @@
+title: Build a real-time collaborative document editor
+goal: Let many people edit one document at once with converging text, live cursors,
+  version history and sharing permissions.
+domain: Messaging & collaboration
+companies:
+- Microsoft
+- Atlassian
+- Google
+- Notion
+modules:
+- editor-undo
+- text-buffer
+- collaborative-editing
+- crdt-sync
+- presence-tracking
+- op-log-snapshots
+- access-control

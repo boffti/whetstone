@@ -1,0 +1,16 @@
+#!/bin/sh
+# Run the Whetstone CLI. When the Docker app is running, commands run inside the
+# container, so challenge tests run in its sandbox. Otherwise they run locally.
+# WHETSTONE_PYTHON (set for agents the app starts) picks that Python directly.
+set -e
+cd "$(dirname "$0")/.."
+if [ -n "$WHETSTONE_PYTHON" ]; then
+  exec "$WHETSTONE_PYTHON" -m whetstone "$@"
+fi
+if command -v docker >/dev/null 2>&1 && docker compose ps --status running --services 2>/dev/null | grep -qx app; then
+  exec docker compose exec -T app python -m whetstone "$@"
+fi
+if command -v uv >/dev/null 2>&1; then
+  exec uv run --quiet python -m whetstone "$@"
+fi
+exec python3 -m whetstone "$@"

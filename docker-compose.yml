@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"   # localhost only: the app runs the code you submit
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./content:/app/content   # shared catalog and paths; a git pull shows up live
+      - ./my:/app/my             # yours: profile, built questions, own paths, progress
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped

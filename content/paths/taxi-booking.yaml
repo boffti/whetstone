@@ -1,0 +1,17 @@
+title: Build a taxi booking service
+goal: Build a ride-hailing backend that finds nearby drivers, estimates arrival times,
+  dispatches in batches, tracks each trip's state, and raises prices when demand outruns
+  supply.
+domain: Marketplaces & mobility
+companies:
+- Uber
+- Lyft
+- Grab
+modules:
+- geo-matching
+- order-state-machine
+- eta-estimation
+- assignment-matching
+- top-k-streaming
+- geo-heatmap
+- surge-pricing

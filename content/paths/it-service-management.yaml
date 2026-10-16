@@ -1,0 +1,15 @@
+title: Build an IT service management platform
+goal: Run IT tickets through lifecycle states with SLA clocks, approvals, escalations
+  and an auditable workflow engine.
+domain: Enterprise software
+companies:
+- ServiceNow
+modules:
+- order-state-machine
+- sla-timers
+- rules-engine
+- record-triggers
+- durable-workflow
+- approval-chains
+- graph-relationships
+- audit-log

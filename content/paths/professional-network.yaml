@@ -1,0 +1,17 @@
+title: Build a professional network with suggestions
+goal: 'Build a LinkedIn style network: a connection graph with degrees of separation,
+  mutual-connection suggestions, people search with typeahead, visibility rules by
+  degree, ranked suggestions and invitation notifications.'
+domain: Social & media
+companies:
+- LinkedIn
+- Meta
+- Google
+modules:
+- graph-relationships
+- graph-recommendations
+- access-control
+- autocomplete-trie
+- query-engine
+- recommendation-ranking
+- notification-service

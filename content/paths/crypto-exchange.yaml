@@ -1,0 +1,17 @@
+title: Build a crypto exchange
+goal: Match buyers and sellers on a limit order book, settle trades in a double-entry
+  ledger, publish market data, and move coins in and out with confirmations and withdrawal
+  controls.
+domain: Payments & fintech
+companies:
+- Coinbase
+- Binance
+- Kraken
+modules:
+- ledger
+- order-book-matching
+- order-state-machine
+- market-data-feed
+- rate-limiter
+- blockchain-sim
+- withdrawal-approvals

@@ -1,0 +1,18 @@
+title: Build a device firmware runtime
+goal: 'Write the core of a small RTOS-style runtime: protocol framing, a memory allocator,
+  safe concurrency and a preemptive scheduler.'
+domain: Devices & industry
+companies:
+- Qualcomm
+- Samsung
+- Intel
+- AMD
+- Tesla
+modules:
+- parsers-codecs
+- data-structure-design
+- memory-allocator
+- concurrent-writer
+- thread-safe-memo-cache
+- preemptive-scheduler
+- bug-squash

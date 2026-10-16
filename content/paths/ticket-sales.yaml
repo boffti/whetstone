@@ -1,0 +1,15 @@
+title: Build a ticketing platform for flash demand
+goal: 'Build a ticket seller that survives an on-sale rush: cached event pages, bot
+  throttling, best-seat allocation, expiring seat holds, live seat-map updates, safe
+  checkout, and a fair virtual waiting room.'
+domain: Marketplaces & mobility
+companies:
+- Ticketmaster
+modules:
+- lru-ttl-cache
+- rate-limiter
+- seat-allocation
+- inventory-reservation
+- pub-sub
+- idempotent-api
+- waiting-room

@@ -1,0 +1,15 @@
+title: Build a maps and navigation service
+goal: Serve map tiles and place search, compute routes on a road graph, and keep ETAs
+  fresh from live traffic.
+domain: Search & ads
+companies:
+- Google
+- Apple
+modules:
+- geo-matching
+- geospatial-index
+- autocomplete-trie
+- lru-ttl-cache
+- shortest-path-routing
+- time-window-metrics
+- eta-estimation

@@ -1,0 +1,17 @@
+title: Build an email service
+goal: Parse, thread, search and filter mail, apply user rules, and deliver outbound
+  messages through queues with retries.
+domain: Messaging & collaboration
+companies:
+- Microsoft
+- Google
+- Apple
+- Tencent
+modules:
+- parsers-codecs
+- conversation-threading
+- inverted-index
+- text-classifier
+- rules-engine
+- task-queue-workers
+- retry-backoff

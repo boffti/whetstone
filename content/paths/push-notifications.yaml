@@ -1,0 +1,18 @@
+title: Build a push notification platform
+goal: Route events to the right devices, hold them for offline devices, protect downstream
+  gateways and batch alerts into digests.
+domain: Messaging & collaboration
+companies:
+- Apple
+- Microsoft
+- Zoom
+- Atlassian
+- Slack
+modules:
+- pub-sub
+- device-registry
+- store-and-forward
+- rate-limiter
+- retry-backoff
+- digest-batching
+- notification-service

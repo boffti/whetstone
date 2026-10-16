@@ -1,0 +1,15 @@
+title: Build a data analysis warehouse
+goal: Store tables by column, prune partitions, plan and run grouped queries, and
+  version tables the way Snowflake and Databricks do.
+domain: Data & infrastructure
+companies:
+- Snowflake
+- Databricks
+modules:
+- columnar-storage
+- partition-pruning
+- query-engine
+- query-planner
+- distributed-aggregation
+- table-snapshots
+- dependency-dag

@@ -1,0 +1,15 @@
+title: Build a multi-tenant CRM platform
+goal: Run many customers on one platform with isolated data, custom objects, automation
+  triggers and metered API limits.
+domain: Enterprise software
+companies:
+- Salesforce
+modules:
+- tenant-isolation
+- access-control
+- metadata-schema
+- query-engine
+- record-triggers
+- rate-limiter
+- quota-metering
+- api-integration

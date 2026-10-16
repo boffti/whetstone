@@ -1,0 +1,19 @@
+title: Build a chat app at scale
+goal: Deliver one-to-one and group messages in order with receipts, presence and multi-device
+  history across many gateway nodes.
+domain: Messaging & collaboration
+companies:
+- Tencent
+- Microsoft
+- Meta
+- Slack
+- Discord
+modules:
+- pub-sub
+- message-ordering
+- reliable-delivery
+- presence-tracking
+- group-fanout
+- connection-routing
+- incremental-sync
+- chat-system

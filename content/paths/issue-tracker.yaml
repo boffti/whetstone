@@ -1,0 +1,17 @@
+title: Build an issue tracker and workflow engine
+goal: Track issues through configurable workflows with labels, query-based search,
+  permissions, automation rules and watcher notifications.
+domain: Messaging & collaboration
+companies:
+- Atlassian
+- Microsoft
+- Cisco
+modules:
+- task-manager-quotas
+- parsers-codecs
+- tagging-labels
+- workflow-engine
+- query-engine
+- access-control
+- rules-engine
+- notification-service

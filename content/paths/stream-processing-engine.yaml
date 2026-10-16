@@ -1,0 +1,17 @@
+title: Build a batch and stream processing engine
+goal: Run map-shuffle-reduce jobs and windowed streaming pipelines that handle late
+  events and recover exactly-once after a crash, as Spark and Flink do.
+domain: Data & infrastructure
+companies:
+- Databricks
+- Confluent
+- Oracle
+- Amazon
+modules:
+- task-queue-workers
+- map-reduce-framework
+- distributed-aggregation
+- event-stream-processing
+- windowing-watermarks
+- top-k-streaming
+- checkpoint-recovery

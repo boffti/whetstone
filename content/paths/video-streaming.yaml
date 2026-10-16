@@ -1,0 +1,18 @@
+title: Build a video streaming service
+goal: 'Build a Netflix or YouTube style service: parallel transcoding, adaptive bitrate
+  playback, CDN delivery, resume and stream limits, view counts, personalized rows
+  and live chat.'
+domain: Social & media
+companies:
+- Netflix
+- Google
+- Twitch
+modules:
+- task-queue-workers
+- media-pipeline
+- adaptive-bitrate
+- cdn-edge-cache
+- playback-state
+- sharded-counters
+- recommendation-ranking
+- live-broadcast

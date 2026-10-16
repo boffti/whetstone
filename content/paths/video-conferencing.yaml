@@ -1,0 +1,16 @@
+title: Build a video conferencing service
+goal: Run meetings where participants negotiate sessions, adapt to bad networks, receive
+  forwarded media and are placed on healthy servers.
+domain: Messaging & collaboration
+companies:
+- Zoom
+- Cisco
+- Microsoft
+modules:
+- jitter-buffer
+- time-window-metrics
+- adaptive-bitrate
+- session-signaling
+- room-management
+- selective-forwarding
+- load-balancer

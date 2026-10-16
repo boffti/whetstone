@@ -1,0 +1,19 @@
+title: Build a payment processor
+goal: 'Accept card payments safely end to end: tokenize cards, authorize and capture
+  once, record every cent in a ledger, notify merchants by webhook, pay them out and
+  reconcile the books.'
+domain: Payments & fintech
+companies:
+- Stripe
+- Adyen
+- PayPal
+- Visa
+modules:
+- tokenization-vault
+- idempotent-api
+- payment-lifecycle
+- provider-routing
+- ledger
+- webhook-delivery
+- payout-settlement
+- reconciliation-matching

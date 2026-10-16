@@ -1,0 +1,16 @@
+title: Build an LLM serving backend like ChatGPT
+goal: Serve streamed chat replies from a batched fake model with KV-cache memory limits,
+  tiered admission control, and stored conversations.
+domain: AI & developer platforms
+companies:
+- OpenAI
+- Anthropic
+- Nvidia
+modules:
+- rate-limiter
+- streaming-responses
+- admission-control
+- request-batching
+- kv-cache-allocator
+- continuous-batching
+- chat-system

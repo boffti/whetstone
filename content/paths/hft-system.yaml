@@ -1,0 +1,18 @@
+title: Build a high-frequency trading system
+goal: Take a simulated multi-venue feed through book building, signals and risk gates
+  to order submission, with measured tick-to-trade latency and safe handling of slow
+  consumers and dropped sessions.
+domain: Trading & markets
+companies:
+- Hudson River Trading
+- Jump Trading
+- Citadel Securities
+- Jane Street
+modules:
+- market-data-feed
+- bounded-queue-backpressure
+- order-book-builder
+- streaming-signals
+- pre-trade-risk-checks
+- order-gateway
+- time-window-metrics

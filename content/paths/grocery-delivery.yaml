@@ -1,0 +1,18 @@
+title: Build a grocery delivery service
+goal: Build a grocery ordering backend with store-level stock that stays in sync,
+  carts that reserve items without overselling, delivery slots, aisle-ordered picking,
+  and shopper assignment with batched routes.
+domain: Marketplaces & mobility
+companies:
+- Instacart
+- DoorDash
+- Amazon
+modules:
+- inventory-sync
+- inventory-reservation
+- coupon-redemption
+- cart-checkout
+- interval-scheduling
+- pick-path-planning
+- assignment-matching
+- route-planning

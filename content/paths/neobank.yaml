@@ -1,0 +1,17 @@
+title: Build a neobank
+goal: Open verified accounts, move money over card and bank rails with correct posted
+  and available balances, and reconcile everything against an immutable ledger.
+domain: Payments & fintech
+companies:
+- Chime
+- Revolut
+- Block
+- Stripe
+modules:
+- kyc-onboarding
+- bank-account-system
+- ledger
+- payment-lifecycle
+- batch-transfers
+- reconciliation-matching
+- notification-service

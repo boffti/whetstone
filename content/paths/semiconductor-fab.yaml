@@ -1,0 +1,16 @@
+title: Build a semiconductor fab scheduling system
+goal: Track tool events and sensor excursions, dispatch lots through re-entrant routes,
+  and trace yield loss to its cause.
+domain: Devices & industry
+companies:
+- TSMC
+- Intel
+- AMD
+modules:
+- event-stream-processing
+- time-window-metrics
+- stream-anomaly-detection
+- shortest-path-routing
+- interval-scheduling
+- lot-dispatch
+- fault-correlation

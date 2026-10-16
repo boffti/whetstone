@@ -1,0 +1,18 @@
+title: Build a post-trade reconciliation pipeline
+goal: Ingest broker and custodian files, match them against internal trades and positions,
+  allocate and settle fills, and surface and track breaks in a scheduled end-of-day
+  run.
+domain: Trading & markets
+companies:
+- Citadel Securities
+- BlackRock
+- Jane Street
+- Robinhood
+modules:
+- log-csv-aggregation
+- security-master
+- reconciliation-matching
+- trade-allocation-settlement
+- position-keeping
+- ledger
+- job-scheduler

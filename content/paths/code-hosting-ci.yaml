@@ -1,0 +1,15 @@
+title: Build a code hosting and CI platform like GitHub
+goal: Store commits as content-addressed objects, diff and merge branches, run CI
+  workflows from push webhooks, and gate pull requests on reviews and checks.
+domain: AI & developer platforms
+companies:
+- Microsoft
+- OpenAI
+modules:
+- content-addressed-store
+- commit-graph
+- diff-merge
+- webhook-delivery
+- task-queue-workers
+- workflow-runner
+- merge-gates

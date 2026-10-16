@@ -1,0 +1,18 @@
+title: Build a portfolio and risk system
+goal: Compute positions, cash, multi-currency P&L, exposure and VaR from trades and
+  market prices, with as-of history and incremental updates.
+domain: Trading & markets
+companies:
+- BlackRock
+- Jane Street
+- Two Sigma
+- Robinhood
+- Citadel
+modules:
+- security-master
+- time-series-store
+- ledger
+- position-keeping
+- currency-conversion-graph
+- pnl-engine
+- portfolio-risk-metrics

@@ -1,0 +1,16 @@
+title: Build a CDN and edge platform like Cloudflare
+goal: Resolve and route requests at a simulated edge, serve them from a purge-aware
+  cache, absorb abusive traffic, and roll deployments out safely.
+domain: AI & developer platforms
+companies:
+- Cloudflare
+- Vercel
+modules:
+- lru-ttl-cache
+- dns-resolver
+- url-router
+- http-cache
+- load-balancer
+- rate-limiter
+- abuse-detection
+- release-rollout

@@ -1,0 +1,16 @@
+title: Build a web search engine
+goal: Crawl a small web, index it, rank results and serve typo-tolerant queries and
+  autocomplete across index shards.
+domain: Search & ads
+companies:
+- Google
+- Microsoft
+modules:
+- parsers-codecs
+- web-crawler-concurrent
+- crawl-frontier
+- inverted-index
+- relevance-ranking
+- fuzzy-matching
+- autocomplete-trie
+- scatter-gather-query

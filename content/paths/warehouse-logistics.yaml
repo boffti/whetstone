@@ -1,0 +1,17 @@
+title: Build a warehouse and last-mile logistics network
+goal: Build a fulfillment backbone that syncs stock across distribution centers, plans
+  warehouse picks, allocates pickup lockers, plans delivery routes, and derives shipment
+  status from scan events.
+domain: Marketplaces & mobility
+companies:
+- Amazon
+- Alibaba
+- DoorDash
+modules:
+- inventory-sync
+- task-queue-workers
+- pick-path-planning
+- slot-allocation
+- route-planning
+- event-stream-processing
+- shipment-tracking

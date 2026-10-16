@@ -1,0 +1,18 @@
+title: Build a dynamic pricing engine
+goal: Build a pricing engine that measures demand, forecasts it, applies pricing rules,
+  raises surge multipliers or inventory-based prices, and checks every change with
+  an experiment.
+domain: Marketplaces & mobility
+companies:
+- Uber
+- Lyft
+- Airbnb
+- Booking Holdings
+- Amazon
+modules:
+- time-window-metrics
+- rules-engine
+- demand-forecast
+- surge-pricing
+- yield-pricing
+- experiment-assignment

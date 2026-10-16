@@ -1,0 +1,17 @@
+title: Build an ephemeral stories and chat app
+goal: 'Build a Snapchat style app: friend graph, rate-limited messaging, chat with
+  delivery, push notifications, media delivery, suggested replies, 24-hour stories
+  and delete-after-view messages.'
+domain: Social & media
+companies:
+- Snap
+- Meta
+modules:
+- rate-limiter
+- graph-relationships
+- pub-sub
+- chat-system
+- notification-service
+- cdn-edge-cache
+- autocomplete-trie
+- ephemeral-content

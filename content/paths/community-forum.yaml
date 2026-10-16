@@ -1,0 +1,15 @@
+title: Build a threaded discussion community
+goal: Build a Reddit style forum with rate-limited posting, moderator roles, scalable
+  vote counts, hot and best ranking, nested comment threads, a moderation queue and
+  ranked comment ordering.
+domain: Social & media
+companies:
+- Reddit
+modules:
+- rate-limiter
+- access-control
+- sharded-counters
+- vote-ranking
+- threaded-comments
+- moderation-pipeline
+- recommendation-ranking

@@ -1,0 +1,17 @@
+title: Build a payment fraud detection system
+goal: Score every payment in real time from streaming features and rules, explain
+  each decision, and backtest rule changes before they block real customers.
+domain: Payments & fintech
+companies:
+- PayPal
+- Stripe
+- Block
+- Visa
+modules:
+- time-window-metrics
+- event-stream-processing
+- graph-relationships
+- rules-engine
+- fraud-scoring
+- versioned-kv-store
+- rule-backtesting

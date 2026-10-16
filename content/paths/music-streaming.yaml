@@ -1,0 +1,17 @@
+title: Build a music streaming service
+goal: 'Build a Spotify style service: playlists with shuffle, collaborative edits,
+  offline sync, playback state across devices, per-country top charts and personalized
+  playlist recommendations.'
+domain: Social & media
+companies:
+- Spotify
+- ByteDance
+- Netflix
+modules:
+- playlist-queue
+- collaborative-editing
+- file-sync-dedup
+- playback-state
+- windowing-watermarks
+- top-k-streaming
+- recommendation-ranking

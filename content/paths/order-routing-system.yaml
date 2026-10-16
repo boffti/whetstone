@@ -1,0 +1,19 @@
+title: Build an order management and routing system
+goal: Accept client orders, risk-check them, route and re-route them across simulated
+  venues through exchange sessions, and keep order state correct through rejects,
+  races and venue outages.
+domain: Trading & markets
+companies:
+- Robinhood
+- Jane Street
+- Citadel Securities
+- Hudson River Trading
+modules:
+- order-state-machine
+- idempotent-api
+- pre-trade-risk-checks
+- order-book-builder
+- order-gateway
+- retry-backoff
+- smart-order-routing
+- order-management-system

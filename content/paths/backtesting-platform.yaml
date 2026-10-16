@@ -1,0 +1,18 @@
+title: Build a backtesting and quant research platform
+goal: Run deterministic event-driven backtests that turn signals into rebalanced trades,
+  track P&L and risk metrics, and fan parameter sweeps out across workers.
+domain: Trading & markets
+companies:
+- Two Sigma
+- Citadel
+- Jump Trading
+- Jane Street
+modules:
+- time-series-store
+- tick-aggregation-bars
+- streaming-signals
+- trade-generation
+- pnl-engine
+- backtest-engine
+- portfolio-risk-metrics
+- task-queue-workers

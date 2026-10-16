@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pytest>=8.0
+PyYAML>=6.0
+Markdown>=3.5
+redis>=5.0
+anthropic>=0.40

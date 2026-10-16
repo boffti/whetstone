@@ -1,0 +1,14 @@
+title: Build a communications API like Twilio
+goal: Accept message requests idempotently, route them to carriers with throughput
+  limits and fallback, track delivery status, and notify customers by signed webhooks.
+domain: AI & developer platforms
+companies:
+- Twilio
+modules:
+- idempotent-api
+- order-state-machine
+- rate-limiter
+- retry-backoff
+- provider-routing
+- webhook-delivery
+- notification-service

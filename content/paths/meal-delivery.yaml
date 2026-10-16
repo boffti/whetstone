@@ -1,0 +1,17 @@
+title: Build a meal ordering and delivery service
+goal: Build a food delivery marketplace where customers search restaurants, orders
+  move through their lifecycle, couriers are assigned and batched, couriers are paid
+  correctly, and failed orders refund through a durable workflow.
+domain: Marketplaces & mobility
+companies:
+- DoorDash
+- Uber
+modules:
+- search-ranking
+- ratings-reviews
+- order-state-machine
+- assignment-matching
+- route-planning
+- payout-calculation
+- durable-workflow
+- bug-squash

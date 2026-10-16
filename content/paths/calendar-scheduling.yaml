@@ -1,0 +1,18 @@
+title: Build a calendar and scheduling service
+goal: Create recurring events, find common free time, book rooms without double-booking,
+  share calendars, fire reminders and sync clients.
+domain: Messaging & collaboration
+companies:
+- Microsoft
+- Google
+- Zoom
+- Apple
+- Cisco
+modules:
+- interval-scheduling
+- recurrence-rules
+- free-slot-search
+- inventory-reservation
+- access-control
+- job-scheduler
+- incremental-sync

@@ -1,0 +1,17 @@
+title: Build an ad click counting and pacing system
+goal: 'Build an ad measurement backend: deduplicated click and impression counts,
+  late-event handling, hot-ad scaling, budget accounting, frequency caps and pacing
+  without overspend.'
+domain: Social & media
+companies:
+- Meta
+- Netflix
+- Google
+modules:
+- rate-limiter
+- time-window-metrics
+- sharded-counters
+- windowing-watermarks
+- event-stream-processing
+- ledger
+- budget-pacing

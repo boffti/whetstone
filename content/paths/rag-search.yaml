@@ -1,0 +1,16 @@
+title: Build a RAG and vector search engine
+goal: Chunk and index documents, search them by keyword and nearest neighbour, and
+  return reranked, permission-filtered, cited context for a question.
+domain: AI & developer platforms
+companies:
+- OpenAI
+- Anthropic
+- Pinecone
+modules:
+- parsers-codecs
+- text-chunking
+- inverted-index
+- vector-search
+- ann-index
+- access-control
+- hybrid-retrieval

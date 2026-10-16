@@ -1,0 +1,19 @@
+title: Build an exchange matching engine
+goal: Run a single-symbol exchange that matches orders by price-time priority, enforces
+  risk and lifecycle rules, logs every event for deterministic replay, and publishes
+  market data that subscribers can recover.
+domain: Trading & markets
+companies:
+- Citadel Securities
+- Jane Street
+- Two Sigma
+- Hudson River Trading
+- Nasdaq
+modules:
+- order-book-matching
+- order-state-machine
+- pre-trade-risk-checks
+- event-log-replay
+- bounded-queue-backpressure
+- pub-sub
+- market-data-feed

@@ -1,0 +1,15 @@
+title: Build a digital asset platform
+goal: Store versioned creative assets, regenerate derived renditions incrementally,
+  enforce seat licenses and support collaborative editing.
+domain: Enterprise software
+companies:
+- Adobe
+modules:
+- in-memory-file-system
+- content-addressed-store
+- file-sync-dedup
+- dependency-dag
+- task-queue-workers
+- license-seats
+- editor-undo
+- collaborative-editing

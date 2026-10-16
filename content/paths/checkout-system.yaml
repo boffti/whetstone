@@ -1,0 +1,17 @@
+title: Build an e-commerce checkout
+goal: Turn a cart into a paid order without overselling, double charging or mispricing,
+  including coupons, split tenders, refunds and a clean order lifecycle.
+domain: Payments & fintech
+companies:
+- Shopify
+- Stripe
+- Amazon
+modules:
+- invoicing
+- coupon-redemption
+- inventory-reservation
+- idempotent-api
+- api-integration
+- payment-lifecycle
+- split-payments
+- order-state-machine

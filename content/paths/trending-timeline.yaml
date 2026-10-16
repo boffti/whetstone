@@ -1,0 +1,16 @@
+title: Build a timeline with trending topics
+goal: 'Build an X style service: rate-limited posting, scalable counters, windowed
+  aggregation, top-K and spam-resistant trending detection, post search and a hybrid
+  fan-out home timeline.'
+domain: Social & media
+companies:
+- X
+- Meta
+modules:
+- rate-limiter
+- sharded-counters
+- windowing-watermarks
+- top-k-streaming
+- trending-detection
+- query-engine
+- feed-fanout

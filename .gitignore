@@ -1,0 +1,18 @@
+# Personal: your profile, the questions your AI built for you, your paths and progress.
+# Never commit this folder; it can contain details of your job.
+my/
+
+# Contributor research cache and raw scrapes (only content/catalog.yaml is committed)
+data/
+
+# Secrets and local settings
+.env
+.claude/settings.local.json
+
+# Python and tooling
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+.DS_Store

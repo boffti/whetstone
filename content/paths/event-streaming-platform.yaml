@@ -1,0 +1,16 @@
+title: Build an event streaming platform
+goal: Build a partitioned, replicated, append-only log with consumer groups and safe
+  retries, the core of Kafka.
+domain: Data & infrastructure
+companies:
+- Confluent
+- Amazon
+- Oracle
+modules:
+- pub-sub
+- segmented-log
+- partitioned-topics
+- consumer-groups
+- leader-follower-replication
+- retry-backoff
+- idempotent-api

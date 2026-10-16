@@ -1,0 +1,15 @@
+title: Build a multiplayer design canvas
+goal: Sync thousands of canvas objects between editors with live cursors, multiplayer
+  undo, version history and sessions pinned to servers.
+domain: Messaging & collaboration
+companies:
+- Figma
+- Microsoft
+modules:
+- scene-graph
+- spatial-index
+- crdt-sync
+- editor-undo
+- presence-tracking
+- op-log-snapshots
+- connection-routing

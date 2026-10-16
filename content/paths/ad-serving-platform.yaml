@@ -1,0 +1,14 @@
+title: Build an ad serving platform
+goal: Select, price and pace ads under a latency budget while counting each click
+  once and flagging fraud.
+domain: Search & ads
+companies:
+- Google
+modules:
+- rules-engine
+- ad-auction
+- budget-pacing
+- rate-limiter
+- click-dedup
+- event-stream-processing
+- stream-anomaly-detection

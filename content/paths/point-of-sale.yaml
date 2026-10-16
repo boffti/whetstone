@@ -1,0 +1,17 @@
+title: Build a point-of-sale system
+goal: Run a store register that reads card data, prices a sale, takes split payments
+  even when the network drops, keeps stock right and settles the day's takings.
+domain: Payments & fintech
+companies:
+- Block
+- Shopify
+- Toast
+modules:
+- parsers-codecs
+- tokenization-vault
+- invoicing
+- payment-lifecycle
+- split-payments
+- inventory-reservation
+- offline-sync-queue
+- payout-settlement

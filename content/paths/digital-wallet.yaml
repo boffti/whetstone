@@ -1,0 +1,18 @@
+title: Build a digital wallet and P2P payments app
+goal: Let friends hold balances, send and request money, split bills and pay across
+  currencies, with safe retries, fraud checks and notifications.
+domain: Payments & fintech
+companies:
+- PayPal
+- Venmo
+- Block
+- Apple Pay
+modules:
+- bank-account-system
+- ledger
+- idempotent-api
+- graph-relationships
+- expense-splitting
+- currency-conversion-graph
+- fraud-scoring
+- notification-service

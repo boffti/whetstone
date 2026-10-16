@@ -1,0 +1,15 @@
+title: Build an HR and payroll platform
+goal: Keep effective-dated employee records, route approvals, and compute auditable
+  pay with retroactive corrections.
+domain: Enterprise software
+companies:
+- Workday
+modules:
+- graph-relationships
+- effective-dated-records
+- access-control
+- rules-engine
+- approval-chains
+- payroll-time-tracking
+- ledger
+- audit-log

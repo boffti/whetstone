@@ -1,0 +1,17 @@
+title: Build a cluster scheduler for VMs and containers
+goal: Place workloads on nodes, detect failures and keep the cluster converging on
+  its desired state, as VMware and Kubernetes do.
+domain: Data & infrastructure
+companies:
+- Broadcom
+- IBM
+- Snowflake
+- Oracle
+modules:
+- bin-packing-placement
+- failure-detector
+- job-scheduler
+- dependency-dag
+- load-balancer
+- reconciliation-controller
+- leader-election-leases

@@ -1,0 +1,17 @@
+title: Build a photo-sharing app
+goal: Build an Instagram or Pinterest style app with resumable uploads, a resize pipeline,
+  CDN delivery, private-account rules, a home feed, hashtag typeahead and similar-image
+  discovery.
+domain: Social & media
+companies:
+- Meta
+- Pinterest
+modules:
+- graph-relationships
+- file-sync-dedup
+- media-pipeline
+- cdn-edge-cache
+- access-control
+- feed-fanout
+- autocomplete-trie
+- vector-search

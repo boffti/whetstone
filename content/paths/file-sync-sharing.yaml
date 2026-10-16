@@ -1,0 +1,16 @@
+title: Build a file sync and sharing service
+goal: Sync folders across devices with chunked uploads, dedup, conflict detection
+  and shared-folder permissions.
+domain: Messaging & collaboration
+companies:
+- Dropbox
+- Apple
+- Microsoft
+- Google
+modules:
+- in-memory-file-system
+- content-chunking
+- version-vectors
+- incremental-sync
+- access-control
+- file-sync-dedup

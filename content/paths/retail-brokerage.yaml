@@ -1,0 +1,17 @@
+title: Build a retail stock brokerage
+goal: Take stock orders from retail customers, hold their cash and fractional positions
+  correctly, route orders to outside venues, stream live prices and run scheduled
+  investing jobs.
+domain: Payments & fintech
+companies:
+- Robinhood
+- Charles Schwab
+- Webull
+modules:
+- ledger
+- idempotent-api
+- position-keeping
+- order-state-machine
+- provider-routing
+- market-data-feed
+- job-scheduler

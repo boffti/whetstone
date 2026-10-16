@@ -1,0 +1,17 @@
+title: Build a short-video recommendation feed
+goal: 'Create a For You style feed: video upload and moderation, embedding-based retrieval,
+  ranked and diversified pages with cold-start handling, engagement counters and A/B
+  tested ranking changes.'
+domain: Social & media
+companies:
+- ByteDance
+- Snap
+- Google
+modules:
+- lru-ttl-cache
+- media-pipeline
+- moderation-pipeline
+- vector-search
+- recommendation-ranking
+- sharded-counters
+- experiment-assignment

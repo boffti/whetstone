@@ -1,0 +1,19 @@
+title: Build an observability platform
+goal: Ingest metrics, logs and traces, roll them up, search them and raise alerts
+  the way Datadog does.
+domain: Data & infrastructure
+companies:
+- Datadog
+- Splunk
+- Palantir
+- Amazon
+- Oracle
+modules:
+- concurrent-writer
+- time-window-metrics
+- timeseries-rollups
+- percentile-sketches
+- alert-rules
+- inverted-index
+- query-stream-matching
+- trace-assembly

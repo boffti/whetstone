@@ -1,0 +1,18 @@
+title: Build an e-commerce marketplace with flash sales
+goal: Build a marketplace with ranked product search, auctions, carts, reserved stock,
+  a flash-sale gate for burst traffic, an order saga with compensation, and escrowed
+  seller payouts.
+domain: Marketplaces & mobility
+companies:
+- Amazon
+- Alibaba
+- eBay
+modules:
+- search-ranking
+- auction-bidding
+- cart-checkout
+- inventory-reservation
+- flash-sale-stock
+- order-state-machine
+- durable-workflow
+- escrow-payouts

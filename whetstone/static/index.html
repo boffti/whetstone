@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Whetstone</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='11' width='26' height='10' rx='2' fill='%232C6E8E'/><path d='M6 11 L26 11' stroke='%23E6E8E4' stroke-width='1.5'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css?v=4">
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="#/" aria-label="Whetstone home">Whetstone</a>
+    <nav class="topnav" aria-label="Views">
+      <a href="#/" id="nav-catalog">Catalog</a>
+      <a href="#/paths" id="nav-paths">Paths</a>
+      <a href="#/practice" id="nav-practice">Practice</a>
+    </nav>
+    <div class="topbar-stats" id="stats" aria-live="polite"></div>
+    <div class="topbar-actions">
+      <button class="btn btn-quiet" id="open-generate" type="button" title="New challenge"><span class="btn-plus" aria-hidden="true">+</span><span class="btn-label">New challenge</span></button>
+      <button class="btn btn-icon" id="theme-toggle" type="button" aria-label="Switch light or dark theme" title="Switch theme">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="catalog" id="catalog" hidden aria-labelledby="catalog-title">
+    <div class="catalog-head">
+      <h1 id="catalog-title">What companies actually ask</h1>
+      <p class="catalog-lede" id="catalog-lede"></p>
+    </div>
+    <div class="filters" role="search">
+      <label class="filter-search">
+        <span class="visually-hidden">Search problems</span>
+        <input type="search" id="f-search" placeholder="Search: idempotency, crawler, Redis…" autocomplete="off">
+      </label>
+      <label class="filter-select">
+        <span class="visually-hidden">Company</span>
+        <select id="f-company"><option value="">All companies</option></select>
+      </label>
+      <div class="chips" id="f-rounds" role="group" aria-label="Round type"></div>
+      <label class="filter-check"><input type="checkbox" id="f-tracked"> Has a track</label>
+    </div>
+    <p class="catalog-count" id="catalog-count" aria-live="polite"></p>
+    <ul class="grid" id="catalog-grid"></ul>
+  </main>
+
+  <main class="paths" id="paths" hidden aria-labelledby="paths-title">
+    <div class="catalog-head">
+      <h1 id="paths-title">Build the systems behind big tech</h1>
+      <p class="catalog-lede" id="paths-lede"></p>
+    </div>
+    <div class="filters" role="search">
+      <label class="filter-search">
+        <span class="visually-hidden">Search paths</span>
+        <input type="search" id="p-search" placeholder="Search: payments, Uber, Kafka…" autocomplete="off">
+      </label>
+      <div class="chips" id="p-domains" role="group" aria-label="Domain"></div>
+    </div>
+    <p class="catalog-count" id="paths-count" aria-live="polite"></p>
+    <ul class="grid" id="paths-list"></ul>
+  </main>
+
+  <main class="workspace" id="workspace" hidden>
+    <nav class="rail" aria-label="Challenges">
+      <div class="rail-head">
+        <label class="track-picker">
+          <span class="visually-hidden">Module</span>
+          <select id="track-select"></select>
+        </label>
+        <div class="stepper">
+          <button class="btn btn-icon" id="prev-q" type="button" aria-label="Previous question">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span class="stepper-label" id="step-label" aria-live="polite"></span>
+          <button class="btn btn-icon" id="next-q" type="button" aria-label="Next question">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+      <p class="rail-desc" id="track-desc"></p>
+      <ol class="rail-list" id="rail-list"></ol>
+      <div class="rail-foot">
+        <p class="rail-foot-label">Last 4 weeks</p>
+        <div class="days" id="days" role="img"></div>
+      </div>
+    </nav>
+
+    <section class="reader" aria-labelledby="challenge-title">
+      <div class="reader-head">
+        <h1 id="challenge-title">Loading…</h1>
+        <div class="meta" id="challenge-meta"></div>
+        <div class="tabs" role="tablist" aria-label="Challenge sections">
+          <button role="tab" class="tab" data-tab="lesson" aria-selected="true">Lesson</button>
+          <button role="tab" class="tab" data-tab="problem" aria-selected="false">Problem</button>
+          <button role="tab" class="tab" data-tab="hints" aria-selected="false">Hints</button>
+          <button role="tab" class="tab" data-tab="solution" aria-selected="false">Solution</button>
+          <button role="tab" class="tab tab-code" data-tab="code" aria-selected="false">Code</button>
+        </div>
+      </div>
+      <div class="reader-body">
+        <article class="prose" role="tabpanel" data-panel="lesson" id="panel-lesson"></article>
+        <article class="prose" role="tabpanel" data-panel="problem" id="panel-problem" hidden></article>
+        <div class="prose" role="tabpanel" data-panel="hints" id="panel-hints" hidden>
+          <p class="panel-intro">Hints go from a gentle push to almost the answer. Open one at a time.</p>
+          <ol class="hint-list" id="hint-list"></ol>
+          <button class="btn btn-quiet" id="next-hint" type="button">Show hint 1</button>
+        </div>
+        <div class="prose" role="tabpanel" data-panel="solution" id="panel-solution" hidden>
+          <div id="solution-gate">
+            <p class="panel-intro">The reference solution passes every test. Try the hints first; you learn more from the struggle.</p>
+            <button class="btn btn-quiet" id="reveal-solution" type="button">Show the reference solution</button>
+          </div>
+          <pre class="solution-code" id="solution-code" hidden><code></code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="bench" aria-label="Code and tests">
+      <div class="file-tabs" id="file-tabs" role="tablist" aria-label="Files"></div>
+      <div class="editor-wrap">
+        <div id="editor" class="editor"></div>
+        <textarea id="fallback-editor" class="fallback-editor" spellcheck="false" wrap="off" hidden aria-label="Code editor"></textarea>
+      </div>
+      <div class="actions">
+        <button class="btn btn-secondary" id="run-btn" type="button" title="Run visible tests (Ctrl or Cmd + Enter)">Run tests</button>
+        <button class="btn btn-primary" id="submit-btn" type="button" title="Run all tests, including hidden ones (Ctrl or Cmd + Shift + Enter)">Submit</button>
+        <button class="btn btn-text" id="reset-btn" type="button">Reset<span class="long-label"> to starter</span></button>
+        <button class="btn btn-text results-toggle" id="results-toggle" type="button" aria-controls="results" aria-expanded="true"></button>
+        <span class="save-state" id="save-state" aria-live="polite"></span>
+      </div>
+      <div class="results" id="results" aria-live="polite">
+        <p class="results-empty">Run the tests to see results here. Visible tests check the basics. Submit also runs hidden tests for edge cases.</p>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="drawer" id="generate-dialog" aria-labelledby="generate-title">
+    <form method="dialog" class="drawer-inner" id="generate-form">
+      <div class="drawer-head">
+        <h2 id="generate-title">New challenge</h2>
+        <button class="btn btn-icon" value="cancel" formnovalidate aria-label="Close">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="generate-disabled" hidden>
+        <p>Claude writes a lesson, a problem, tests, and a reference solution, then Whetstone checks that the solution passes and the starter fails.</p>
+        <p><strong>Use your AI subscription.</strong> Open this folder in Claude Code, Codex, Cursor or another coding agent and ask: <em>“Build a Whetstone question about … in the … module.”</em> The agent follows <code>AGENTS.md</code> and the <code>bin/whetstone</code> CLI, and Whetstone checks the question before adding it.</p>
+        <p>Or add <code>ANTHROPIC_API_KEY=…</code> to the <code>.env</code> file and restart the app to write challenges from here.</p>
+      </div>
+      <div id="generate-fields">
+        <label class="field">
+          <span>Topic</span>
+          <textarea name="topic" rows="3" required minlength="3" placeholder="Token bucket rate limiter for a vendor API client"></textarea>
+        </label>
+        <label class="field">
+          <span>Track</span>
+          <input name="track" list="track-options" required placeholder="concurrency-caching or a new track name">
+          <datalist id="track-options"></datalist>
+        </label>
+        <fieldset class="field segmented">
+          <legend>Difficulty</legend>
+          <label><input type="radio" name="difficulty" value="easy"> Easy</label>
+          <label><input type="radio" name="difficulty" value="medium" checked> Medium</label>
+          <label><input type="radio" name="difficulty" value="hard"> Hard</label>
+        </fieldset>
+        <label class="field">
+          <span>Notes <small>(optional)</small></span>
+          <textarea name="notes" rows="2" placeholder="Use a fake clock. Tie it to my day job."></textarea>
+        </label>
+        <div class="drawer-actions">
+          <button class="btn btn-primary" id="generate-btn" type="submit" value="default">Write challenge</button>
+          <span class="save-state" id="generate-state"></span>
+        </div>
+        <pre class="gen-log" id="generate-log" hidden></pre>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="drawer drawer-wide" id="path-dialog" aria-label="Learning path">
+    <div class="drawer-inner">
+      <div class="drawer-head">
+        <span></span>
+        <button class="btn btn-icon" type="button" id="path-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="path-detail"></div>
+    </div>
+  </dialog>
+
+  <dialog class="drawer drawer-wide" id="problem-dialog" aria-labelledby="problem-title">
+    <div class="drawer-inner">
+      <div class="drawer-head">
+        <h2 id="problem-title"></h2>
+        <button class="btn btn-icon" type="button" id="problem-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="problem-summary" id="problem-summary"></p>
+      <p class="problem-meta" id="problem-meta"></p>
+      <div class="problem-actions" id="problem-actions"></div>
+      <pre class="gen-log" id="problem-log" hidden></pre>
+      <h3 class="reports-head">What people were asked</h3>
+      <ol class="reports" id="problem-reports"></ol>
+    </div>
+  </dialog>
+
+  <script>
+    window.MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
+  <script src="/static/app.js?v=6"></script>
+</body>
+</html>
