@@ -340,7 +340,9 @@ async function openChallenge(trackId, cid) {
 
   renderLesson();
   $("#panel-problem").innerHTML = c.problem_html;
+  colorize($("#panel-problem"));
   $("#hint-list").replaceChildren(...c.hints.map((html) => { const li = el("li"); li.innerHTML = html; return li; }));
+  colorize($("#hint-list"));
   updateHintButton();
   updateSolutionGate();
   $("#solution-code").hidden = true;
@@ -435,12 +437,28 @@ function onLayoutChange() {
   if (!PANE.matches && current && current.dataset.tab === "code") selectTab("problem");
 }
 
+/** Colour the code blocks in lessons, problems, hints and the solution with the editor's own
+    tokenizer, so they match the editor theme and need no extra library. */
+const LANG = { py: "python", sh: "shell", bash: "shell", console: "shell", js: "javascript", ts: "typescript", yml: "yaml" };
+async function colorize(root, fallback) {
+  if (!window.monaco || state.useFallback) return;
+  for (const code of root.querySelectorAll("pre code:not([data-colored])")) {
+    const lang = (code.className.match(/language-([\w+-]+)/) || [])[1] || fallback;
+    if (!lang) continue;
+    code.dataset.colored = "1";
+    try {
+      code.innerHTML = await monaco.editor.colorize(code.textContent.replace(/\n$/, ""), LANG[lang] || lang, { tabSize: 4 });
+    } catch (_) { /* an unknown language stays plain */ }
+  }
+}
+
 function renderLesson() {
   const panel = $("#panel-lesson");
   if (state.lessonLocked) {
     panel.replaceChildren(el("p", { class: "panel-intro", text: "Try the problem first. The lesson opens after your first test run: attempting it before reading makes the idea stick." }));
   } else {
     panel.innerHTML = state.challenge.lesson_html;
+    colorize(panel);
   }
 }
 
@@ -461,6 +479,7 @@ async function showNextHint() {
     const h = await api(`/api/challenges/${track}/${id}/hints/${state.hintsShown}`);
     const li = el("li");
     li.innerHTML = h.html;
+    colorize(li);
     $("#hint-list").append(li);
     state.hintsShown += 1;
     state.hintReady = false;
@@ -486,7 +505,10 @@ async function revealSolution() {
   state.challenge.solution_open = true;
   $("#solution-gate").hidden = true;
   const pre = $("#solution-code");
-  pre.querySelector("code").textContent = s.code;
+  const code = pre.querySelector("code");
+  code.textContent = s.code;
+  delete code.dataset.colored;
+  colorize(pre, "python");
   pre.hidden = false;
 }
 
