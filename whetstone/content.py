@@ -1,4 +1,5 @@
 """Load tracks and challenges from the content folder."""
+
 from __future__ import annotations
 
 import re
@@ -75,9 +76,9 @@ class LearningPath:
     title: str
     goal: str = ""
     modules: list[str] = field(default_factory=list)
-    domain: str = ""                                   # e.g. "Payments & fintech"
+    domain: str = ""  # e.g. "Payments & fintech"
     companies: list[str] = field(default_factory=list)  # whose systems it is modelled on
-    mine: bool = False                                  # from the learner's my/paths, not shared
+    mine: bool = False  # from the learner's my/paths, not shared
 
 
 def load_paths(paths_dir: Path) -> list[LearningPath]:
@@ -86,10 +87,16 @@ def load_paths(paths_dir: Path) -> list[LearningPath]:
     out = []
     for f in sorted(paths_dir.glob("*.yaml")):
         meta = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
-        out.append(LearningPath(
-            f.stem, str(meta.get("title", f.stem)), str(meta.get("goal", "")), [str(m) for m in meta.get("modules", [])],
-            str(meta.get("domain", "")), [str(c) for c in meta.get("companies", [])],
-        ))
+        out.append(
+            LearningPath(
+                f.stem,
+                str(meta.get("title", f.stem)),
+                str(meta.get("goal", "")),
+                [str(m) for m in meta.get("modules", [])],
+                str(meta.get("domain", "")),
+                [str(c) for c in meta.get("companies", [])],
+            )
+        )
     return out
 
 

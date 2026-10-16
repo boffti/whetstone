@@ -1,0 +1,23 @@
+name: New learning path or module
+description: Suggest a system to build, or a topic that a path is missing.
+labels: [content]
+body:
+  - type: input
+    id: what
+    attributes:
+      label: System or topic
+      placeholder: "Build a ride-sharing pool matcher, or a module on consistent snapshots"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it is worth learning
+      description: Which companies build this, or ask about it in interviews? Links help.
+    validations:
+      required: true
+  - type: textarea
+    id: modules
+    attributes:
+      label: Modules, in order (for a path)
+      description: Reuse existing modules where you can. `uv run whetstone catalog` lists them.

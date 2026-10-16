@@ -1,5 +1,11 @@
 # Whetstone
 
+[![CI](https://github.com/boffti/whetstone/actions/workflows/ci.yml/badge.svg)](https://github.com/boffti/whetstone/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/boffti/whetstone/actions/workflows/codeql.yml/badge.svg)](https://github.com/boffti/whetstone/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/boffti/whetstone/badge)](https://scorecard.dev/viewer/?uri=github.com/boffti/whetstone)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+
 A self-hosted practice dojo where your own AI agent builds the lessons. Pick a system you want to understand, such as a payment processor, a taxi booking service, high-frequency trading, or an LLM gateway like OpenRouter. Your agent (Claude Code, Codex, Cursor, or another) writes each step for you: a short lesson, a practical problem, and a pytest suite that grades your code. Visible tests check the basics. Hidden tests check the edge cases interviewers ask about.
 
 This repo is the shell: the app, the CLI your agent drives, and a shared catalog of systems and real interview reports. Everything written for you stays on your machine, in `my/`, and is never committed.
@@ -7,7 +13,7 @@ This repo is the shell: the app, the CLI your agent drives, and a shared catalog
 ## Quick start
 
 ```bash
-git clone <this repo> whetstone && cd whetstone
+git clone https://github.com/boffti/whetstone && cd whetstone
 cp .env.example .env
 docker compose up -d --build        # http://localhost:8000 (includes Redis)
 claude                              # or codex, or open the folder in Cursor
@@ -23,6 +29,18 @@ Then ask your agent, in plain words:
 The agent follows [AGENTS.md](AGENTS.md) and drives `bin/whetstone`. Whetstone has no AI inside, so it runs on your existing AI subscription with no API key. Every question goes through `bin/whetstone question add`, which files it only when the reference solution passes and the starter fails.
 
 **Without Docker:** run `uv run whetstone serve`. Redis-based questions then need Redis at `REDIS_URL` (default `redis://localhost:6379/0`). On a Mac: `brew install redis && brew services start redis`.
+
+## How it works
+
+```
+ you ──ask──▶ your AI agent ──runs──▶ bin/whetstone ──writes──▶ my/        (your profile, questions,
+             (Claude Code, Codex,     (brief, new, add,                     paths, progress; private)
+              Cursor, ...)             check, test)                │
+                                                                   │ reads both
+ contributors ──pull requests──▶ content/ (catalog, paths) ────────┴──▶ web app, localhost:8000
+```
+
+Whetstone never calls an AI itself. Your agent does the thinking, and the CLI creates and checks things.
 
 **Side by side with your agent:** the app is built to run in a narrow browser pane next to your chat, such as Claude's built-in browser. Below 1100px it switches to one column with a full-height code editor.
 
@@ -70,23 +88,11 @@ Whetstone reads `content/` and `my/` together, and writes only to `my/`. If you 
 
 ## Contributing
 
-Shared improvements are welcome. They are what every user pulls and then has their own agent fill in:
+Contributions to the shared shell are welcome: new learning paths, modules, paraphrased interview research, and app or CLI improvements. See [CONTRIBUTING.md](CONTRIBUTING.md) for formats and checks. Questions themselves are personal, so they are not contributed.
 
-- **New learning paths:** add `content/paths/<id>.yaml` with `title`, `goal`, `domain`, `companies` and an ordered list of `modules`.
-- **New modules:** add a placeholder to `content/catalog.yaml` with an `id`, a `title`, and a `summary` of what the learner builds.
-- **Interview research:**
-  1. Write paraphrased reports as JSON in `data/research/`, which is git-ignored.
-  2. Merge them with `uv run --no-project --with pyyaml python scripts/merge_catalog.py data/research/*.json`.
-  3. Commit only the updated `catalog.yaml`.
+## Security
 
-  The merge dedupes reports, folds narrow topics into broader modules (`ALIASES` in the script), and keeps hand-written fields.
-- **The app and CLI:** run the tests with `uv run python -m pytest tests -q`.
-
-Keep personal and employer details out of anything you commit. Questions themselves are personal, so they are not contributed.
-
-## Safety
-
-Whetstone runs the code you submit, with your user's permissions. It listens on `127.0.0.1` only, so do not expose it to the internet. The Docker setup runs submissions inside the container as a non-root user.
+Whetstone runs the code you submit, so it only answers requests from your own machine. With Docker, it runs submissions as a non-root user in a container. See [SECURITY.md](SECURITY.md) for the threat model and how to report a vulnerability privately.
 
 ## Command line
 
@@ -115,3 +121,7 @@ bin/whetstone test <module/question> [--all]
 
 bin/whetstone generate "<topic>" [--module generated] [--difficulty medium] [--notes "..."]   # optional; needs ANTHROPIC_API_KEY
 ```
+
+## License
+
+[MIT](LICENSE). Please follow the [code of conduct](CODE_OF_CONDUCT.md) when you take part.

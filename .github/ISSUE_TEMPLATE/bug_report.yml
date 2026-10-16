@@ -1,0 +1,33 @@
+name: Bug report
+description: Something in the app or CLI does not work.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not paste anything from your `my/` folder that describes your job or private work.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `bin/whetstone ...`
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: macOS 15, Docker or uv, browser
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      render: shell

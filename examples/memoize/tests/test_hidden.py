@@ -1,7 +1,6 @@
 import time
 
 import pytest
-
 from solution import CachedAPI
 
 

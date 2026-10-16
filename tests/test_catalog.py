@@ -6,16 +6,14 @@ from whetstone.content import Challenge, Track
 
 def _track(track_id: str, *dirs: str) -> Track:
     t = Track(id=track_id, title=track_id.title(), description="", path=Path("."))
-    t.challenges = [
-        Challenge(track_id, d, Path("."), f"Title {d}", "medium", 20, [], [], [], None, "") for d in dirs
-    ]
+    t.challenges = [Challenge(track_id, d, Path("."), f"Title {d}", "medium", 20, [], [], [], None, "") for d in dirs]
     return t
 
 
 def test_links_curated_challenge_then_own_track():
     tracks = {t.id: t for t in [_track("cc", "01-a", "05-lru"), _track("lru-ttl-cache", "01-x", "02-y")]}
     links = catalog_links({"id": "lru-ttl-cache", "track": "cc/05-lru"}, tracks, solved={"lru-ttl-cache/01-x"})
-    assert [(l["track"], l["challenge"], l["own"]) for l in links] == [("cc", "05-lru", False), ("lru-ttl-cache", "02-y", True)]
+    assert [(lk["track"], lk["challenge"], lk["own"]) for lk in links] == [("cc", "05-lru", False), ("lru-ttl-cache", "02-y", True)]
     assert links[0]["title"] == "Title 05-lru" and links[1]["solved"] == 1
 
 

@@ -1,4 +1,5 @@
 """Run a learner's code against a challenge's pytest suite in a throwaway folder."""
+
 from __future__ import annotations
 
 import os
@@ -12,7 +13,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .config import Settings
-from .content import REQUIRED_FILES, Challenge, DIFFICULTIES
+from .content import DIFFICULTIES, REQUIRED_FILES, Challenge
 
 
 @dataclass
@@ -70,8 +71,18 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
             shutil.copy(test_file, tests_dir / test_file.name)
         junit = tmp / "report.xml"
         cmd = [
-            sys.executable, "-m", "pytest", "tests", "-q", "--tb=short",
-            "-p", "no:cacheprovider", "-o", "addopts=", "--rootdir", str(tmp),
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests",
+            "-q",
+            "--tb=short",
+            "-p",
+            "no:cacheprovider",
+            "-o",
+            "addopts=",
+            "--rootdir",
+            str(tmp),
             f"--junitxml={junit}",
         ]
         env = {**os.environ, "PYTHONPATH": str(tmp), "PYTHONDONTWRITEBYTECODE": "1", "REDIS_URL": settings.redis_url}
@@ -105,7 +116,11 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
         report.summary = f"Redis is not reachable at {settings.redis_url}. Start Redis, then run again."
     elif report.failed == 0 and report.skipped == 0:
         report.status = "passed"
-        report.summary = f"All {report.total} tests passed." if include_hidden else f"All {report.total} visible tests passed. Submit to run the hidden tests."
+        report.summary = (
+            f"All {report.total} tests passed."
+            if include_hidden
+            else f"All {report.total} visible tests passed. Submit to run the hidden tests."
+        )
     else:
         report.status = "failed"
         report.summary = f"{report.passed} of {report.total} tests passed."

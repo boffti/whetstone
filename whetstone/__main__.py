@@ -5,6 +5,7 @@ Content model: a learning path is an ordered list of modules toward a goal; a mo
 is a topic made of ordered questions; a question is one exercise (lesson, code, tests).
 In the files, a module is a folder under content/tracks/ and a question is a folder in it.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,6 +48,7 @@ def _module_status(track, solved: set[str]) -> dict:
 
 # ---------- App ----------
 
+
 def cmd_serve(args) -> int:
     import uvicorn
 
@@ -72,6 +74,7 @@ def cmd_generate(args) -> int:
 
 # ---------- Learning paths ----------
 
+
 def _find_path(settings, path_id: str) -> LearningPath | None:
     return next((p for p in load_all_paths(settings.shared_paths_dir, settings.paths_dir) if p.id == path_id), None)
 
@@ -81,8 +84,9 @@ def cmd_path_create(args) -> int:
     path_id = slugify(args.id)
     if _find_path(settings, path_id):
         return fail(f"Path {path_id} already exists. Show it with: {CLI} path show {path_id}")
-    lp = LearningPath(path_id, args.title or path_id.replace("-", " ").capitalize(), args.goal,
-                      domain=args.domain or "", companies=args.company or [])
+    lp = LearningPath(
+        path_id, args.title or path_id.replace("-", " ").capitalize(), args.goal, domain=args.domain or "", companies=args.company or []
+    )
     dest = save_path(settings.paths_dir, lp)
     print(f"Created path {path_id} in {_rel(dest)} (your own; never committed).")
     print(f"Add modules in order: {CLI} path add {path_id} <module> [<module> ...]")
@@ -95,7 +99,7 @@ def cmd_path_add(args) -> int:
     settings = load_settings()
     lp = _find_path(settings, args.path)
     if lp is None:
-        return fail(f"No path {args.path}. Create it with: {CLI} path create {args.path} --goal \"...\"")
+        return fail(f'No path {args.path}. Create it with: {CLI} path create {args.path} --goal "..."')
     tracks = {t.id for t in load_tracks(settings.tracks_dir)}
     for raw in args.modules:
         module = slugify(raw)
@@ -122,8 +126,11 @@ def cmd_path_show(args) -> int:
     store, tracks = _state(settings)
     rows = path_rows(settings, lp, tracks, store.solved_keys())
     if args.json:
-        print(json.dumps({"id": lp.id, "title": lp.title, "goal": lp.goal, "domain": lp.domain,
-                          "companies": lp.companies, "modules": rows}, indent=2))
+        print(
+            json.dumps(
+                {"id": lp.id, "title": lp.title, "goal": lp.goal, "domain": lp.domain, "companies": lp.companies, "modules": rows}, indent=2
+            )
+        )
         return 0
     print(f"{lp.title} ({lp.id})")
     if lp.domain or lp.companies:
@@ -146,8 +153,15 @@ def cmd_path_list(args) -> int:
     if args.domain:
         paths = [p for p in paths if args.domain.lower() in p.domain.lower()]
     if args.json:
-        print(json.dumps([{"id": p.id, "title": p.title, "goal": p.goal, "domain": p.domain, "companies": p.companies,
-                           "modules": p.modules} for p in paths], indent=2))
+        print(
+            json.dumps(
+                [
+                    {"id": p.id, "title": p.title, "goal": p.goal, "domain": p.domain, "companies": p.companies, "modules": p.modules}
+                    for p in paths
+                ],
+                indent=2,
+            )
+        )
         return 0
     for domain in sorted({p.domain for p in paths}):
         print(f"\n{domain or 'Other'}")
@@ -156,11 +170,12 @@ def cmd_path_list(args) -> int:
             mine = " [yours]" if p.mine else ""
             print(f"  {p.id:<28} {p.title}{mine}  ({len(p.modules)} modules{who})")
     if not paths:
-        print(f"No learning paths yet. Create one: {CLI} path create <id> --goal \"...\"")
+        print(f'No learning paths yet. Create one: {CLI} path create <id> --goal "..."')
     return 0
 
 
 # ---------- Modules ----------
+
 
 def cmd_module_create(args) -> int:
     from .catalog import find_problem
@@ -197,6 +212,7 @@ def cmd_module_list(args) -> int:
 
 # ---------- Questions ----------
 
+
 def cmd_question_brief(args) -> int:
     from .catalog import find_problem, make_brief
 
@@ -209,7 +225,7 @@ def cmd_question_brief(args) -> int:
     else:
         topic = args.topic or (f"{track.title}: {track.description}" if track else None)
         if not topic:
-            return fail(f"{module} is not a module or a catalog problem yet. Pass --topic \"...\" to say what it teaches.", 2)
+            return fail(f'{module} is not a module or a catalog problem yet. Pass --topic "..." to say what it teaches.', 2)
         text = make_brief(settings, topic=topic, track=module, difficulty=args.difficulty, notes=args.notes or "")
     print(text)
     return 0
@@ -263,7 +279,9 @@ def cmd_question_check(args) -> int:
 
     settings = load_settings()
     targets = [
-        ch for track in load_tracks(settings.tracks_dir) for ch in track.challenges
+        ch
+        for track in load_tracks(settings.tracks_dir)
+        for ch in track.challenges
         if not args.targets or any(ch.key == t or ch.track_id == t for t in args.targets)
     ]
     if not targets:
@@ -282,6 +300,7 @@ def cmd_question_check(args) -> int:
 
 
 # ---------- Catalog and the learner ----------
+
 
 def cmd_catalog(args) -> int:
     from .catalog import catalog_links, find_problem, load_catalog
@@ -317,7 +336,8 @@ def cmd_catalog(args) -> int:
     rows = []
     for p in load_catalog(settings):
         hits = [
-            r for r in p["reports"]
+            r
+            for r in p["reports"]
             if (not args.company or r["company"].lower() == args.company.lower()) and (not args.round or r["round"] == args.round)
         ]
         text = " ".join([p["title"], p.get("summary", ""), *p.get("tags", []), *(r["question"] for r in p["reports"])]).lower()
@@ -325,11 +345,23 @@ def cmd_catalog(args) -> int:
             rows.append((p, hits, catalog_links(p, tracks, solved)))
     rows.sort(key=lambda row: (-len(row[1]), row[0]["id"]))
     if args.json:
-        print(json.dumps([
-            {"id": p["id"], "title": p["title"], "summary": p.get("summary", ""), "format": p.get("format"),
-             "reports": len(hits), "companies": sorted({r["company"] for r in hits}), "links": links}
-            for p, hits, links in rows
-        ], indent=2))
+        print(
+            json.dumps(
+                [
+                    {
+                        "id": p["id"],
+                        "title": p["title"],
+                        "summary": p.get("summary", ""),
+                        "format": p.get("format"),
+                        "reports": len(hits),
+                        "companies": sorted({r["company"] for r in hits}),
+                        "links": links,
+                    }
+                    for p, hits, links in rows
+                ],
+                indent=2,
+            )
+        )
         return 0
     for p, hits, links in rows:
         if p.get("format") == "design":
@@ -353,14 +385,19 @@ def cmd_progress(args) -> int:
     for t in tracks.values():
         for c in t.challenges:
             last, opened = store.last_run(c.key), store.reveals(c.key)
-            rows.append({
-                "key": c.key, "title": c.title, "difficulty": c.difficulty, "tags": c.tags,
-                "status": "solved" if c.key in solved else ("attempted" if last else "new"),
-                "runs": store.run_count(c.key),
-                "hints_opened": sum(w.startswith("hint") for w in opened),
-                "solution_viewed": "solution" in opened,
-                "last_run": last,
-            })
+            rows.append(
+                {
+                    "key": c.key,
+                    "title": c.title,
+                    "difficulty": c.difficulty,
+                    "tags": c.tags,
+                    "status": "solved" if c.key in solved else ("attempted" if last else "new"),
+                    "runs": store.run_count(c.key),
+                    "hints_opened": sum(w.startswith("hint") for w in opened),
+                    "solution_viewed": "solution" in opened,
+                    "last_run": last,
+                }
+            )
     if args.json:
         print(json.dumps({"streak": store.streak(), "active_days": store.active_days(), "questions": rows}, indent=2))
         return 0
@@ -398,7 +435,9 @@ def cmd_draft(args) -> int:
         code = None
     print(f"# {c.key}: {c.title}")
     print(f"Last run: {last['mode']} {last['status']} {last['passed']}/{last['total']} at {last['created_at']}" if last else "No runs yet.")
-    print(f"Hints opened: {sum(w.startswith('hint') for w in opened)} of {len(c.hints())}. Solution viewed: {'yes' if 'solution' in opened else 'no'}.")
+    print(
+        f"Hints opened: {sum(w.startswith('hint') for w in opened)} of {len(c.hints())}. Solution viewed: {'yes' if 'solution' in opened else 'no'}."
+    )
     print(f"\n## The learner's solution.py{' (untouched starter)' if code is None else ''}\n")
     print(code if code is not None else starter)
     return 0
@@ -425,6 +464,7 @@ def cmd_test(args) -> int:
 
 
 # ---------- Parser ----------
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="whetstone", description="Self-hosted practice dojo. AI agents: read AGENTS.md.")
@@ -468,7 +508,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true")
 
     # Questions
-    questions = sub.add_parser("question", help="questions: one exercise each (lesson, code, tests)").add_subparsers(dest="action", required=True)
+    questions = sub.add_parser("question", help="questions: one exercise each (lesson, code, tests)").add_subparsers(
+        dest="action", required=True
+    )
     p = cmd(questions, "brief", cmd_question_brief, "instructions for writing the next question in a module")
     p.add_argument("module", help="module id, or a catalog problem id")
     p.add_argument("--topic", help="what the question teaches, for a module that is not in the catalog")

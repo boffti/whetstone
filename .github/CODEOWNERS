@@ -1,0 +1,7 @@
+# Every change needs a maintainer's review. Code that runs (scripts, examples, CI)
+# is listed separately so it stays explicit even as more owners join.
+*                 @boffti
+/.github/         @boffti
+/scripts/         @boffti
+/examples/        @boffti
+/whetstone/       @boffti

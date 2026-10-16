@@ -1,4 +1,5 @@
 """The catalog of reported interview problems in content/catalog.yaml."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -44,14 +45,16 @@ def catalog_links(problem: dict, tracks: dict[str, Track], solved: set[str]) -> 
         if not chs:
             continue
         nxt = next((c for c in chs if c.key not in solved), chs[0])
-        links.append({
-            "track": track.id,
-            "challenge": nxt.dir_name,
-            "title": chs[0].title if cid else track.title,
-            "total": len(chs),
-            "solved": sum(c.key in solved for c in chs),
-            "own": track.id == slugify(problem["id"]),
-        })
+        links.append(
+            {
+                "track": track.id,
+                "challenge": nxt.dir_name,
+                "title": chs[0].title if cid else track.title,
+                "total": len(chs),
+                "solved": sum(c.key in solved for c in chs),
+                "own": track.id == slugify(problem["id"]),
+            }
+        )
     return links
 
 
@@ -64,16 +67,18 @@ def path_rows(settings: Settings, lp: LearningPath, tracks: dict[str, Track], so
         problem = problems.get(module, {})
         chs = track.challenges if track else []
         nxt = next((c for c in chs if c.key not in solved), chs[0] if chs else None)
-        rows.append({
-            "module": module,
-            "title": track.title if track else problem.get("title", module),
-            "summary": problem.get("summary") or (track.description if track else ""),
-            "reports": len(problem.get("reports", [])),
-            "built": bool(chs),
-            "questions": len(chs),
-            "solved": sum(c.key in solved for c in chs),
-            "next": nxt.dir_name if nxt else None,
-        })
+        rows.append(
+            {
+                "module": module,
+                "title": track.title if track else problem.get("title", module),
+                "summary": problem.get("summary") or (track.description if track else ""),
+                "reports": len(problem.get("reports", [])),
+                "built": bool(chs),
+                "questions": len(chs),
+                "solved": sum(c.key in solved for c in chs),
+                "next": nxt.dir_name if nxt else None,
+            }
+        )
     return rows
 
 
@@ -112,7 +117,7 @@ def make_brief(
     existing = [f"- {c.dir_name}: {c.title} ({c.difficulty})" for c in existing_track.challenges] if existing_track else []
 
     lines = [
-        f"# Whetstone brief: the next question in the \"{track_title}\" module",
+        f'# Whetstone brief: the next question in the "{track_title}" module',
         "",
         "You are writing one hands-on question for Whetstone. The learner reads a lesson, writes code in "
         "solution.py, and is graded by pytest. You do the writing; Whetstone checks your work.",

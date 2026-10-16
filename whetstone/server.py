@@ -1,10 +1,13 @@
 """HTTP API and static UI."""
+
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -16,6 +19,22 @@ from .runner import run_tests
 from .store import Store
 
 STATIC = Path(__file__).parent / "static"
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def allowed_hosts() -> set[str]:
+    """Local names, plus any you add on purpose with WHETSTONE_ALLOWED_HOSTS (comma-separated)."""
+    extra = {h.strip().lower() for h in os.environ.get("WHETSTONE_ALLOWED_HOSTS", "").split(",") if h.strip()}
+    return LOCAL_HOSTS | extra
+
+
+def is_local_request(host_header: str, origin: str | None, allowed: set[str]) -> bool:
+    """Whetstone runs the code it is sent, so it only answers this machine. A wrong Host header
+    means DNS rebinding (an outside site resolving its name to 127.0.0.1); a foreign Origin means
+    another site's page is sending the request."""
+    if (urlsplit(f"//{host_header}").hostname or "") not in allowed:
+        return False
+    return origin is None or (urlsplit(origin).hostname or "") in allowed
 
 
 class CodeBody(BaseModel):
@@ -57,6 +76,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     store = Store(settings.db_path)
     app = FastAPI(title="Whetstone")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    hosts = allowed_hosts()
+
+    @app.middleware("http")
+    async def local_only(request: Request, call_next):
+        if not is_local_request(request.headers.get("host", ""), request.headers.get("origin"), hosts):
+            return JSONResponse({"detail": "Whetstone only answers requests from this machine."}, status_code=403)
+        return await call_next(request)
 
     @app.middleware("http")
     async def revalidate_ui(request: Request, call_next):
@@ -79,7 +105,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/config")
     def config():
-        return {"generator_enabled": settings.generator_enabled, "model": settings.model, "redis_ok": _redis_ok(settings.redis_url), "redis_url": settings.redis_url}
+        return {
+            "generator_enabled": settings.generator_enabled,
+            "model": settings.model,
+            "redis_ok": _redis_ok(settings.redis_url),
+            "redis_url": settings.redis_url,
+        }
 
     @app.get("/api/tracks")
     def tracks():
@@ -87,31 +118,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         attempted = store.attempted_keys()
         out = []
         for t in load_tracks(settings.tracks_dir):
-            out.append({
-                "id": t.id,
-                "title": t.title,
-                "description": t.description,
-                "challenges": [
-                    {
-                        "id": c.dir_name,
-                        "number": c.number,
-                        "title": c.title,
-                        "difficulty": c.difficulty,
-                        "minutes": c.minutes,
-                        "tags": c.tags,
-                        "requires": c.requires,
-                        "status": "solved" if c.key in solved else ("attempted" if c.key in attempted else "new"),
-                    }
-                    for c in t.challenges
-                ],
-            })
+            out.append(
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "description": t.description,
+                    "challenges": [
+                        {
+                            "id": c.dir_name,
+                            "number": c.number,
+                            "title": c.title,
+                            "difficulty": c.difficulty,
+                            "minutes": c.minutes,
+                            "tags": c.tags,
+                            "requires": c.requires,
+                            "status": "solved" if c.key in solved else ("attempted" if c.key in attempted else "new"),
+                        }
+                        for c in t.challenges
+                    ],
+                }
+            )
         return out
 
     @app.get("/api/stats")
     def stats():
         all_keys = [c.key for t in load_tracks(settings.tracks_dir) for c in t.challenges]
         solved = store.solved_keys()
-        return {"streak": store.streak(), "solved": len([k for k in all_keys if k in solved]), "total": len(all_keys), "active_days": store.active_days()}
+        return {
+            "streak": store.streak(),
+            "solved": len([k for k in all_keys if k in solved]),
+            "total": len(all_keys),
+            "active_days": store.active_days(),
+        }
 
     @app.get("/api/challenges/{track}/{cid}")
     def challenge(track: str, cid: str):
@@ -182,8 +220,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tracks = {t.id: t for t in load_tracks(settings.tracks_dir)}
         solved = store.solved_keys()
         return [
-            {"id": lp.id, "title": lp.title, "goal": lp.goal, "domain": lp.domain, "companies": lp.companies,
-             "mine": lp.mine, "modules": path_rows(settings, lp, tracks, solved)}
+            {
+                "id": lp.id,
+                "title": lp.title,
+                "goal": lp.goal,
+                "domain": lp.domain,
+                "companies": lp.companies,
+                "mine": lp.mine,
+                "modules": path_rows(settings, lp, tracks, solved),
+            }
             for lp in load_all_paths(settings.shared_paths_dir, settings.paths_dir)
         ]
 
@@ -214,7 +259,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         known = {t.id: t.title for t in load_tracks(settings.tracks_dir)}
         track_id = body.track if body.track in known else slugify(body.track)
         try:
-            key = generate_challenge(settings, body.topic, track_id, known.get(track_id, body.track), body.difficulty, body.notes, log=lines.append)
+            key = generate_challenge(
+                settings, body.topic, track_id, known.get(track_id, body.track), body.difficulty, body.notes, log=lines.append
+            )
         except GenerationError as exc:
             return {"ok": False, "error": str(exc), "log": lines}
         track, cid = key.split("/", 1)

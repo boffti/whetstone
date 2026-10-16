@@ -1,0 +1,12 @@
+# Changelog
+
+All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+- Web app: catalog of interview problems, learning paths by domain, and a practice view with an editor and pytest grading. It also works in a narrow pane next to your AI agent.
+- CLI (`bin/whetstone`) for AI agents: `path`, `module`, `question`, `catalog`, `progress`, `draft` and `test` commands, with `AGENTS.md`.
+- Shared content: about 250 modules with paraphrased interview reports, and 71 learning paths modelled on big-tech systems.
+- Personal content in a git-ignored `my/` folder: profile, built questions, own paths and progress.
+- Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.

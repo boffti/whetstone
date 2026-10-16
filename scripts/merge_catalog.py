@@ -7,6 +7,7 @@ follow_ups, tags, archetype, sources, confidence}. Reports are grouped into
 problems by archetype. Re-running keeps each problem's hand-written title,
 summary and track, and only recomputes its reports, companies and counts.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,13 +25,27 @@ COMPUTED = ("report_count", "companies", "rounds", "tags", "reports")
 # Folds narrow archetype slugs into the broader problems the catalog shows.
 ALIASES = {
     "rules-engine": ["rule-engine-parser", "record-validator-rules", "pricing-rules-engine", "coupon-pricing-engine"],
-    "access-control": ["permission-graph-reachability", "hierarchical-access-check", "acl-inheritance", "rbac-access-control", "ip-cidr-firewall"],
+    "access-control": [
+        "permission-graph-reachability",
+        "hierarchical-access-check",
+        "acl-inheritance",
+        "rbac-access-control",
+        "ip-cidr-firewall",
+    ],
     "coupon-redemption": ["promotion-redemption"],
     "ledger": ["double-entry-ledger", "expiring-credit-ledger", "deposit-settlement-ledger"],
     "inventory-reservation": ["reservation-booking", "quota-service", "fractional-share-inventory"],
     "order-state-machine": ["order-lifecycle-manager"],
     "ood-modeling": ["ood-parking-elevator", "todo-list-ood", "music-player-ood", "browser-history", "fare-calculator"],
-    "ood-games": ["card-game-ood", "game-ood-2048", "jigsaw-puzzle-ood", "tic-tac-toe-engine", "chess-engine", "card-purchase-simulator", "grid-simulation-rover"],
+    "ood-games": [
+        "card-game-ood",
+        "game-ood-2048",
+        "jigsaw-puzzle-ood",
+        "tic-tac-toe-engine",
+        "chess-engine",
+        "card-purchase-simulator",
+        "grid-simulation-rover",
+    ],
     "editor-undo": ["text-editor-undo", "undoable-rectangle-board", "design-document-model", "ascii-canvas", "design-editor-model"],
     "payroll-time-tracking": ["employee-time-tracker", "driver-payroll-tracker"],
     "interval-scheduling": ["interval-window-scheduler", "interval-gaps-over-api", "schedule-availability-query", "calendar-scheduling"],
@@ -42,7 +57,15 @@ ALIASES = {
     "event-stream-processing": ["streaming-query-matcher", "event-stream-fraud-state", "trace-span-tree", "stack-samples-to-trace-events"],
     "graph-relationships": ["referral-leaderboard", "referral-revenue-tracker", "org-hierarchy-lca", "snapshot-follow-graph"],
     "task-manager-quotas": ["task-management-ttl"],
-    "parsers-codecs": ["header-parsing", "json-parser", "tokenizer-longest-match", "function-signature-matcher", "rle-bitpack-codec", "tail-n-file", "range-file-cache-client"],
+    "parsers-codecs": [
+        "header-parsing",
+        "json-parser",
+        "tokenizer-longest-match",
+        "function-signature-matcher",
+        "rle-bitpack-codec",
+        "tail-n-file",
+        "range-file-cache-client",
+    ],
     "ai-assisted-build": ["repo-feature-extension", "text-rendering-cli"],
     "geo-matching": ["dispatch-matching", "food-delivery-backend"],
     "decomposition": ["data-product-decomposition", "dispatch-decomposition"],
@@ -132,18 +155,20 @@ def build(reports: list[dict], existing: dict) -> dict:
         kept = {k: v for k, v in old.get(slug, {}).items() if k not in COMPUTED and k != "id"}
         companies = Counter(r["company"] for r in rs)
         tags = Counter(t for r in rs for t in r["tags"])
-        problems.append({
-            "id": slug,
-            "title": slug.replace("-", " ").capitalize(),
-            "summary": "",
-            "track": None,
-            **kept,
-            "report_count": len(rs),
-            "companies": [c for c, _ in companies.most_common()],
-            "rounds": sorted({r["round"] for r in rs}),
-            "tags": [t for t, _ in tags.most_common(8)],
-            "reports": [{k: v for k, v in r.items() if k != "archetype"} for r in rs],
-        })
+        problems.append(
+            {
+                "id": slug,
+                "title": slug.replace("-", " ").capitalize(),
+                "summary": "",
+                "track": None,
+                **kept,
+                "report_count": len(rs),
+                "companies": [c for c, _ in companies.most_common()],
+                "rounds": sorted({r["round"] for r in rs}),
+                "tags": [t for t, _ in tags.most_common(8)],
+                "reports": [{k: v for k, v in r.items() if k != "archetype"} for r in rs],
+            }
+        )
     # Placeholder modules (no reports yet) stay: learning paths are built from them.
     for pid, prev in old.items():
         if pid not in groups:
@@ -152,35 +177,59 @@ def build(reports: list[dict], existing: dict) -> dict:
     return {"problems": problems}
 
 
+def merged(existing: dict, new_reports: list[dict]) -> dict:
+    """The catalog after merging new reports into an existing one. Pure: writes nothing."""
+    reports = [{**r, "archetype": p["id"]} for p in existing.get("problems", []) for r in p.get("reports", [])]
+    reports = dedupe([norm_report(r) for r in reports + new_reports if r.get("question")])
+    return build(reports, existing)
+
+
 def main(paths: list[str]) -> None:
-    existing = yaml.safe_load(CATALOG.read_text()) if CATALOG.exists() else {}
-    existing = existing or {}
-    reports = [
-        {**r, "archetype": p["id"]}
-        for p in existing.get("problems", [])
-        for r in p.get("reports", [])
-    ]
-    for path in paths:
-        reports += json.loads(Path(path).read_text())
-    reports = dedupe([norm_report(r) for r in reports if r.get("question")])
-    catalog = build(reports, existing)
+    existing = (yaml.safe_load(CATALOG.read_text()) if CATALOG.exists() else {}) or {}
+    new_reports = [r for path in paths for r in json.loads(Path(path).read_text())]
+    catalog = merged(existing, new_reports)
     CATALOG.write_text(yaml.safe_dump(catalog, sort_keys=False, allow_unicode=True, width=100))
     n = sum(p["report_count"] for p in catalog["problems"])
     print(f"{n} reports in {len(catalog['problems'])} problems -> {CATALOG}")
 
 
 def _check() -> None:
-    a = norm_report({"company": "Stripe", "archetype": "new:Rate-Limiter", "question": "Build a rate limiter for an API", "sources": ["u1"], "confidence": "medium"})
-    b = norm_report({"company": "stripe", "archetype": "rate-limiter", "question": "Build a rate limiter for an API.", "sources": ["u2"], "confidence": "medium"})
+    a = norm_report(
+        {
+            "company": "Stripe",
+            "archetype": "new:Rate-Limiter",
+            "question": "Build a rate limiter for an API",
+            "sources": ["u1"],
+            "confidence": "medium",
+        }
+    )
+    b = norm_report(
+        {
+            "company": "stripe",
+            "archetype": "rate-limiter",
+            "question": "Build a rate limiter for an API.",
+            "sources": ["u2"],
+            "confidence": "medium",
+        }
+    )
     c = norm_report({"company": "Uber", "archetype": "rate-limiter", "question": "Build a rate limiter for an API", "sources": ["u3"]})
     assert a["archetype"] == "rate-limiter"
     assert norm_report({"archetype": "new:ip-cidr-firewall", "question": "q"})["archetype"] == "access-control"
     out = dedupe([a, b, c])
     assert len(out) == 2 and out[0]["sources"] == ["u1", "u2"] and out[0]["confidence"] == "high"
-    d = norm_report({"company": "Uber", "archetype": "rate-limiter", "question": "Design a sliding window log for per-user quotas", "sources": ["u3"]})
+    d = norm_report(
+        {"company": "Uber", "archetype": "rate-limiter", "question": "Design a sliding window log for per-user quotas", "sources": ["u3"]}
+    )
     assert len(dedupe([c, d])) == 2, "same listing page, different questions"
-    cat = build(out, {"problems": [{"id": "rate-limiter", "title": "Kept title", "track": "t/1"},
-                                   {"id": "order-book", "title": "Order book", "tags": ["matching"]}]})
+    cat = build(
+        out,
+        {
+            "problems": [
+                {"id": "rate-limiter", "title": "Kept title", "track": "t/1"},
+                {"id": "order-book", "title": "Order book", "tags": ["matching"]},
+            ]
+        },
+    )
     p = cat["problems"][0]
     assert p["title"] == "Kept title" and p["track"] == "t/1" and p["report_count"] == 2
     stub = next(p for p in cat["problems"] if p["id"] == "order-book")

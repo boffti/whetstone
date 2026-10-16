@@ -1,11 +1,12 @@
 """Ask Claude to write a new challenge, validate it, and add it to a track."""
+
 from __future__ import annotations
 
 import re
 import shutil
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import yaml
 
@@ -32,8 +33,8 @@ def _system_prompt(settings: Settings) -> str:
         "Follow the authoring guide exactly. Every test must be deterministic.\n\n"
         f"<authoring_guide>\n{authoring}\n</authoring_guide>\n\n"
         f"<learner_profile>\n{profile}\n</learner_profile>\n\n"
-        "Output format: one <challenge dir=\"short-slug\"> element that contains one "
-        "<file path=\"...\"> element per file, and nothing else. Do not use Markdown code fences "
+        'Output format: one <challenge dir="short-slug"> element that contains one '
+        '<file path="..."> element per file, and nothing else. Do not use Markdown code fences '
         "inside <file> elements. Required files: challenge.yaml, lesson.md, problem.md, hints.md, "
         "starter.py, solution.py, tests/test_visible.py, tests/test_hidden.py. Optional: "
         "tests/conftest.py and support modules listed under `support` in challenge.yaml."
@@ -85,7 +86,11 @@ def ensure_track(settings: Settings, track_id: str, title: str | None = None, de
     track_dir = settings.tracks_dir / track_id
     if not track_dir.exists():
         track_dir.mkdir(parents=True)
-        meta = {"title": title or track_id.replace("-", " ").capitalize(), "description": description or "Generated challenges.", "order": 50}
+        meta = {
+            "title": title or track_id.replace("-", " ").capitalize(),
+            "description": description or "Generated challenges.",
+            "order": 50,
+        }
         (track_dir / "track.yaml").write_text(yaml.safe_dump(meta, sort_keys=False), encoding="utf-8")
     return track_dir
 
@@ -124,7 +129,9 @@ def generate_challenge(
 ) -> str:
     """Return the new challenge key ("track/dir") after it passes validation."""
     if call is None and not settings.generator_enabled:
-        raise GenerationError("Set ANTHROPIC_API_KEY to generate challenges in the app, or author them with Claude Code (see AUTHORING.md).")
+        raise GenerationError(
+            "Set ANTHROPIC_API_KEY to generate challenges in the app, or author them with Claude Code (see AUTHORING.md)."
+        )
     call = call or _call_claude
     track_id = slugify(track_id)
     track_dir = ensure_track(settings, track_id, track_title)
@@ -151,7 +158,10 @@ def generate_challenge(
                 slug, files = parse_pack(reply)
             except GenerationError as exc:
                 log(f"Could not read the reply: {exc}")
-                messages += [{"role": "assistant", "content": reply}, {"role": "user", "content": f"{exc} Reply again in the required format."}]
+                messages += [
+                    {"role": "assistant", "content": reply},
+                    {"role": "user", "content": f"{exc} Reply again in the required format."},
+                ]
                 continue
 
             stage = staging_root / slug
@@ -173,7 +183,12 @@ def generate_challenge(
             log("Validation failed: " + "; ".join(problems[:5]))
             messages += [
                 {"role": "assistant", "content": reply},
-                {"role": "user", "content": "Validation failed:\n- " + "\n- ".join(problems) + "\nFix the problems and return the COMPLETE challenge again in the same format."},
+                {
+                    "role": "user",
+                    "content": "Validation failed:\n- "
+                    + "\n- ".join(problems)
+                    + "\nFix the problems and return the COMPLETE challenge again in the same format.",
+                },
             ]
         raise GenerationError(f"The challenge did not pass validation after {MAX_ATTEMPTS} attempts.")
     finally:

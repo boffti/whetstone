@@ -4,12 +4,19 @@ import yaml
 
 from whetstone.__main__ import main
 
-CATALOG = {"problems": [
-    {"id": "rate-limiter", "title": "Rate limiter", "summary": "Token buckets.", "reports": [
-        {"company": "Stripe", "round": "practical-coding", "question": "Build a limiter.", "follow_ups": ["Make it distributed"]},
-    ]},
-    {"id": "idempotent-api", "title": "Idempotent payments API", "summary": "Safe retries.", "reports": []},
-]}
+CATALOG = {
+    "problems": [
+        {
+            "id": "rate-limiter",
+            "title": "Rate limiter",
+            "summary": "Token buckets.",
+            "reports": [
+                {"company": "Stripe", "round": "practical-coding", "question": "Build a limiter.", "follow_ups": ["Make it distributed"]},
+            ],
+        },
+        {"id": "idempotent-api", "title": "Idempotent payments API", "summary": "Safe retries.", "reports": []},
+    ]
+}
 
 
 def test_agent_workflow_path_module_question(tmp_path, monkeypatch, capsys):
