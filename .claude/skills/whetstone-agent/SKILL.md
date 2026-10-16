@@ -5,7 +5,7 @@ description: Keep watching Whetstone in the background and do the work the learn
 
 # Agent: watch Whetstone and do what the learner asks
 
-In the app, the learner presses **Prepare**, **Prepare review variant** or **Prepare all missing modules**. Whetstone queues a request. You are the one who does the work. Whetstone never starts an agent itself: it waits for you.
+In the app, the learner presses **Prepare**, **Prepare review variant** or **Prepare all missing modules**. Whetstone queues a request (Prepare all queues one `build` per module, in path order). You are the one who does the work. Whetstone never starts an agent itself: it waits for you.
 
 ## Start
 
@@ -26,18 +26,20 @@ Each event has `id`, `kind`, `target` and `ask`. `ask` is the job in plain words
    |---|---|---|
    | `build` | a module id | `whetstone-author`: the module's next question |
    | `variant` | a question key | `whetstone-author`: a variant for spaced review, with `variant_of` set |
-   | `fill-path` | a path id | `whetstone-author`: the first question of each unbuilt module in the path |
+   | `fill-path` | a path id | Older requests only: build the first question of each unbuilt module, filing and reporting each one before the next |
    | `review` | a question key | `whetstone-review`, then put the main points in the app with `bin/whetstone note` |
    | `design` | a module id | `whetstone-author`: a system design question (`--type whiteboard`) for the module |
    | `grade` | a question key | `whetstone-review`, "Grading a system design": record it with `bin/whetstone grade`, then mark the request done with the key |
    | `profile` | (none) | `whetstone-profile`. It needs the learner's consent, so ask in the chat first. |
 
 3. Finish the request:
-   - When it worked: `bin/whetstone request done <id> --result <question key>`. The app turns the button into **Start**. For `fill-path`, pass the first new key.
+   - When it worked: `bin/whetstone request done <id> --result <question key>`. The app turns the button into **Start**. For an older `fill-path`, pass the first new key.
    - When it can't be done: `bin/whetstone request fail <id> --result "<one line: why, and what would fix it>"`. The app shows the reason.
 4. In the chat, give a short line: what you built and what it practises. Never describe the solution.
 
 If several requests arrive while you are building, finish the current one first. Then run `bin/whetstone requests` and continue.
+
+Work strictly one at a time: claim, build, `question add`, then `request done`, before claiming the next. Do not draft several modules and file them together. The learner starts the first question as soon as it shows **Start**, while you build the rest.
 
 ## Other events
 

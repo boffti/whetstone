@@ -406,10 +406,17 @@ function renderRequest(wrap) {
   const key = wrap.dataset.req;
   const [kind, ...rest] = key.split(":");
   const target = rest.join(":");
-  const r = state.requests[key];
+  const r = state.requests[key] || (kind === "build" && olderFill(target));
   const button = (text, cls, onclick) => el("button", { type: "button", class: `btn ${cls}`, onclick }, text);
   let nodes;
-  if (!r) {
+  if (kind === "fill-path") {
+    // One build request per module, so each module shows its own state and opens as soon as it is ready.
+    const p = state.paths.find((x) => x.id === target);
+    const missing = p ? p.modules.filter((m) => !m.built) : [];
+    const left = missing.filter((m) => !state.requests[`build:${m.module}`] && !olderFill(m.module)).length;
+    nodes = left ? [button(left < missing.length ? `Prepare the other ${plural(left, "module")}` : wrap.dataset.label, "btn-secondary", () => prepareAll(target))]
+      : [el("span", { class: "req-state working", text: "Your agent prepares them in order. Each one shows Start as soon as it is ready." })];
+  } else if (!r) {
     nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", () => sendRequest(kind, target))];
   } else if (r.status === "queued") {
     nodes = [el("span", { class: "req-state", text: state.agent.connected ? "Queued for your agent" : "Waiting for your agent" }),
@@ -439,6 +446,18 @@ async function sendRequest(kind, target) {
   }
 }
 
+/** An open whole-path request, queued before Prepare all became one build per module, covers each module in its path. */
+function olderFill(module) {
+  return Object.values(state.requests).find((r) => r.kind === "fill-path" && (r.status === "queued" || r.status === "claimed")
+    && ((state.paths || []).find((p) => p.id === r.target) || { modules: [] }).modules.some((m) => m.module === module));
+}
+
+/** Queue a build for each module that is not ready, in path order: the agent takes the oldest first. */
+async function prepareAll(pathId) {
+  const p = state.paths.find((x) => x.id === pathId);
+  for (const m of p ? p.modules : []) if (!m.built && !state.requests[`build:${m.module}`]) await sendRequest("build", m.module);
+}
+
 async function cancelRequest(id) {
   await api(`/api/requests/${id}/cancel`, { method: "POST", body: {} });
   await pollRequests();
@@ -466,9 +485,12 @@ async function pollRequests() {
   const finished = Object.values(next).some((r) => r.status === "done" && (before[`${r.kind}:${r.target}`] || {}).status !== "done");
   if (finished && Object.keys(before).length) {
     await loadTracks();
-    if (!$("#home").hidden) loadHome();
-    else if (!$("#paths").hidden) loadPaths();
-    else if (!$("#design").hidden) loadDesign();
+    if (!$("#home").hidden) await loadHome();
+    else if (!$("#paths").hidden) await loadPaths();
+    else if (!$("#design").hidden) await loadDesign();
+    const drawer = $("#path-dialog");
+    const shown = drawer.open && state.paths.find((x) => x.id === drawer.dataset.path);
+    if (shown) $("#path-detail").replaceChildren(pathCard(shown));  // a module it lists may be ready now
     const c = state.challenge;
     const graded = c && next[`grade:${c.track}/${c.id}`];
     if (graded && graded.status === "done" && (before[`grade:${c.track}/${c.id}`] || {}).status !== "done" && !$("#workspace").hidden) await refreshReview();
@@ -1664,6 +1686,7 @@ function openPath(id) {
   const p = state.paths.find((x) => x.id === id);
   if (!p) return;
   $("#path-detail").replaceChildren(pathCard(p));
+  $("#path-dialog").dataset.path = id;
   $("#path-dialog").showModal();
   $("#path-dialog .drawer-inner").scrollTop = 0;
 }
@@ -1699,7 +1722,7 @@ function pathCard(p) {
     p.goal ? el("p", { class: "path-goal", text: p.goal }) : null,
     el("p", { class: "path-sum", text: `${pathSummary(p, st)}.${st.total ? ` ${st.solved} of ${plural(st.total, "question")} solved.` : ""}` }),
     p.modules.some((m) => !m.built) ? el("div", { class: "agent-ask fill-ask" },
-      el("p", { class: "note", text: `${plural(p.modules.filter((m) => !m.built).length, "module")} not ready yet. Your agent can prepare the first question of each:` }),
+      el("p", { class: "note", text: `${plural(p.modules.filter((m) => !m.built).length, "module")} not ready yet. Your agent prepares the first question of each, in order, so you can start the first while it works on the rest:` }),
       requestButton("fill-path", p.id)) : null,
     p.modules.length
       ? el("ol", { class: "path-line" }, p.modules.map((m, i) => moduleStep(m, i, i === current, focus.has(m.module), (uses.get(m.module) || 1) - 1)))

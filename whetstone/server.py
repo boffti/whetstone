@@ -337,10 +337,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             track, _, cid = target.partition("/")
             get_challenge(track, cid)
             return target
-        if want == "path":
-            if target not in {lp.id for lp in load_all_paths(settings.shared_paths_dir, settings.paths_dir)}:
-                raise HTTPException(400, f"{target} is not a learning path.")
-            return target
         return ""
 
     @app.post("/api/requests")
@@ -612,7 +608,7 @@ def request_ask(r: dict) -> str:
     return {
         "build": f"Build the next Whetstone question for the {r['target']} module.",
         "variant": f"Build a Whetstone variant of {r['target']} for review.",
-        "fill-path": f"Fill in my {r['target']} Whetstone path.",
+        "fill-path": f"Fill in my {r['target']} Whetstone path.",  # older requests; the app now queues one build per module
         "review": f"Review my solution to {r['target']}.",
         "design": f"Build a Whetstone system design question (whiteboard) for the {r['target']} module.",
         "grade": f"Grade my system design for {r['target']} against its rubric.",

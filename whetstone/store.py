@@ -15,7 +15,6 @@ PAIR_MODES = ("off", "quiet", "coach", "interviewer")
 REQUEST_KINDS = {
     "build": "module",  # build the next question of a module
     "variant": "question",  # build a spaced-review variant of a question
-    "fill-path": "path",  # build the first question of every unbuilt module in a path
     "review": "question",  # review the learner's solution
     "design": "module",  # build a system design (whiteboard) question for a module
     "grade": "question",  # grade the learner's system design against its rubric
