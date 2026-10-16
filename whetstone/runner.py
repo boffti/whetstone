@@ -244,7 +244,7 @@ WHITEBOARD_SECTIONS = {
     "Estimates": "Rough load: requests per second, data size, growth. Show the arithmetic.",
     "API": "The calls clients make, with their inputs, outputs and errors.",
     "Data model": "What you store, the keys you look it up by, and where it lives.",
-    "High-level design": "The main components and how a request flows through them. Draw it in a mermaid block.",
+    "High-level design": "The main components and how a request flows through them. Draw them on the Whiteboard tab, then explain the flow here.",
     "Deep dives": "The two or three hardest parts, worked through in detail.",
     "Trade-offs": "What you chose, what you gave up, and why.",
     "Failure modes": "What breaks: a node, a region, a dependency, a retry storm. What happens then.",
@@ -259,9 +259,108 @@ def whiteboard_sections(text: str) -> dict[str, str]:
     return {parts[i].strip().lower(): parts[i + 1] for i in range(1, len(parts) - 1, 2)}
 
 
-def check_whiteboard(text: str) -> RunReport:
-    """Every section has some substance, and there is at least one diagram. The design itself is
-    graded by the learner's agent against the rubric; this only says what is still empty."""
+# ---------- The whiteboard drawing, as Mermaid for the agent ----------
+SHAPE_SYNTAX = {"rectangle": '["{}"]', "ellipse": '(["{}"])', "diamond": '{{"{}"}}'}
+
+
+def _words(text: object) -> str:
+    return " ".join(str(text or "").split()).replace('"', "'")
+
+
+def drawing_mermaid(elements: list[dict]) -> tuple[str, list[str]]:
+    """An Excalidraw drawing as a Mermaid flowchart, plus what does not fit one: loose text and
+    arrows that connect to nothing. Labelled shapes are nodes; so is free text an arrow points
+    at. An arrow is an edge when each end is bound to, or lands on, a node. Frames are subgraphs.
+    ("", []) for an empty drawing."""
+    live = [e for e in elements if isinstance(e, dict) and not e.get("isDeleted")]
+    by_id = {e.get("id"): e for e in live}
+    labels: dict[str, str] = {}
+    loose: list[dict] = []
+    for e in live:
+        if e.get("type") == "text" and _words(e.get("text")):
+            if e.get("containerId") in by_id:
+                labels[e["containerId"]] = _words(e.get("text"))
+            else:
+                loose.append(e)
+    shapes = [e for e in live if e.get("type") in SHAPE_SYNTAX]
+
+    def holds(box: dict, x: float, y: float, pad: float = 0) -> bool:
+        bx, by = box.get("x", 0), box.get("y", 0)
+        return bx - pad <= x <= bx + box.get("width", 0) + pad and by - pad <= y <= by + box.get("height", 0) + pad
+
+    for t in list(loose):  # free text drawn on top of an unlabelled shape names it
+        home = next((s for s in shapes if s["id"] not in labels and holds(s, t.get("x", 0), t.get("y", 0))), None)
+        if home:
+            labels[home["id"]] = _words(t.get("text"))
+            loose.remove(t)
+
+    def end_of(arrow: dict, last: bool) -> str | None:
+        bound = (arrow.get("endBinding" if last else "startBinding") or {}).get("elementId")
+        if bound in {s["id"] for s in shapes}:
+            return bound
+        points = arrow.get("points") or []
+        if not points:
+            return None
+        x, y = arrow.get("x", 0) + points[-1 if last else 0][0], arrow.get("y", 0) + points[-1 if last else 0][1]
+        hit = next((s for s in shapes if holds(s, x, y, 16)), None) or next((t for t in loose if holds(t, x, y, 24)), None)
+        return hit["id"] if hit else None
+
+    arrows = [(a, end_of(a, False), end_of(a, True)) for a in live if a.get("type") in ("arrow", "line")]
+    pointed = {end for _, *ends in arrows for end in ends if end}
+    nodes = shapes + [t for t in loose if t["id"] in pointed]  # free text an arrow points at is a node
+    loose = [t for t in loose if t["id"] not in pointed]
+    nodes.sort(key=lambda e: (round(e.get("y", 0) / 40), e.get("x", 0)))
+    names = {n["id"]: f"n{i}" for i, n in enumerate(nodes, 1)}
+
+    def node(n: dict) -> str:
+        if n.get("type") == "text":
+            return f'{names[n["id"]]}["{_words(n.get("text"))}"]'
+        return names[n["id"]] + SHAPE_SYNTAX[n["type"]].format(labels.get(n["id"], "unlabelled " + n["type"]))
+
+    frames = {e["id"]: _words(e.get("name")) or "group" for e in live if e.get("type") in ("frame", "magicframe")}
+    lines = ["flowchart LR"]
+    for fid, title in frames.items():
+        members = [node(n) for n in nodes if n.get("frameId") == fid]
+        if members:
+            lines += [f'  subgraph f{len(lines)}["{title}"]', *(f"    {m}" for m in members), "  end"]
+    lines += [f"  {node(n)}" for n in nodes if n.get("frameId") not in frames]
+    notes, stray = [], 0
+    for a, start, finish in arrows:
+        text = labels.get(a["id"], "")
+        if start and finish:
+            arrow = ("-.->" if a.get("strokeStyle") in ("dashed", "dotted") else "-->") if a.get("type") == "arrow" else "---"
+            label = f'|"{text.replace("|", "/")}"|' if text else ""
+            lines.append(f"  {names[start]} {arrow}{label} {names[finish]}")
+        elif start or finish:
+            known = start or finish
+            name = labels.get(known) or _words(by_id[known].get("text")) or "a shape"
+            notes.append(f"an arrow{f' labelled {text!r}' if text else ''} at {name!r} whose other end is attached to nothing")
+        elif text:
+            notes.append(f"an unconnected arrow labelled {text!r}")
+        else:
+            stray += 1
+    if stray:
+        notes.append(f"{stray} arrow{'s' if stray > 1 else ''} not attached to anything")
+    notes += [f"text on the board: {_words(t.get('text'))!r}" for t in loose]
+    counts = {n: notes.count(n) for n in notes}  # say "twice", not the same line twice
+    notes = [n if c == 1 else f"{n} ({c} times)" for n, c in counts.items()]
+    if not nodes and not notes:
+        return "", []
+    return "\n".join(lines), notes
+
+
+def drawing_ready(elements: list[dict]) -> bool:
+    """A diagram worth the name: two labelled shapes joined by an arrow."""
+    mermaid, _ = drawing_mermaid(elements)
+    edges = re.findall(r"^  n\d+ (?:-->|-\.->|---)", mermaid, flags=re.M)
+    labelled = re.findall(r'^ +n\d+[\[({]+"(?!unlabelled )', mermaid, flags=re.M)
+    return bool(edges) and len(labelled) >= 2
+
+
+def check_whiteboard(text: str, drawing: list[dict] | None = None) -> RunReport:
+    """Every section has some substance, and there is at least one diagram: on the whiteboard, or
+    a mermaid block in the text. The design itself is graded by the learner's agent against the
+    rubric; this only says what is still empty."""
     sections = whiteboard_sections(text)
     tests = []
     for name, what in WHITEBOARD_SECTIONS.items():
@@ -274,14 +373,14 @@ def check_whiteboard(text: str) -> RunReport:
         else:
             message = ""
         tests.append(TestResult(f"section_{slug_name(name)}", f"{name} is filled in", "failed" if message else "passed", 0.0, message))
-    drawn = re.search(r"^```mermaid[ \t]*$", text, flags=re.M)
+    drawn = drawing_ready(drawing or []) or re.search(r"^```mermaid[ \t]*$", text, flags=re.M)
     tests.append(
         TestResult(
             "diagram",
             "a diagram shows the main components",
             "passed" if drawn else "failed",
             0.0,
-            "" if drawn else "Draw the high-level design in a ```mermaid block, for example: flowchart LR, then client --> api.",
+            "" if drawn else "On the Whiteboard tab, draw the main components as labelled boxes and join them with arrows.",
         )
     )
     passed = sum(t.outcome == "passed" for t in tests)

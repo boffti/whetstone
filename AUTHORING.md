@@ -135,7 +135,7 @@ A system design interview, answered on a scratchpad the learner's agent can watc
   rubric.yaml        # 5 to 10 points the agent grades against
 ```
 
-- **Sections.** The design has these `##` sections, in order: Requirements, Estimates, API, Data model, High-level design, Deep dives, Trade-offs, Failure modes. `bin/whetstone question new <module> <slug> --type whiteboard` writes the starter. **Check sections** (the app's run button) passes when every section has at least 12 words and the design has one ` ```mermaid ` block. It never solves the question.
+- **Sections.** The design has these `##` sections, in order: Requirements, Estimates, API, Data model, High-level design, Deep dives, Trade-offs, Failure modes. `bin/whetstone question new <module> <slug> --type whiteboard` writes the starter. **Check sections** (the app's run button) passes when every section has at least 12 words and there is a diagram: two labelled shapes joined by an arrow on the whiteboard, or a ` ```mermaid ` block. It never solves the question.
 - **The rubric** is the hidden test suite:
   ```yaml
   points:
@@ -148,7 +148,7 @@ A system design interview, answered on a scratchpad the learner's agent can watc
   Each misconception in the lesson has a rubric point. The learner sees a point's text only once the design covers it, or after they solve or give up. Until then they see the agent's question about it.
 - **Grading.** The learner presses **Ask for review**. Their agent reads the design (`bin/whetstone draft <key>`) and the rubric, and records a verdict per point with `bin/whetstone grade <key>` (see the `whetstone-review` skill). The question is solved when every must-have point is covered.
 - **The lesson** uses `## Numbers to know` (latencies, sizes, capacity rules of thumb) in place of `## In Python`. Its subgoals are the design stages for this system.
-- **Diagrams** are Mermaid text, so the agent can read them: flowchart for components, sequenceDiagram for a request path. The app draws them in the Preview tab.
+- **Diagrams.** The learner draws on the **Whiteboard** tab (Excalidraw): boxes, arrows, labels and frames, no syntax to learn. Whetstone turns the drawing into a Mermaid flowchart for the agent (`bin/whetstone draft` prints it), and lists what does not fit one, such as loose text or an arrow attached to nothing. The Preview tab shows the drawing the same way, so the learner sees what the agent reads. A ` ```mermaid ` block in the text still works. Write the reference design's diagrams in `solution.md` as Mermaid: flowchart for components, sequenceDiagram for a request path.
 - See `examples/short-links-whiteboard/`.
 
 ## mutants/

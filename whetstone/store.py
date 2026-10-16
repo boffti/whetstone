@@ -124,6 +124,15 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 CREATE INDEX IF NOT EXISTS reviews_by_challenge ON reviews (challenge, id);
 """,
+    # 7: whiteboard drawings. A design question's diagram is drawn in Excalidraw; its elements are
+    # kept here, next to the Markdown draft, and turned into Mermaid for the learner's agent.
+    """
+CREATE TABLE IF NOT EXISTS drawings (
+    challenge TEXT PRIMARY KEY,
+    elements TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+""",
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 
@@ -179,6 +188,19 @@ class Store:
                 "INSERT INTO drafts (challenge, code, updated_at) VALUES (?, ?, ?) "
                 "ON CONFLICT(challenge) DO UPDATE SET code = excluded.code, updated_at = excluded.updated_at",
                 (key, code, datetime.now().isoformat(timespec="seconds")),
+            )
+
+    def get_drawing(self, key: str) -> list[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT elements FROM drawings WHERE challenge = ?", (key,)).fetchone()
+        return json.loads(row["elements"]) if row else []
+
+    def save_drawing(self, key: str, elements: list[dict]) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO drawings (challenge, elements, updated_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(challenge) DO UPDATE SET elements = excluded.elements, updated_at = excluded.updated_at",
+                (key, json.dumps(elements), datetime.now().isoformat(timespec="seconds")),
             )
 
     def delete_draft(self, key: str) -> None:

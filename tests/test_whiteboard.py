@@ -126,3 +126,65 @@ def test_a_system_design_is_checked_by_section_and_solved_only_by_the_agents_gra
 
     code, out = run("grade", "nope/01-x", stdin="{}")
     assert code == 1
+
+
+def test_a_whiteboard_drawing_reaches_the_agent_as_mermaid(tmp_path, monkeypatch, capsys):
+    """The learner draws in Excalidraw; the check, `draft` and the preview read it as Mermaid."""
+    from whetstone.runner import drawing_mermaid
+    from whetstone.server import DrawingBody
+
+    drawing = [
+        {"id": "a", "type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 50},
+        {"id": "ta", "type": "text", "text": "Redirect service", "containerId": "a"},
+        {"id": "b", "type": "ellipse", "x": 300, "y": 0, "width": 100, "height": 50, "frameId": "f"},
+        {"id": "tb", "type": "text", "text": "Redis", "x": 320, "y": 10, "width": 40, "height": 20},
+        {"id": "f", "type": "frame", "name": "Region A"},
+        {"id": "user", "type": "text", "text": "Visitor", "x": -300, "y": 10, "width": 80, "height": 25},
+        {"id": "in", "type": "arrow", "x": -210, "y": 20, "points": [[0, 0], [200, 0]]},
+        {"id": "read", "type": "arrow", "strokeStyle": "dashed", "startBinding": {"elementId": "a"}, "endBinding": {"elementId": "b"}},
+        {"id": "lr", "type": "text", "text": "GET code", "containerId": "read"},
+        {"id": "half", "type": "arrow", "startBinding": {"elementId": "b"}},
+        {"id": "aside", "type": "text", "text": "TTL 5 s", "x": 900, "y": 900, "width": 50, "height": 20},
+        {"id": "gone", "type": "rectangle", "isDeleted": True},
+    ]
+    mermaid, notes = drawing_mermaid(drawing)
+    assert mermaid.splitlines() == [
+        "flowchart LR",
+        '  subgraph f1["Region A"]',
+        '    n3(["Redis"])',
+        "  end",
+        '  n1["Visitor"]',
+        '  n2["Redirect service"]',
+        "  n1 --> n2",
+        '  n2 -.->|"GET code"| n3',
+    ], "free text an arrow points at becomes a node; text drawn on a shape names it"
+    assert notes == ["an arrow at 'Redis' whose other end is attached to nothing", "text on the board: 'TTL 5 s'"]
+    assert drawing_mermaid([]) == ("", [])
+
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    (content / "catalog.yaml").write_text(yaml.safe_dump(CATALOG))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+    make_board(tmp_path / "short-links")
+    assert main(["question", "add", str(tmp_path / "short-links"), "--module", "url-shortener"]) == 0
+    capsys.readouterr()
+
+    settings = Settings(content, mine, "redis://localhost:1/0", None, "", 10)
+    endpoint = {r.path: r.endpoint for r in create_app(settings).routes if hasattr(r, "endpoint")}
+    path = "/api/challenges/{track}/{cid}/drawing"
+    text = "".join(f"## {name}\n\n{WORDS}.\n\n" for name in WHITEBOARD_SECTIONS)  # no mermaid block
+    run = endpoint["/api/challenges/{track}/{cid}/run"]
+    assert run("url-shortener", "01-short-links", RunBody(code=text))["tests"][-1]["outcome"] == "failed"
+
+    class Req:  # require_json only reads the content type
+        headers = {"content-type": "application/json"}
+
+    put = next(r.endpoint for r in create_app(settings).routes if getattr(r, "path", "") == path and "PUT" in r.methods)
+    put("url-shortener", "01-short-links", DrawingBody(elements=drawing), Req())
+    assert run("url-shortener", "01-short-links", RunBody(code=text))["tests"][-1]["outcome"] == "passed", "a drawn diagram counts"
+
+    assert main(["draft", "url-shortener/01-short-links"]) == 0
+    out = capsys.readouterr().out
+    assert "## The learner's whiteboard drawing, as Mermaid" in out and '-.->|"GET code"|' in out
+    assert "- Also on the board: text on the board: 'TTL 5 s'" in out

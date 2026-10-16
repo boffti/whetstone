@@ -18,7 +18,7 @@ from .catalog import build_notes, catalog_links, find_problem, load_catalog, pat
 from .config import Settings, load_settings
 from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, save_profile_header, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
-from .runner import run_tests
+from .runner import check_whiteboard, drawing_mermaid, run_tests
 from .store import PAIR_MODES, REQUEST_KINDS, Store, progress_rows
 
 STATIC = Path(__file__).parent / "static"
@@ -49,6 +49,10 @@ class RunBody(CodeBody):
     # A guess made before the run. run: {"tests": {"test_name": true}}, true = will pass.
     # submit: {"all_pass": true, "confidence": 1..5}.
     prediction: dict | None = None
+
+
+class DrawingBody(BaseModel):
+    elements: list[dict] = Field(max_length=5000)
 
 
 class RenderBody(BaseModel):
@@ -397,7 +401,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store.save_draft(c.key, body.code)
         # A design is solved only by the agent's rubric review (`whetstone grade`), never by the section check.
         mode = "run" if c.is_whiteboard else body.mode
-        report = run_tests(c, body.code, mode, settings)
+        report = check_whiteboard(body.code, store.get_drawing(c.key)) if c.is_whiteboard else run_tests(c, body.code, mode, settings)
         first_solve = store.record_run(c.key, mode, report.status, report.passed, report.total, report.duration, body.code)
         solve = store.solve(c.key, f"hint-{len(c.hints()) - 1}") if first_solve else None
         prediction = score_prediction(body.prediction, mode, report) if body.prediction and not c.is_whiteboard else None
@@ -425,6 +429,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c = get_challenge(track, cid)
         store.add_explanation(c.key, body.test, body.text.strip())
         store.record_event(c.key, "explained", {"test": body.test, "text": body.text.strip()[:300]})
+        return {"saved": True}
+
+    @app.get("/api/challenges/{track}/{cid}/drawing")
+    def drawing(track: str, cid: str):
+        """The whiteboard drawing, and the Mermaid the learner's agent reads from it."""
+        c = get_challenge(track, cid)
+        elements = store.get_drawing(c.key)
+        mermaid, notes = drawing_mermaid(elements)
+        return {"elements": elements, "mermaid": mermaid, "notes": notes}
+
+    @app.put("/api/challenges/{track}/{cid}/drawing")
+    def save_drawing(track: str, cid: str, body: DrawingBody, request: Request):
+        require_json(request)
+        c = get_challenge(track, cid)
+        if not c.is_whiteboard:
+            raise HTTPException(400, "Only system design questions have a whiteboard.")
+        # Images would bloat the drawing and the agent cannot read them; the app hides the tool.
+        elements = [e for e in body.elements if e.get("type") != "image"]
+        store.save_drawing(c.key, elements)
+        shapes = sum(1 for e in elements if not e.get("isDeleted") and e.get("type") in ("rectangle", "ellipse", "diamond"))
+        store.record_event(c.key, "edited", {"shapes": shapes})
         return {"saved": True}
 
     @app.post("/api/render")

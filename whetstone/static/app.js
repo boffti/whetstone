@@ -78,9 +78,11 @@ function initTheme() {
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem("whetstone-theme", next); } catch (_) { /* ignore */ }
     if (window.monaco) monaco.editor.setTheme(monacoTheme());
+    if (state.board) renderBoard();
   });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (window.monaco) monaco.editor.setTheme(monacoTheme());
+    if (state.board) renderBoard();
   });
 }
 
@@ -211,7 +213,7 @@ function setFiles(code, files) {
     }
   }
   // A design gets a rendered preview, with its Mermaid diagrams drawn.
-  renderFileTabs(isBoard() ? [...all, { name: PREVIEW, preview: true }] : all);
+  renderFileTabs(isBoard() ? [...all, { name: WHITEBOARD, preview: true }, { name: PREVIEW, preview: true }] : all);
   showFile(state.mainFile);
 }
 
@@ -227,7 +229,10 @@ function renderFileTabs(files) {
 function showFile(name) {
   const preview = name === PREVIEW;
   $(".editor-wrap").classList.toggle("previewing", preview);
-  if (preview) {
+  $(".editor-wrap").classList.toggle("drawing", name === WHITEBOARD);
+  if (name === WHITEBOARD) {
+    showWhiteboard();
+  } else if (preview) {
     if (state.useFallback && state.fallbackShowing === state.mainFile) state.fallbackCode = $("#fallback-editor").value;
     renderPreview();
   } else if (state.useFallback) {
@@ -335,6 +340,7 @@ function fillDays(box, activeDays) {
 /* ---------- Challenge ---------- */
 async function openChallenge(trackId, cid) {
   if (state.challenge && !state.running) await saveDraft();
+  unmountBoard();
   const c = await api(`/api/challenges/${trackId}/${cid}`);
   state.challenge = c;
   state.trackId = trackId;
@@ -429,7 +435,7 @@ function renderRequest(wrap) {
 
 async function sendRequest(kind, target) {
   try {
-    if (kind === "grade") await saveDraft();  // the agent grades what is saved
+    if (kind === "grade") await Promise.all([saveDraft(), state.board && saveBoard()]);  // the agent grades what is saved
     const r = await api("/api/requests", { method: "POST", body: { kind, target } });
     state.requests[`${kind}:${r.target}`] = r;
     $$(".req").forEach(renderRequest);
@@ -766,6 +772,7 @@ function explainBox(r) {
 
 async function run(mode, guess) {
   if (!state.challenge || state.running) return;
+  if (state.board && state.board.timer) await saveBoard();
   if (isBoard() && mode === "submit") {  // a design is graded by the agent, not by tests
     const ask = $("#review-req button");
     if (ask) ask.click();
@@ -874,6 +881,94 @@ function testRow(t) {
 // diagrams; Check counts what is still empty, and their own agent grades the design against a
 // rubric (`whetstone grade`), which the app shows like test results.
 const PREVIEW = "Preview";
+const WHITEBOARD = "Whiteboard";
+const EXCALIDRAW = "https://esm.sh/@excalidraw/excalidraw@0.18.1";
+let excalidrawLoad = null;
+
+/** Excalidraw and React, as ES modules from esm.sh (React comes through the import map in
+    index.html). Loaded the first time a whiteboard opens. */
+function loadExcalidraw() {
+  excalidrawLoad ??= (async () => {
+    document.head.append(el("link", { rel: "stylesheet", href: `${EXCALIDRAW}/dist/prod/index.css` }));
+    // Monaco's AMD loader sets define.amd, and a library inside Excalidraw then registers itself
+    // with it instead of loading (its fonts break). Hide the flag while the modules evaluate.
+    const amd = window.define && window.define.amd;
+    if (amd) window.define.amd = undefined;
+    try {
+      const [react, client, X] = await Promise.all([import("react"), import("react-dom/client"), import(`${EXCALIDRAW}?external=react,react-dom`)]);
+      return { React: react.default || react, createRoot: client.createRoot, X };
+    } finally {
+      if (amd) window.define.amd = amd;
+    }
+  })().catch(() => { excalidrawLoad = null; return null; });
+  return excalidrawLoad;
+}
+
+async function showWhiteboard() {
+  const c = state.challenge;
+  const key = `${c.track}/${c.id}`;
+  if (state.board && state.board.key === key) return;
+  const box = $("#whiteboard");
+  box.replaceChildren(el("p", { class: "results-empty board-note", text: "Opening the whiteboard…" }));
+  const [lib, drawing] = await Promise.all([loadExcalidraw(), api(`/api/challenges/${c.track}/${c.id}/drawing`)]);
+  if (state.challenge !== c || state.board) return;
+  if (!lib) {
+    box.replaceChildren(el("p", { class: "results-empty board-note", text: "The whiteboard needs Excalidraw from esm.sh, which did not load. Check the connection and open this tab again, or draw in a ```mermaid block in design.md." }));
+    return;
+  }
+  const mount = el("div", { class: "board-mount" });
+  box.replaceChildren(mount);
+  state.board = { key, lib, root: lib.createRoot(mount), elements: drawing.elements, sig: boardSignature(drawing.elements), timer: null };
+  renderBoard();
+}
+
+function renderBoard() {
+  const b = state.board;
+  const { React, X } = b.lib;
+  b.root.render(React.createElement(X.Excalidraw, {
+    theme: isDark() ? "dark" : "light",
+    initialData: { elements: b.elements, appState: { viewBackgroundColor: "#ffffff" }, scrollToContent: true },
+    onChange: boardChanged,
+    // No images: they bloat the drawing and the agent cannot read them.
+    UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false, export: false, toggleTheme: false, changeViewBackgroundColor: false }, tools: { image: false } },
+  }));
+}
+
+function boardSignature(elements) { return `${elements.length}:${elements.reduce((n, e) => n + (e.version || 0), 0)}`; }
+
+/** Excalidraw calls this on every pointer move; save only when an element changed. */
+function boardChanged(elements) {
+  const b = state.board;
+  const sig = boardSignature(elements);
+  if (!b || sig === b.sig) return;
+  b.sig = sig;
+  b.elements = elements;
+  $("#save-state").textContent = "Editing";
+  clearTimeout(b.timer);
+  b.timer = setTimeout(saveBoard, 1000);
+}
+
+async function saveBoard() {
+  const b = state.board;
+  if (!b) return;
+  clearTimeout(b.timer);
+  b.timer = null;
+  try {
+    await api(`/api/challenges/${b.key}/drawing`, { method: "PUT", body: { elements: b.elements } });
+    $("#save-state").textContent = "Saved";
+  } catch (err) {
+    $("#save-state").textContent = `Drawing not saved: ${err.message}`;
+  }
+}
+
+function unmountBoard() {
+  const b = state.board;
+  if (!b) return;
+  if (b.timer) saveBoard();
+  state.board = null;
+  b.root.unmount();
+  $("#whiteboard").replaceChildren();
+}
 const MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js";
 let mermaidLoad = null;
 
@@ -957,7 +1052,14 @@ async function renderPreview() {
   const box = $("#preview");
   box.replaceChildren(el("p", { class: "results-empty", text: "Drawing the preview…" }));
   try {
-    const { html } = await api("/api/render", { method: "POST", body: { text: getCode() } });
+    const c = state.challenge;
+    if (state.board && state.board.timer) await saveBoard();
+    const drawing = await api(`/api/challenges/${c.track}/${c.id}/drawing`);
+    // Show the drawing the way the learner's agent reads it, so nothing on the board is a surprise.
+    const board = drawing.mermaid
+      ? `\n\n## Your whiteboard, as your agent reads it\n\n\`\`\`mermaid\n${drawing.mermaid}\n\`\`\`\n${drawing.notes.map((n) => `\n- Also on the board: ${n}`).join("")}\n`
+      : "";
+    const { html } = await api("/api/render", { method: "POST", body: { text: getCode() + board } });
     box.innerHTML = html;
     await renderMermaid(box);
     colorize(box);

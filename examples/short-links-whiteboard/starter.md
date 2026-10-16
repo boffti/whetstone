@@ -18,7 +18,7 @@
 
 ## High-level design
 
-<!-- The main components and how a request flows through them. Draw it in a mermaid block. -->
+<!-- The main components and how a request flows through them. Draw them on the Whiteboard tab, then explain the flow here. -->
 
 ## Deep dives
 

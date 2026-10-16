@@ -8,7 +8,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=19">
+  <link rel="stylesheet" href="/static/app.css?v=20">
+  <!-- React for the design whiteboard (Excalidraw), loaded only when a whiteboard opens. -->
+  <script type="importmap">
+  { "imports": {
+    "react": "https://esm.sh/react@19.1.0",
+    "react/jsx-runtime": "https://esm.sh/react@19.1.0/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@19.1.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.1.0/client"
+  } }
+  </script>
 </head>
 <body>
   <header class="topbar">
@@ -196,6 +205,7 @@
         <div id="editor" class="editor"></div>
         <textarea id="fallback-editor" class="fallback-editor" spellcheck="false" wrap="off" hidden aria-label="Code editor"></textarea>
         <div class="preview prose" id="preview" aria-label="Preview of your design"></div>
+        <div class="whiteboard" id="whiteboard" aria-label="Whiteboard"></div>
         <ol class="pair-notes" id="pair-notes" aria-live="polite" aria-label="Notes from your agent"></ol>
       </div>
       <div class="actions">
@@ -296,6 +306,6 @@
     window.MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
-  <script src="/static/app.js?v=23"></script>
+  <script src="/static/app.js?v=24"></script>
 </body>
 </html>

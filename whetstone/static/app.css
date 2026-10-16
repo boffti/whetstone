@@ -947,3 +947,10 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .design-asked li + li { margin-top: 0.35rem; }
 a.home-text { color: inherit; text-decoration: none; display: grid; }
 a.home-text:hover .home-title { text-decoration: underline; }
+
+/* The whiteboard covers the editor while it shows, like the preview. */
+.editor-wrap .whiteboard { display: none; }
+.editor-wrap.drawing .whiteboard { display: block; position: absolute; inset: 0; background: var(--stone-raised); }
+.editor-wrap.drawing .editor, .editor-wrap.drawing .fallback-editor { visibility: hidden; }
+.board-mount { position: absolute; inset: 0; }
+.board-note { padding: 1rem 1.2rem; }

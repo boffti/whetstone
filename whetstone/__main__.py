@@ -487,6 +487,14 @@ def cmd_draft(args) -> int:
         print(f"Grade it with: {CLI} grade {c.key} < grade.json   (see the whetstone-review skill)")
     print(f"\n## The learner's {c.editor_file}{' (untouched starter)' if code is None else ''}\n")
     print(code if code is not None else starter)
+    if c.is_whiteboard:
+        from .runner import drawing_mermaid
+
+        mermaid, notes = drawing_mermaid(store.get_drawing(c.key))
+        print("\n## The learner's whiteboard drawing, as Mermaid\n")
+        print(f"```mermaid\n{mermaid}\n```" if mermaid else "(nothing drawn yet)")
+        for n in notes:
+            print(f"- Also on the board: {n}")
     return 0
 
 
@@ -536,8 +544,14 @@ def cmd_test(args) -> int:
     if c is None:
         return 1
     code = store.get_draft(c.key)
+    code = code if code is not None else c.read(c.starter_file)
     # ponytail: not recorded as a run, so the learner's progress only reflects their own runs
-    report = run_tests(c, code if code is not None else c.read(c.starter_file), "submit" if args.all else "run", settings)
+    if c.is_whiteboard:
+        from .runner import check_whiteboard
+
+        report = check_whiteboard(code, store.get_drawing(c.key))
+    else:
+        report = run_tests(c, code, "submit" if args.all else "run", settings)
     print(f"{report.status.upper()}: {report.summary}")
     for t in report.tests:
         if t.outcome != "passed":
@@ -692,7 +706,8 @@ def cmd_watch(args) -> int:
     def flush(question: str) -> None:
         e = editing.pop(question, None)
         if e:
-            emit("paused", question, editing_seconds=round(e["last"] - e["since"]), lines=e["lines"])
+            extra = {"shapes": e["shapes"]} if "shapes" in e else {}  # a whiteboard drawing changed
+            emit("paused", question, editing_seconds=round(e["last"] - e["since"]), lines=e["lines"], **extra)
 
     emit("watching", args.key, note=f'Read the code with: {CLI} draft <question>. Reply with: {CLI} note <question> "..." --line N')
     from .server import request_ask
@@ -715,7 +730,7 @@ def cmd_watch(args) -> int:
                 quiet_since, idle_sent = now, False
                 if e["kind"] == "edited":
                     entry = editing.setdefault(e["challenge"], {"since": now, "lines": 0})
-                    entry |= {"last": now, "lines": e["data"].get("lines", 0)}
+                    entry |= {"last": now} | {k: e["data"][k] for k in ("lines", "shapes") if k in e["data"]}
                     continue
                 if e["challenge"]:
                     flush(e["challenge"])

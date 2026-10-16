@@ -34,7 +34,7 @@ Good review feedback names the principle, shows the evidence, and gives a next s
 
 A `whiteboard` question is a design written in Markdown. You grade it against the question's rubric; the app shows your grade like test results.
 
-1. `bin/whetstone draft <key>` prints the design and the rubric's path. Read `rubric.yaml`, `problem.md`, the lesson's Misconceptions, and `solution.md`.
+1. `bin/whetstone draft <key>` prints the design, the learner's whiteboard drawing as a Mermaid flowchart (with anything that does not fit one, such as loose text or an arrow attached to nothing), and the rubric's path. Read `rubric.yaml`, `problem.md`, the lesson's Misconceptions, and `solution.md`. Treat the drawing as part of the design: a component that is drawn but never explained in the text is partial evidence.
 2. For each rubric point, decide:
    - **covered**: the design does it, and the text shows it. Quote the words that show it.
    - **partial**: the idea is there, but a key part is missing or wrong. Quote it, and ask about the gap.
