@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 WEEK_TARGET = 3  # practice days per week that keep the weekly streak
+EVENTS_KEPT = 5000
+PAIR_MODES = ("off", "quiet", "coach", "interviewer")
 
 # Each migration upgrades the database by one version (SQLite's user_version). Append new ones at
 # the end; never edit or reorder old ones. Write them so they are safe to run twice.
@@ -45,6 +48,26 @@ CREATE TABLE IF NOT EXISTS reveals (
 DELETE FROM reveals WHERE rowid NOT IN (SELECT MIN(rowid) FROM reveals GROUP BY challenge, what);
 CREATE UNIQUE INDEX IF NOT EXISTS reveals_once ON reveals (challenge, what);
 CREATE INDEX IF NOT EXISTS runs_by_challenge ON runs (challenge, created_at);
+""",
+    # 3: live pair. The app records what the learner does (events); their agent watches with
+    # `whetstone watch` and answers with `whetstone note`, shown in the editor.
+    """
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenge TEXT,
+    kind TEXT NOT NULL,
+    data TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenge TEXT NOT NULL,
+    line INTEGER,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    dismissed INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """,
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
@@ -231,6 +254,55 @@ class Store:
                 "SELECT challenge, mode, status, passed, total, created_at FROM runs ORDER BY created_at DESC, id DESC LIMIT ?", (limit,)
             )
             return [dict(r) for r in rows]
+
+    # ---------- Live pair ----------
+    def record_event(self, key: str | None, kind: str, data: dict | None = None) -> None:
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO events (challenge, kind, data, created_at) VALUES (?, ?, ?, ?)",
+                (key, kind, json.dumps(data or {}), datetime.now().isoformat(timespec="seconds")),
+            )
+            if cur.lastrowid % 500 == 0:  # ponytail: keep the newest events only; agents read them live
+                conn.execute("DELETE FROM events WHERE id <= ?", (cur.lastrowid - EVENTS_KEPT,))
+
+    def events_after(self, last_id: int) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute("SELECT id, challenge, kind, data, created_at FROM events WHERE id > ? ORDER BY id LIMIT 200", (last_id,))
+            return [{**dict(r), "data": json.loads(r["data"])} for r in rows]
+
+    def last_event_id(self) -> int:
+        with self._conn() as conn:
+            return conn.execute("SELECT COALESCE(MAX(id), 0) FROM events").fetchone()[0]
+
+    def add_note(self, key: str, text: str, line: int | None = None) -> int:
+        with self._conn() as conn:
+            cur = conn.execute(
+                "INSERT INTO notes (challenge, line, text, created_at) VALUES (?, ?, ?, ?)",
+                (key, line, text, datetime.now().isoformat(timespec="seconds")),
+            )
+            return cur.lastrowid
+
+    def notes(self, key: str, after: int = 0) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT id, line, text, created_at FROM notes WHERE challenge = ? AND id > ? AND dismissed = 0 ORDER BY id", (key, after)
+            )
+            return [dict(r) for r in rows]
+
+    def dismiss_note(self, note_id: int) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE notes SET dismissed = 1 WHERE id = ?", (note_id,))
+
+    def setting(self, key: str, default: str) -> str:
+        with self._conn() as conn:
+            row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+            return row["value"] if row else default
+
+    def set_setting(self, key: str, value: str) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value)
+            )
 
     def active_days(self, last: int = 28) -> list[str]:
         since = (date.today() - timedelta(days=last - 1)).isoformat()

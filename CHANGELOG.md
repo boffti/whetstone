@@ -17,4 +17,5 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Test output is plain text even when the app's environment sets FORCE_COLOR (no escape codes in the results panel).
 - Practice home is a personal dashboard: profile header, skill edges that dull over time, up next, a 26-week calendar, a numbers ledger, milestones, personal records, target companies and recent runs. Grit ranks and milestones reward mastery, never volume, and can be hidden.
 - `whetstone-profile` skill: builds the profile header from what the agent knows, plus GitHub activity and AI co-author trailers, with consent.
+- Live pair: the app records what you do (migration 3). `whetstone watch` streams it for your agent, `whetstone note` shows its remarks over your editor with a margin marker, and a Pair switch (off, quiet, coach, interviewer) sets how often it speaks. New `whetstone-pair` skill.
 - Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.

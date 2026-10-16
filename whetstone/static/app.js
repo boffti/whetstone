@@ -10,6 +10,9 @@ const state = {
   challenge: null,
   hintsShown: 0,
   hintReady: true,
+  notes: [],
+  noteAfter: 0,
+  noteDecos: [],
   lessonLocked: false,
   activeFile: "solution.py",
   editor: null,
@@ -164,6 +167,7 @@ async function initEditor() {
     tabSize: 4,
     insertSpaces: true,
     renderWhitespace: "boundary",
+    glyphMargin: true,
     padding: { top: 10 },
   });
   state.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => run("run"));
@@ -350,6 +354,59 @@ async function openChallenge(trackId, cid) {
     : "Run the tests to see results here. Visible tests check the basics. Submit also runs hidden tests for edge cases." }));
   renderRail();
   $(".reader-body").scrollTop = 0;
+  state.notes = [];
+  state.noteAfter = 0;
+  renderNotes();
+  pollNotes();
+}
+
+/* ---------- Live pair: notes from the learner's agent ---------- */
+// The agent watches with `bin/whetstone watch` and replies with `bin/whetstone note`.
+async function pollNotes() {
+  const c = state.challenge;
+  if (!c || document.hidden || $("#workspace").hidden) return;
+  try {
+    const fresh = await api(`/api/challenges/${c.track}/${c.id}/notes?after=${state.noteAfter}`);
+    if (state.challenge !== c || !fresh.length) return;
+    state.notes.push(...fresh);
+    state.noteAfter = fresh[fresh.length - 1].id;
+    renderNotes();
+  } catch (_) { /* the next poll retries */ }
+}
+
+function renderNotes() {
+  const shown = state.notes.slice(-3);
+  $("#pair-notes").replaceChildren(...shown.map((n) => el("li", { class: "pair-note" },
+    el("span", { class: "pair-who", text: "Your agent" }),
+    el("button", { type: "button", class: "btn btn-icon pair-dismiss", "aria-label": "Dismiss note", onclick: () => dismissNote(n.id) }, "×"),
+    el("p", { text: n.text }),
+    n.line ? el("button", { type: "button", class: "btn btn-text pair-line-link", onclick: () => goToLine(n.line) }, `Line ${n.line}`) : null)));
+  $(".tab-code").toggleAttribute("data-notes", state.notes.length > 0);
+  if (state.editor && window.monaco) {
+    state.noteDecos = state.editor.deltaDecorations(state.noteDecos, state.notes.filter((n) => n.line).map((n) => ({
+      range: new monaco.Range(n.line, 1, n.line, 1),
+      options: { isWholeLine: true, className: "pair-line", glyphMarginClassName: "pair-glyph", glyphMarginHoverMessage: { value: n.text }, hoverMessage: { value: n.text } },
+    })));
+  }
+}
+
+async function dismissNote(id) {
+  state.notes = state.notes.filter((n) => n.id !== id);
+  renderNotes();
+  try { await api(`/api/notes/${id}`, { method: "POST", body: { dismissed: true } }); } catch (_) { /* already hidden here */ }
+}
+
+function goToLine(line) {
+  selectTab("code");
+  showFile("solution.py");
+  if (state.editor) { state.editor.revealLineInCenter(line); state.editor.setPosition({ lineNumber: line, column: 1 }); state.editor.focus(); }
+}
+
+async function initPair() {
+  const select = $("#pair-mode");
+  try { select.value = (await api("/api/pair")).mode; } catch (_) { /* keep the default */ }
+  select.addEventListener("change", () => api("/api/pair", { method: "PUT", body: { mode: select.value } }));
+  setInterval(pollNotes, 3000);
 }
 
 function selectTab(name) {
@@ -1183,6 +1240,7 @@ async function boot() {
   PANE.addEventListener("change", onLayoutChange);
   PHONE.addEventListener("change", onLayoutChange);
   initPaths();
+  initPair();
 
   const [config] = await Promise.all([api("/api/config"), initEditor(), loadTracks()]);
   state.config = config;

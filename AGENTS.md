@@ -44,6 +44,8 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone question check [module or module/question]` | Checks questions again. Run it to catch flaky tests. |
 | `bin/whetstone draft <module/question>` | Shows the learner's current code. |
 | `bin/whetstone test <module/question> [--all]` | Runs the tests on the learner's code. These runs are not recorded. |
+| `bin/whetstone watch [--key K] [--for SECONDS]` | Streams what the learner does in the app (opened, paused typing, ran, hint, solution, idle) as JSON lines, with the pair mode they chose. Run it in the background to pair live. |
+| `bin/whetstone note <module/question> "..." [--line N]` | Shows a short remark to the learner over their editor, with a marker at line N. |
 
 `catalog`, `progress`, `path show`, `path list` and `module list` also take `--json`.
 
@@ -57,6 +59,7 @@ Each job has a skill file with the full steps. Claude Code loads them automatica
 | "What should I practise?", "What's next?", "Make me a learning path" | [.claude/skills/whetstone-curate/SKILL.md](.claude/skills/whetstone-curate/SKILL.md) |
 | "Build the next question for X", "Fill in my path", "Make a variant" | [.claude/skills/whetstone-author/SKILL.md](.claude/skills/whetstone-author/SKILL.md) |
 | "I'm stuck on X", "Why does this fail?" | [.claude/skills/whetstone-tutor/SKILL.md](.claude/skills/whetstone-tutor/SKILL.md) |
+| "Pair with me", "Watch me solve this", "Be my interviewer while I code" | [.claude/skills/whetstone-pair/SKILL.md](.claude/skills/whetstone-pair/SKILL.md) |
 | "Review my solution" | [.claude/skills/whetstone-review/SKILL.md](.claude/skills/whetstone-review/SKILL.md) |
 | "Interview me on X", "Mock interview" | [.claude/skills/whetstone-interview/SKILL.md](.claude/skills/whetstone-interview/SKILL.md) |
 

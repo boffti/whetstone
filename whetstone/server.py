@@ -18,7 +18,7 @@ from .config import Settings, load_settings
 from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
 from .runner import run_tests
-from .store import Store, progress_rows
+from .store import PAIR_MODES, Store, progress_rows
 
 STATIC = Path(__file__).parent / "static"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -45,6 +45,14 @@ class CodeBody(BaseModel):
 
 class RunBody(CodeBody):
     mode: str = Field(default="run", pattern="^(run|submit)$")
+
+
+class PairBody(BaseModel):
+    mode: str = Field(pattern="^(" + "|".join(PAIR_MODES) + ")$")
+
+
+class NoteDismiss(BaseModel):
+    dismissed: bool = True
 
 
 class SolutionBody(BaseModel):
@@ -192,6 +200,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def challenge(track: str, cid: str):
         c = get_challenge(track, cid)
         draft = store.get_draft(c.key)
+        store.record_event(c.key, "opened", {"title": c.title, "type": c.kind})
         return {
             "track": track,
             "id": cid,
@@ -226,6 +235,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if not store.hint_ready(c.key):
                 raise HTTPException(409, "Run the tests once more before the next hint.")
             store.record_reveal(c.key, f"hint-{index}")
+            store.record_event(c.key, "hint", {"rung": index + 1, "of": len(hints)})
         return {"index": index, "html": render_md(hints[index])}
 
     @app.post("/api/challenges/{track}/{cid}/solution")
@@ -234,19 +244,46 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c = get_challenge(track, cid)
         if not (body.give_up or c.key in store.solved_keys() or "solution" in store.reveals(c.key)):
             raise HTTPException(409, "The solution opens after you solve the question, or when you give up.")
+        if "solution" not in store.reveals(c.key):
+            store.record_event(c.key, "solution", {"gave_up": body.give_up})
         store.record_reveal(c.key, "solution")
         return {"code": c.read("solution.py")}
+
+    @app.get("/api/challenges/{track}/{cid}/notes")
+    def notes(track: str, cid: str, after: int = 0):
+        c = get_challenge(track, cid)
+        return store.notes(c.key, after)
+
+    @app.post("/api/notes/{note_id}")
+    def dismiss_note(note_id: int, body: NoteDismiss, request: Request):
+        require_json(request)
+        if body.dismissed:
+            store.dismiss_note(note_id)
+        return {"ok": True}
+
+    @app.get("/api/pair")
+    def pair():
+        return {"mode": store.setting("pair_mode", "quiet")}
+
+    @app.put("/api/pair")
+    def set_pair(body: PairBody, request: Request):
+        require_json(request)
+        store.set_setting("pair_mode", body.mode)
+        store.record_event(None, "mode", {"mode": body.mode})
+        return {"mode": body.mode}
 
     @app.put("/api/challenges/{track}/{cid}/draft")
     def save_draft(track: str, cid: str, body: CodeBody):
         c = get_challenge(track, cid)
         store.save_draft(c.key, body.code)
+        store.record_event(c.key, "edited", {"lines": body.code.count("\n") + 1})
         return {"saved": True}
 
     @app.post("/api/challenges/{track}/{cid}/reset")
     def reset(track: str, cid: str):
         c = get_challenge(track, cid)
         store.delete_draft(c.key)
+        store.record_event(c.key, "reset")
         return {"code": c.read("starter.py")}
 
     @app.post("/api/challenges/{track}/{cid}/run")
@@ -256,6 +293,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         report = run_tests(c, body.code, body.mode, settings)
         first_solve = store.record_run(c.key, body.mode, report.status, report.passed, report.total, report.duration, body.code)
         solve = store.solve(c.key, f"hint-{len(c.hints()) - 1}") if first_solve else None
+        failing = [t.name for t in report.tests if t.outcome in ("failed", "error")][:5]
+        store.record_event(
+            c.key,
+            "ran",
+            {
+                "mode": body.mode,
+                "status": report.status,
+                "passed": report.passed,
+                "total": report.total,
+                "failing": failing,
+                "solved": bool(first_solve),
+            },
+        )
         return {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None}
 
     @app.get("/api/catalog")

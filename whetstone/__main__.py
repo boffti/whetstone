@@ -590,6 +590,83 @@ def cmd_doctor(args) -> int:
     return 1 if broken else 0
 
 
+# ---------- Live pair ----------
+
+
+def cmd_watch(args) -> int:
+    """Stream what the learner does in the app, one JSON object per line, for an agent to react
+    to (see the whetstone-pair skill). Typing is merged into one "paused" event after a pause,
+    so the agent wakes on moments, not keystrokes."""
+    import time
+    from datetime import datetime
+
+    from .store import Store
+
+    settings = load_settings()
+    store = Store(settings.db_path)
+    last = store.last_event_id()
+    editing: dict[str, dict] = {}  # question -> {"since", "last", "lines"}
+    current, quiet_since, idle_sent = None, time.monotonic(), False
+    stop_at = time.monotonic() + args.seconds if args.seconds else None
+
+    def emit(event: str, question: str | None, **data) -> None:
+        line = {"at": datetime.now().isoformat(timespec="seconds"), "event": event, "question": question}
+        line |= {"pair": store.setting("pair_mode", "quiet"), **data}
+        print(json.dumps(line), flush=True)
+
+    def flush(question: str) -> None:
+        e = editing.pop(question, None)
+        if e:
+            emit("paused", question, editing_seconds=round(e["last"] - e["since"]), lines=e["lines"])
+
+    emit("watching", args.key, note=f'Read the code with: {CLI} draft <question>. Reply with: {CLI} note <question> "..." --line N')
+    try:
+        while not stop_at or time.monotonic() < stop_at:
+            now = time.monotonic()
+            for e in store.events_after(last):
+                last = e["id"]
+                if args.key and e["challenge"] not in (None, args.key):
+                    continue
+                quiet_since, idle_sent = now, False
+                if e["kind"] == "edited":
+                    entry = editing.setdefault(e["challenge"], {"since": now, "lines": 0})
+                    entry |= {"last": now, "lines": e["data"].get("lines", 0)}
+                    continue
+                if e["challenge"]:
+                    flush(e["challenge"])
+                    current = e["challenge"]
+                emit(e["kind"], e["challenge"], **e["data"])
+            for question in [q for q, e in editing.items() if now - e["last"] >= args.pause]:
+                flush(question)
+            if current and not idle_sent and not editing and now - quiet_since >= args.idle:
+                emit("idle", current, minutes=round(args.idle / 60))
+                idle_sent = True
+            time.sleep(1)
+        for question in list(editing):
+            flush(question)
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+def cmd_note(args) -> int:
+    """Show a short remark to the learner in the app, next to their code."""
+    from .store import Store
+
+    settings = load_settings()
+    track_id, _, cid = args.key.partition("/")
+    try:
+        find_challenge(settings.tracks_dir, track_id, cid)
+    except ContentError as exc:
+        return fail(str(exc))
+    text = args.text.strip()
+    if not text or len(text) > 600:
+        return fail("A note needs 1 to 600 characters. Keep it to one idea.")
+    Store(settings.db_path).add_note(args.key, text, args.line)
+    print(f"Noted on {args.key}" + (f", line {args.line}." if args.line else "."))
+    return 0
+
+
 # ---------- Parser ----------
 
 
@@ -671,6 +748,16 @@ def main(argv: list[str] | None = None) -> int:
     p = cmd(sub, "test", cmd_test, "run the tests on the learner's current code (not recorded)")
     p.add_argument("key")
     p.add_argument("--all", action="store_true", help="include hidden tests")
+
+    p = cmd(sub, "watch", cmd_watch, "stream the learner's activity in the app as JSON lines, for a pairing agent")
+    p.add_argument("--key", help="only this question (module/question)")
+    p.add_argument("--pause", type=int, default=20, help="seconds without typing before a 'paused' event (default 20)")
+    p.add_argument("--idle", type=int, default=600, help="seconds of no activity before an 'idle' event (default 600)")
+    p.add_argument("--for", dest="seconds", type=int, default=0, help="stop after this many seconds (default: run until stopped)")
+    p = cmd(sub, "note", cmd_note, "show a short remark to the learner in the app, next to their code")
+    p.add_argument("key", help="module/question")
+    p.add_argument("text")
+    p.add_argument("--line", type=int, help="pin the note to a line of solution.py")
 
     p = cmd(sub, "generate", cmd_generate, "write a question with the Anthropic API (needs ANTHROPIC_API_KEY)")
     p.add_argument("topic")

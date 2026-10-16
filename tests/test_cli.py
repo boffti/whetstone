@@ -178,3 +178,33 @@ def test_doctor_reports_and_explains(tmp_path, monkeypatch, capsys):
     assert "[ ! ] Your profile: not set up yet" in out and 'Ask your agent: "Set up my Whetstone profile."' in out
     assert "Shared content: 2 modules" in out
     assert "Redis at redis://localhost:1/0: not reachable" in out
+
+
+def test_watch_streams_moments_and_note_reaches_the_app(tmp_path, monkeypatch, capsys):
+    import threading
+    import time
+
+    from whetstone.store import Store
+
+    q = tmp_path / "my/tracks/m/01-q"
+    q.mkdir(parents=True)
+    (q / "challenge.yaml").write_text("title: Q\n")
+    monkeypatch.setenv("WHETSTONE_HOME", str(tmp_path / "my"))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(tmp_path / "content"))
+    store = Store(tmp_path / "my/whetstone.db")
+
+    def learner():
+        time.sleep(0.5)
+        for n in (3, 5, 9):
+            store.record_event("m/01-q", "edited", {"lines": n})
+        store.record_event("m/01-q", "ran", {"mode": "run", "status": "failed", "passed": 1, "total": 3, "failing": ["test_x"]})
+
+    threading.Thread(target=learner).start()
+    assert main(["watch", "--for", "3", "--pause", "1"]) == 0
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [e["event"] for e in events] == ["watching", "paused", "ran"], "typing collapses into one paused event before the run"
+    assert events[1]["lines"] == 9 and events[2]["failing"] == ["test_x"] and (events[2]["mode"], events[2]["pair"]) == ("run", "quiet")
+
+    assert main(["note", "m/01-q", "What happens when two threads call get(7)?", "--line", "12"]) == 0
+    assert store.notes("m/01-q") == [{**store.notes("m/01-q")[0], "line": 12, "text": "What happens when two threads call get(7)?"}]
+    assert main(["note", "m/02-nope", "hi"]) == 1, "notes only go to real questions"

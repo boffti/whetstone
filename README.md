@@ -30,6 +30,7 @@ Then ask your agent, in plain words:
 - *"Build the next question for the rate-limiter module."*
 - *"I'm stuck on rate-limiter/01-token-bucket."* It guides you one step at a time and never writes your code.
 - *"Review my solution"* or *"Interview me on the rate limiter."*
+- *"Pair with me while I solve this."* Your agent watches your session in the background and drops short questions next to your code, like a reviewer at your shoulder. Choose how chatty it is with the Pair switch: off, quiet, coach or interviewer.
 
 The agent follows [AGENTS.md](AGENTS.md) and five skills in `.claude/skills/` (curate, author, tutor, review, interview), and drives `bin/whetstone`. The skills follow [how Whetstone teaches](docs/PEDAGOGY.md): problem first, a mix of question types (predict, build, fix, review), a gated hint ladder, and spaced variants of what you solved. Whetstone has no AI inside, so it runs on your existing AI subscription with no API key. Every question goes through `bin/whetstone question add`, which files it only when the reference solution passes and the starter fails.
 
@@ -124,6 +125,8 @@ bin/whetstone catalog [<problem-id>] [--company X] [--round R] [--search W] [--j
 bin/whetstone progress [--json]
 bin/whetstone draft <module/question>
 bin/whetstone test <module/question> [--all]
+bin/whetstone watch [--key K] [--for SECONDS]           # stream app activity for a pairing agent
+bin/whetstone note <module/question> "..." [--line N]    # show a remark over the learner's editor
 
 bin/whetstone generate "<topic>" [--module generated] [--difficulty medium] [--notes "..."]   # optional; needs ANTHROPIC_API_KEY
 ```
