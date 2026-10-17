@@ -75,6 +75,7 @@ def path_rows(settings: Settings, lp: LearningPath, tracks: dict[str, Track], so
                 "reports": len(problem.get("reports", [])),
                 "built": bool(chs),
                 "questions": len(chs),
+                "planned": len(RECIPE),  # a module grows one question at a time, through the recipe
                 "solved": sum(c.key in solved for c in chs),
                 "next": nxt.dir_name if nxt else None,
             }

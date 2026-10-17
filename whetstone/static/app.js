@@ -1519,11 +1519,15 @@ function fillSelect(select, all, counts, value) {
   return select.value;
 }
 
+// A module grows one question at a time, up to `planned` (the steps of catalog.RECIPE).
+const moreToCome = (m) => m.questions < m.planned;
+const moduleDone = (m) => m.built && m.solved === m.questions && !moreToCome(m);
+
 function pathStats(p) {
   const built = p.modules.filter((m) => m.built);
   return {
     built: built.length,
-    done: built.filter((m) => m.solved === m.questions).length,
+    done: built.filter(moduleDone).length,
     total: built.reduce((s, m) => s + m.questions, 0),
     solved: built.reduce((s, m) => s + m.solved, 0),
     reports: p.modules.reduce((s, m) => s + m.reports, 0),
@@ -1605,7 +1609,7 @@ function renderPaths() {
 }
 
 function moduleState(m) {
-  return !m.built ? "none" : m.solved === m.questions ? "done" : "built";
+  return !m.built ? "none" : moduleDone(m) ? "done" : "built";
 }
 
 /** A path as a line of stops, one per module: solved, ready, or for your agent to build. Your focus
@@ -1740,16 +1744,20 @@ function followButton(p) {
 }
 
 function moduleStep(m, i, isCurrent, inFocus, others) {
-  const kind = !m.built ? "none" : m.solved === m.questions ? "done" : m.solved ? "progress" : "ready";
+  const kind = !m.built ? "none" : moduleDone(m) ? "done" : m.solved ? "progress" : "ready";
   let action;
-  if (m.built) {
+  if (m.built && m.solved === m.questions && moreToCome(m)) {
+    action = requestButton("build", m.module, "Prepare the next question");
+  } else if (m.built) {
     action = el("a", { class: `btn ${isCurrent ? "btn-primary" : "btn-secondary"}`, href: `#/${m.module}/${m.next}`, onclick: () => $("#path-dialog").close() },
       { ready: "Start", progress: "Continue", done: "Review" }[kind]);
   } else {
     action = requestButton("build", m.module);
   }
   const sub = m.built
-    ? `${m.solved} of ${plural(m.questions, "question")} solved`
+    ? moreToCome(m)
+      ? `${m.questions} of ${m.planned} questions ready, ${m.solved} solved.`
+      : `${m.solved} of ${plural(m.questions, "question")} solved`
     : `Not ready yet${m.reports ? `. Seen in ${plural(m.reports, "interview report")}` : ""}.`;
   return el("li", { class: "path-step", "data-s": kind, "aria-current": isCurrent ? "step" : null },
     el("span", { class: "notch", "aria-hidden": "true" }, kind === "done" ? "✓" : String(i + 1)),
