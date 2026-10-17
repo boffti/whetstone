@@ -543,7 +543,7 @@ a.btn { display: inline-block; text-decoration: none; }
   border: 1px solid var(--rule); border-radius: 999px; padding: 0.22rem 0.7rem;
 }
 .chip:hover { border-color: var(--grit); color: var(--ink); }
-.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--stone); font-weight: 700; }
+.chip[aria-pressed="true"], .chip[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: var(--stone); font-weight: 700; }
 .catalog-count { color: var(--grit); font-size: var(--step--1); margin: 0 0 0.9rem; }
 
 .grid {
@@ -749,7 +749,10 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
   .prose { font-size: 1rem; }
   /* Editor takes the full height; the action bar is pinned to the bottom; results appear
      above it only after a run, and the verdict chip hides or shows them. */
-  .bench { grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-areas: "files" "editor" "results" "actions"; }
+  .bench {
+    grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "files peek" "editor editor" "results results" "actions actions";
+  }
   .file-tabs { grid-area: files; }
   .editor-wrap { grid-area: editor; }
   .results { grid-area: results; max-height: 45vh; border-top: 1px solid var(--rule); }
@@ -761,6 +764,14 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
   .workspace.code-view .reader-body, .workspace.code-view .meta { display: none; }
   .workspace.code-view .reader-head h1 { font-size: var(--step-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0; }
   .workspace.code-view .reader { border-bottom: 1px solid var(--rule); }
+  /* The problem's sections share the file tabs' row, so they cost no height. */
+  .bench .peek-row {
+    grid-area: peek; display: flex; align-items: center; gap: 0.3rem; padding: 0 0.6rem;
+    overflow-x: auto; scrollbar-width: none; background: var(--stone); border-bottom: 1px solid var(--rule);
+  }
+  .peek-row::-webkit-scrollbar { display: none; }
+  .bench .peek-row .chip:first-child { margin-left: auto; }
+  .bench .peek-row .chip { white-space: nowrap; font-size: 0.75rem; padding: 0.12rem 0.55rem; }
 
   .catalog, .paths { padding: 1.1rem 1rem 2.5rem; }
   .catalog-head h1 { font-size: var(--step-2); }
@@ -831,6 +842,18 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .row-asked strong { color: var(--ink); font-family: var(--font-code); }
 .freq { display: block; height: 4px; width: var(--w); min-width: 4px; background: var(--steel); border-radius: 1px; }
 .row .status { justify-self: end; font-size: var(--step--1); }
+/* Narrow Code view: the problem's sections as chips, each opening a popover over the editor. */
+.peek-row { display: none; }
+.peek-pop {
+  position: fixed; inset: auto; margin: 0; left: 0.75rem; width: min(60rem, calc(100vw - 1.5rem));
+  max-height: min(60vh, 34rem); overflow: auto; padding: 0.8rem 1rem;
+  color: var(--ink); background: var(--stone-raised); border: 1px solid var(--rule); border-radius: var(--radius-m);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 22%, transparent);
+}
+.peek-pop.prose { font-size: 0.875rem; line-height: 1.55; max-width: none; }
+.peek-pop.prose pre { font-size: 0.78rem; padding: 0.6rem 0.8rem; white-space: pre-wrap; }  /* long lines wrap at spaces: no sideways scroll in a popover */
+.peek-pop > :first-child { margin-top: 0; }
+.peek-pop > :last-child { margin-bottom: 0; }
 .keys-hint { color: var(--grit); }
 .keys-hint kbd { font: 500 0.75rem/1 var(--font-code); padding: 0.1rem 0.3rem; border: 1px solid var(--rule); border-radius: 3px; }
 @media (hover: none), (max-width: 640px) { .keys-hint { display: none; } }

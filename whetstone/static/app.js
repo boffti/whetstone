@@ -360,6 +360,7 @@ async function openChallenge(trackId, cid) {
   renderLesson();
   $("#panel-problem").innerHTML = c.problem_html;
   colorize($("#panel-problem"));
+  buildPeek();
   $("#hint-list").replaceChildren(...c.hints.map((html) => { const li = el("li"); li.innerHTML = html; return li; }));
   colorize($("#hint-list"));
   setupBoard(c);
@@ -593,6 +594,71 @@ function onLayoutChange() {
   // The Code tab only exists in narrow layouts; widening the window shows both columns again.
   const current = $(".tab[aria-selected='true']");
   if (!PANE.matches && current && current.dataset.tab === "code") selectTab("problem");
+}
+
+/* ---------- Problem sections over the editor (narrow layouts) ---------- */
+// In a side pane the Code view lists the problem's sections. Hover one to read it over the
+// editor while you keep typing; click to keep it open until you click elsewhere or press Escape.
+const peek = { pinned: false, timer: 0 };
+
+/** One chip per "## Section" of the problem; text before the first heading is "Problem". */
+function buildPeek() {
+  const sections = [];
+  for (const node of $("#panel-problem").children) {
+    const heading = node.tagName === "H2";
+    if (heading || !sections.length) sections.push({ title: heading ? node.textContent : "Problem", nodes: [] });
+    if (!heading) sections.at(-1).nodes.push(node);
+  }
+  hidePeek();
+  $("#peek-row").replaceChildren(...sections.filter((x) => x.nodes.length).map((x) => {
+    const chip = el("button", { type: "button", class: "chip", "aria-expanded": "false", "aria-controls": "peek-pop" }, x.title);
+    chip.section = x;
+    return chip;
+  }));
+}
+
+function showPeek(chip, pinned) {
+  const pop = $("#peek-pop");
+  pop.replaceChildren(...chip.section.nodes.map((n) => n.cloneNode(true)));  // clone late: code is coloured by now
+  pop.setAttribute("aria-label", chip.section.title);
+  $$("#peek-row .chip").forEach((c) => c.setAttribute("aria-expanded", String(c === chip)));
+  pop.style.top = `${$("#peek-row").getBoundingClientRect().bottom + 6}px`;
+  peek.pinned = pinned;
+  if (!pop.matches(":popover-open")) pop.showPopover();
+  pop.scrollTop = 0;
+}
+
+function hidePeek() {
+  clearTimeout(peek.timer);
+  peek.pinned = false;
+  const pop = $("#peek-pop");
+  if (pop.matches(":popover-open")) pop.hidePopover();
+  $$("#peek-row .chip").forEach((c) => c.setAttribute("aria-expanded", "false"));
+}
+
+function initPeek() {
+  const row = $("#peek-row"), pop = $("#peek-pop");
+  row.addEventListener("pointerover", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip || e.pointerType !== "mouse" || peek.pinned) return;
+    clearTimeout(peek.timer);
+    peek.timer = setTimeout(() => showPeek(chip, false), 150);
+  });
+  const leave = () => {
+    clearTimeout(peek.timer);
+    peek.timer = setTimeout(() => { if (!peek.pinned && !row.matches(":hover") && !pop.matches(":hover")) hidePeek(); }, 250);
+  };
+  row.addEventListener("pointerleave", leave);
+  pop.addEventListener("pointerleave", leave);
+  row.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    clearTimeout(peek.timer);
+    if (peek.pinned && chip.getAttribute("aria-expanded") === "true") hidePeek();
+    else showPeek(chip, true);
+  });
+  document.addEventListener("pointerdown", (e) => { if (!row.contains(e.target) && !pop.contains(e.target)) hidePeek(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hidePeek(); }, true);
 }
 
 /** Colour the code blocks in lessons, problems, hints and the solution with the editor's own
@@ -2178,6 +2244,7 @@ async function boot() {
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   $$(".kbd").forEach((k) => { k.textContent = (mac ? "⌘" : "Ctrl ") + (k.dataset.keys === "submit" ? "⇧" : "") + "↵"; });
   initCatalog();
+  initPeek();
   PANE.addEventListener("change", onLayoutChange);
   PHONE.addEventListener("change", onLayoutChange);
   initPaths();
