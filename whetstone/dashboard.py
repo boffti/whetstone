@@ -51,7 +51,7 @@ def label(value: float, state: str | None) -> str:
 
 
 def grit(rows: list[dict]) -> int | None:
-    if any(r["clean_reviews"] >= 2 for r in rows):
+    if any(r["mastered"] and r["clean_reviews"] >= 2 for r in rows):
         return 8000
     if any(r["mastered"] for r in rows):
         return 6000

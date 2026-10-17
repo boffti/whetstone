@@ -19,9 +19,8 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
    - **Assisted solves or many runs:** stay on the concept, and target the misconception they hit.
    - **A variant for review** (the curator chose one): same idea, new surface. Use a new domain, new names and new data. Set `variant_of` to the *original* question's key.
    - **Their stack and what they hand off to AI at work:** use these for the scenario and the tie-in.
-3. Choose the type: **build**, **predict**, **fix**, **review**, **tests**, **design** or **whiteboard**. A `design` request from the app always means **whiteboard**: run the brief with `--type whiteboard`. Take the brief's suggestion unless the progress gives a reason not to, and say the reason.
-4. Run `bin/whetstone question new <module> <slug>`. Write every file in `my/.staging/<slug>/`.
-   - For **predict** and **review**, the code to read goes in `subject.py`, listed in `support`.
+3. Choose the type: **build**, **predict**, **fix**, **review**, **tests**, **design** or **whiteboard**. A `design` request from the app always means **whiteboard**: run the brief with `--type whiteboard`. Take the brief's suggestion unless the progress gives a reason not to, and say the reason. When the brief says the learner's AI handles tests, code review or reading code, pull a **tests** or **review** question forward to position 2 or 3; do not wait for position 4. Those skills fade fastest.
+4. Run `bin/whetstone question new <module> <slug> --type <type>`. It scaffolds a toy of that type that already passes `question add`: **predict** and **review** get `subject.py` and an `ANSWERS` dict or `FINDINGS` list; **tests** gets `subject.py`, one weak test and no `tests/` folder. Replace every file in `my/.staging/<slug>/`, keeping that shape.
    - Copy the quality of `examples/memoize/` (build) or `examples/retry-tests/` (tests).
 5. Go through the checklist below. Then run `bin/whetstone question add my/.staging/<slug> --module <module>`. Fix every problem it prints and run it again until it says "Added".
 6. Run `bin/whetstone question check <key>` twice more to catch flaky timing.

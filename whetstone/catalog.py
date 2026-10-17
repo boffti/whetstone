@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 from .config import EXAMPLE, ROOT, Settings
-from .content import LearningPath, Track, load_tracks, slugify
+from .content import LearningPath, Track, load_profile, load_tracks, slugify
 
 CLI = "bin/whetstone"
 
@@ -105,7 +105,7 @@ def make_brief(
     kind: str | None = None,
 ) -> str:
     """Instructions for an AI agent to write a module's next question, for a catalog problem or a free topic.
-    kind="whiteboard" asks for a system design question instead of the module's next step."""
+    kind asks for one question type instead of the recipe's suggestion; "whiteboard" is a system design question."""
     whiteboard = kind == "whiteboard"
     if problem:
         track_id, track_title = slugify(problem["id"]), problem["title"]
@@ -121,8 +121,12 @@ def make_brief(
 
     tracks = load_tracks(settings.tracks_dir)
     existing_track = next((t for t in tracks if t.id == track_id), None)
-    existing = [f"- {c.dir_name}: {c.title} ({c.kind}, {c.difficulty})" for c in existing_track.challenges] if existing_track else []
-    position = len(existing) + 1
+    challenges = existing_track.challenges if existing_track else []
+    existing = [
+        f"- {c.dir_name}: {c.title} ({c.kind}, {c.difficulty}{f', variant of {c.variant_of}' if c.variant_of else ''})" for c in challenges
+    ]
+    position = sum(not c.variant_of for c in challenges) + 1  # a variant re-tests an earlier slot; it does not advance the recipe
+    ai_handles = load_profile(settings.profile_path).get("ai_handles", [])
 
     lines = [
         f'# Whetstone brief: {"a system design question" if whiteboard else "the next question"} in the "{track_title}" module',
@@ -155,21 +159,27 @@ def make_brief(
             *existing,
         ]
     else:
-        lines.append("This module is empty: write the core version of the problem.")
-    lines += [
-        "",
-        "## Question type",
-        "whiteboard: follow the whiteboard section of AUTHORING.md. Copy the quality of examples/short-links-whiteboard/."
-        if whiteboard
-        else _recipe_line(position),
-    ]
+        lines.append("This module is empty: write its first question.")
+    lines += ["", "## Question type"]
+    if whiteboard:
+        lines.append("whiteboard: follow the whiteboard section of AUTHORING.md. Copy the quality of examples/short-links-whiteboard/.")
+    elif kind:
+        lines.append(f"{kind}: requested. Follow the {kind} section of AUTHORING.md.")
+    else:
+        lines.append(_recipe_line(position))
+    lines.append(f"The learner's AI handles: {', '.join(ai_handles) or 'nothing listed in the profile'}.")
+    if not kind and names_thesis_skill(ai_handles) and position <= 3 and not any(c.kind in THESIS_TYPES for c in challenges):
+        lines.append(
+            "That names tests, code review or reading code: the skills that fade fastest. Pull a tests or review question "
+            "forward to position 2 or 3; do not wait for position 4. This outranks the suggestion above."
+        )
     if reports:
         lines += ["", "## Real interview reports to ground it in", *[report_line(r) for r in reports]]
         lines.append("Use the reports for realism. Paraphrase them; do not name the source sites in the lesson.")
     lines += [
         "",
         "## Steps",
-        f"1. Pick a short slug and run: {CLI} question new {track_id} <slug>{' --type whiteboard' if whiteboard else ''}",
+        f"1. Pick a short slug and run: {CLI} question new {track_id} <slug> --type {kind or '<type>'}",
         f"   It creates the files to fill in, in {_rel(settings.staging_dir)}/<slug>/.",
         f"2. Write every file. Then run: {CLI} question add {_rel(settings.staging_dir)}/<slug> --module {track_id}",
         "   It checks that the reference solution passes every test and the starter fails at least one, then files",
@@ -186,6 +196,17 @@ def build_notes(problem: dict, limit: int = 6) -> str:
     ]
     lines += [report_line(r) for r in problem.get("reports", [])[:limit]]
     return "\n".join(lines)
+
+
+# The types that practice what the learner's AI now does for them (docs/PEDAGOGY.md).
+THESIS_TYPES = ("fix", "review", "tests")
+
+
+def names_thesis_skill(ai_handles: list[str]) -> bool:
+    """True when the profile says the learner's AI writes their tests, reviews code or reads code for them."""
+    text = " ".join(ai_handles).lower()
+    # ponytail: substring match; "test" also covers testing, "review" covers PR review
+    return any(w in text for w in ("test", "review", "reading code", "read code", "code reading"))
 
 
 # The module recipe from docs/PEDAGOGY.md: read before write, then build, mix, break and fix.

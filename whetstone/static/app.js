@@ -31,6 +31,8 @@ const state = {
   designs: [],
   designFilter: { q: "", company: "", status: "", chosen: false },
   timer: null,
+  focusOpen: false,   // Your focus: every row, or the first few
+  readyOpen: false,   // Ready to start: every module, or the first few
 };
 
 /* ---------- Utilities ---------- */
@@ -171,20 +173,20 @@ function loadMonaco() {
 }
 
 function defineThemes() {
-  // The editor follows the page: Claude's warm neutrals, clay for numbers and the cursor.
+  // The editor follows the page: Claude Desktop's neutral grays (the app.css tokens), clay for numbers and the cursor.
   monaco.editor.defineTheme("whetstone-light", {
     base: "vs", inherit: true,
     rules: [
-      { token: "comment", foreground: "73726C", fontStyle: "italic" },
+      { token: "comment", foreground: "646464", fontStyle: "italic" },
       { token: "keyword", foreground: "2F6497", fontStyle: "bold" },
       { token: "string", foreground: "2E7A4D" },
       { token: "number", foreground: "B8572F" },
     ],
     colors: {
-      "editor.background": "#F5F4ED",
-      "editor.lineHighlightBackground": "#EDEBE3",
-      "editorLineNumber.foreground": "#A3A199",
-      "editorLineNumber.activeForeground": "#3D3D3A",
+      "editor.background": "#F5F5F5",
+      "editor.lineHighlightBackground": "#EBEBEB",
+      "editorLineNumber.foreground": "#9A9A9A",
+      "editorLineNumber.activeForeground": "#363636",
       "editorCursor.foreground": "#B8572F",
       "editor.selectionBackground": "#DCE6F1",
     },
@@ -192,16 +194,16 @@ function defineThemes() {
   monaco.editor.defineTheme("whetstone-dark", {
     base: "vs-dark", inherit: true,
     rules: [
-      { token: "comment", foreground: "9C9A92", fontStyle: "italic" },
+      { token: "comment", foreground: "8A8A8A", fontStyle: "italic" },
       { token: "keyword", foreground: "8BB4DE", fontStyle: "bold" },
       { token: "string", foreground: "6CC08B" },
       { token: "number", foreground: "E8956F" },
     ],
     colors: {
-      "editor.background": "#1F1E1D",
-      "editor.lineHighlightBackground": "#2A2927",
-      "editorLineNumber.foreground": "#5E5D58",
-      "editorLineNumber.activeForeground": "#C2C0B6",
+      "editor.background": "#111111",
+      "editor.lineHighlightBackground": "#1F1F1F",
+      "editorLineNumber.foreground": "#5A5A5A",
+      "editorLineNumber.activeForeground": "#C5C5C5",
       "editorCursor.foreground": "#D97757",
       "editor.selectionBackground": "#3A4A5E",
     },
@@ -782,14 +784,14 @@ function updateSolutionGate() {
   $("#solution-intro").textContent = open
     ? board ? "Compare the reference design with yours. Name one decision it makes differently, and why." : "Compare the reference with your code. Name one difference, and why it matters."
     : board
-      ? "The reference design opens after your agent's review passes. If you are truly stuck, you can give up: that counts as solved with help, and a variant comes back in 2 days."
-      : "The reference opens after you solve it. If you are truly stuck, you can give up: that counts as solved with help, and a variant comes back in 2 days.";
+      ? "The reference design opens after your agent's review passes. If you are truly stuck, you can give up and open it now. Passing the review after that counts as solved with help, and a variant comes back 2 days later."
+      : "The reference opens after you solve it. If you are truly stuck, you can give up and open it now. Passing the tests after that counts as solved with help, and a variant comes back 2 days later.";
   $("#reveal-solution").textContent = open ? `Show the reference ${board ? "design" : "solution"}` : `I give up: show the ${board ? "design" : "solution"}`;
 }
 
 async function revealSolution() {
   const { track, id, solution_open: open } = state.challenge;
-  if (!open && !confirm(`Give up and see the reference ${isBoard() ? "design" : "solution"}? This question will count as solved with help.`)) return;
+  if (!open && !confirm(`Give up and see the reference ${isBoard() ? "design" : "solution"}? Solving it afterwards counts as solved with help.`)) return;
   const s = await api(`/api/challenges/${track}/${id}/solution`, { method: "POST", body: { give_up: !open } });
   state.challenge.solution_open = true;
   $("#solution-gate").hidden = true;
@@ -1130,8 +1132,20 @@ function setupBoard(c) {
   $("#run-btn").title = board ? "Check which sections are still empty (Ctrl or Cmd + Enter)" : "Run visible tests (Ctrl or Cmd + Enter)";
   $("#submit-btn").hidden = board;
   $("#review-req").replaceChildren(...(board ? [requestButton("grade", `${c.track}/${c.id}`, "Ask for review")] : []));
-  $("#hints-intro").textContent = `Four rungs: a question, the idea, a next step, then a skeleton. Each one opens after a ${board ? "section check, so write something" : "test run, so try something"} between hints.`;
+  $("#hints-intro").textContent = hintsIntro(c.hint_count, board);
   if (board) $("#challenge-meta").append(timerButton(c));
+}
+
+// The ladder's rungs, in order (docs/PEDAGOGY.md); a question with fewer hints climbs the first ones.
+const RUNGS = ["a question", "the idea", "a next step", "a skeleton"];
+const COUNT_WORD = ["No", "One", "Two", "Three", "Four"];
+function hintsIntro(n, board) {
+  if (!n) return "This question has no hints.";
+  const rungs = RUNGS.slice(0, n);
+  const ladder = n <= RUNGS.length
+    ? `${COUNT_WORD[n]} ${n === 1 ? "rung" : "rungs"}: ${n === 1 ? rungs[0] : `${rungs.slice(0, -1).join(", ")}, then ${rungs[n - 1]}`}.`
+    : `${plural(n, "hint")}, each a step closer.`;
+  return `${ladder} Each one opens after a ${board ? "section check, so write something" : "test run, so try something"} between hints.`;
 }
 
 /** An interview clock: counts down from the question's minutes. It only informs; nothing stops. */
@@ -1830,7 +1844,7 @@ function pathSummary(p, st) {
 function yourPathRow(p) {
   const m = p.modules.find((x) => !x.built || x.solved < x.questions);
   const action = !m ? el("button", { type: "button", class: "btn btn-quiet", onclick: () => openPath(p.id) }, "Review")
-    : m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, m.solved ? `Continue: ${m.title}` : `Start: ${m.title}`)
+    : m.built ? el("a", { class: "btn btn-secondary", href: `#/${m.module}/${m.next}` }, m.solved ? `Continue: ${m.title}` : `Start: ${m.title}`)
       : requestButton("build", m.module, `Prepare: ${m.title}`);
   return el("li", { class: "home-row" },
     el("button", { type: "button", class: "home-text link-like", onclick: () => openPath(p.id) },
@@ -1957,39 +1971,83 @@ async function loadHome() {
 function renderHome() {
   const progress = location.hash.startsWith("#/progress");
   const d = state.dash;
-  $("#home-title").textContent = progress ? "Your progress" : d.profile.name || "Today";
+  // Today leads with the next step; the profile header lives on the Progress page.
+  $("#home-title").textContent = progress ? d.profile.name || "Your progress" : "Today";
   const lede = [d.profile.role, d.profile.goal ? `Goal: ${d.profile.goal}` : ""].filter(Boolean).map((t) => t.replace(/\.$/, "")).join(". ");
-  $("#home-lede").textContent = progress ? weekLine(d.week) : lede ? `${lede}.` : weekLine(d.week);
+  $("#home-lede").textContent = progress && lede ? `${lede}.` : weekLine(d.week);
+  $("#home-body").classList.toggle("today-grid", !progress);
   $("#home-body").replaceChildren(...(progress ? progressSections(d) : todaySections(d, state.paths)));
 }
 
-/* ---------- Today: one next step, then your focus ---------- */
+/* ---------- Today: the next step first, then your focus; the week and the log beside it when wide ---------- */
 function todaySections(d, paths) {
-  const sections = [];
-  if (d.profile.stack && d.profile.stack.length) sections.push(el("ul", { class: "stack", "aria-label": "Your stack" }, d.profile.stack.map((t) => el("li", { text: t }))));
-  const setup = setupSteps(d, paths);
-  if (setup.some((st) => !st.done)) sections.push(homeSection("Get started", el("ol", { class: "setup" }, setup.map(setupItem))));
-
   const picks = todayPicks(d, paths);
-  if (picks.length) {
-    sections.push(homeSection("Today", el("ul", { class: "today" },
-      picks.map((pk, i) => el("li", { class: `today-item${i ? "" : " main"}` },
-        el("span", { class: "home-text" },
-          el("span", { class: "today-kind" }, icon(PICK_ICON[pk.kind] || "compass"), i ? `Or: ${pk.kind}` : pk.kind),
-          el("span", { class: "home-title", text: pk.title }),
-          el("span", { class: "home-sub", text: pk.why })),
-        pk.action)))));
-  }
-  sections.push(homeSection("Your focus", focusSection(d), el("p", { class: "home-sub section-note", text: "The skills, companies and paths you want to keep sharp. Your agent reads this list too." })));
-  const w = d.week;
-  sections.push(el("a", { class: "progress-link", href: "#/progress" },
-    el("span", { class: "home-title", text: "Your progress" }),
-    el("span", { class: "home-sub", text: `${w.this_week} of ${w.target} practice days this week. ${w.streak ? `${plural(w.streak, "week")} streak. ` : ""}${plural(d.numbers.solved, "question")} solved. Calendar, numbers and milestones →` })));
-  return sections;
+  const main = el("div", { class: "today-main" });
+  main.append(el("section", { class: "today-block", "aria-label": "Today" },
+    picks.length ? todayCard(picks[0]) : null,
+    picks[1] ? todayAlt(picks[1]) : null,
+    reviewLine(d)));
+  const setup = setupSection(setupSteps(d, paths), d);
+  if (setup) main.append(setup);
+  main.append(homeSection("Your focus", focusSection(d), el("p", { class: "home-sub section-note", text: "The skills, companies and paths you want to keep sharp. Your agent reads this list too." })));
+  main.append(profileLine(d.profile));
+  const side = el("aside", { class: "today-side", "aria-label": "This week" },
+    homeSection("Practice days", calendar(d.active_days)),
+    d.recent.length ? homeSection("Recent", el("ol", { class: "log" }, d.recent.map(logLine))) : null);
+  return [main, side];
+}
+
+/** The one card: what to do now, where it sits in its module, and the clay button. */
+function todayCard(pk) {
+  const [moduleId, qid] = (pk.key || "").split("/");
+  const t = state.tracks.find((x) => x.id === moduleId);
+  const i = t ? t.challenges.findIndex((c) => c.id === qid) : -1;
+  const eyebrow = i >= 0 ? `${pk.kind} in ${t.title}, question ${i + 1} of ${t.challenges.length}` : pk.kind;
+  return el("div", { class: "today-card" },
+    el("p", { class: "today-kind" }, icon(PICK_ICON[pk.kind] || "compass"), eyebrow),
+    el("h2", { class: "today-title", text: pk.title }),
+    el("p", { class: "home-sub", text: pk.why }),
+    t ? moduleStrip(t, i) : null,
+    el("div", { class: "today-action" }, pk.action));
+}
+
+/** The module as a line of stops, one per question; the current one is ringed. */
+function moduleStrip(t, current) {
+  const done = new Set(["solved", "assisted", "mastered"]);
+  return el("span", { class: "route-map module-strip", role: "img", "aria-label": `${t.title}: question ${current + 1} of ${t.challenges.length}` },
+    t.challenges.map((c, i) => el("span", { class: "stop", "data-s": done.has(c.status) ? "done" : "built", "aria-current": i === current ? "step" : null, title: c.title })));
+}
+
+/** The second choice as a line of text, so the card keeps the only button. */
+function todayAlt(pk) {
+  const kind = pk.kind === "Next in your path" ? "next in your path" : pk.kind.toLowerCase();
+  return el("p", { class: "today-alt home-sub" }, `Or ${kind}: `,
+    pk.key ? el("a", { href: `#/${pk.key}`, text: pk.title }) : el("span", { text: pk.title }),
+    pk.kind === "Next in your path" ? ` · ${pk.why}` : "",
+    pk.key ? null : el("span", { class: "today-alt-req" }, pk.action));
+}
+
+/** Reviews due today, or when the next one lands. */
+function reviewLine(d) {
+  const today = isoDay(new Date());
+  const due = d.questions.filter((r) => r.review_due && r.review_due <= today).length;
+  const next = d.questions.map((r) => r.review_due).filter((x) => x && x > today).sort()[0];
+  const text = due ? `${plural(due, "review")} due today.`
+    : next ? `No reviews due. The next lands ${shortDate(next)}.`
+      : "No reviews due. The first lands 3 days after your first solve on your own.";
+  return el("p", { class: "review-line home-sub" }, icon("rotate-ccw"), text);
+}
+
+/** Who you are, in one line. The full header is on the Progress page. */
+function profileLine(p) {
+  const stack = p.stack || [];
+  const bits = [p.name, p.role, stack.length ? stack.slice(0, 5).join(", ") + (stack.length > 5 ? ` and ${stack.length - 5} more` : "") : null].filter(Boolean);
+  return el("a", { class: "profile-line", href: "#/progress" }, ...bits.map((b) => el("span", { text: b })), el("span", { class: "profile-line-go", text: "Your progress" }));
 }
 
 /** Up to two next steps, most useful first: a due review, the question in progress,
-    the next step in a path you follow, then something new in your focus. */
+    the next step in a path you follow, then something new in your focus. `key` names the
+    question when there is one to open. */
 function todayPicks(d, paths) {
   const q = d.questions;
   const today = isoDay(new Date());
@@ -1997,27 +2055,27 @@ function todayPicks(d, paths) {
   const picks = [];
   for (const r of q.filter((x) => x.review_due && x.review_due <= today)) {
     const variant = q.find((x) => x.variant_of === r.key && x.status !== "solved");
-    picks.push({ kind: "Review", title: variant ? variant.title : r.title, target: r.key,
+    picks.push({ kind: "Review", title: variant ? variant.title : r.title, target: r.key, key: variant ? variant.key : null,
       why: `Solved on ${shortDate(r.solved_at)}. A fresh variant checks that it stuck.`,
       action: variant ? start(variant, "Start review") : requestButton("variant", r.key, "Prepare review variant") });
   }
   const open = q.filter((r) => r.status === "attempted").sort((a, b) => b.last_run.created_at.localeCompare(a.last_run.created_at));
   for (const r of open.slice(0, 2)) {
-    picks.push({ kind: "Continue", title: r.title, target: r.key,
+    picks.push({ kind: "Continue", title: r.title, target: r.key, key: r.key,
       why: `Last run ${shortDate(r.last_run.created_at)}: ${r.last_run.passed} of ${r.last_run.total} tests passed.`, action: start(r, "Continue") });
   }
   const followed = new Set(d.profile.paths || []);
   for (const p of paths.filter((x) => followed.has(x.id) || x.mine || pathStats(x).solved)) {
     const m = p.modules.find((x) => !x.built || x.solved < x.questions);
     if (!m) continue;
-    picks.push({ kind: "Next in your path", title: m.title, target: m.module, why: p.title,
+    picks.push({ kind: "Next in your path", title: m.title, target: m.module, key: m.built ? `${m.module}/${m.next}` : null, why: p.title,
       action: m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, "Start") : requestButton("build", m.module) });
   }
   for (const e of d.edges.filter((x) => x.focus && !x.built)) {
-    picks.push({ kind: "From your focus", title: e.title, target: e.module, why: "Not ready yet. Your agent prepares the first question.", action: requestButton("build", e.module) });
+    picks.push({ kind: "From your focus", title: e.title, target: e.module, key: null, why: "Not ready yet. Your agent prepares the first question.", action: requestButton("build", e.module) });
   }
   const fresh = q.find((r) => r.status === "new");
-  if (fresh) picks.push({ kind: "Start something new", title: fresh.title, target: fresh.key, why: moduleName(fresh.module), action: start(fresh, "Start") });
+  if (fresh) picks.push({ kind: "Start something new", title: fresh.title, target: fresh.key, key: fresh.key, why: `Not started. ${moduleName(fresh.module)}.`, action: start(fresh, "Start") });
   const seen = new Set();
   return picks.filter((pk) => !seen.has(pk.target) && seen.add(pk.target)).slice(0, 2);
 }
@@ -2030,7 +2088,17 @@ function moduleName(id) { return (state.tracks.find((t) => t.id === id) || { tit
 function focusSection(d) {
   const profile = d.profile;
   const box = el("div", { class: "focus" });
-  box.append(d.edges.length ? edgeList(d.edges, gameOn(), d) : el("p", { class: "home-sub", text: "Nothing in your focus yet. Add a skill below, or from the Catalog." }));
+  // Rows, with blades, only for the skills you chose or have practiced, the most urgent first.
+  // Every other module that is ready sits in one compact row below, so the list stays short.
+  const today = isoDay(new Date());
+  const mine = d.edges.filter((e) => e.focus || e.state).sort((a, b) => edgeRank(a, today) - edgeRank(b, today));
+  const rest = d.edges.filter((e) => !e.focus && !e.state);
+  const more = (n, open, onclick) => el("button", { type: "button", class: "btn btn-text btn-small more-btn", onclick },
+    open ? "Show fewer" : `Show all ${n}`);
+  box.append(mine.length ? edgeList(state.focusOpen ? mine : mine.slice(0, FOCUS_ROWS), gameOn(), d)
+    : el("p", { class: "home-sub", text: "Nothing in your focus yet. Add a skill below, or pick one that is ready." }));
+  if (mine.length > FOCUS_ROWS) box.append(more(mine.length, state.focusOpen, () => { state.focusOpen = !state.focusOpen; renderHome(); }));
+  if (rest.length) box.append(readyRow(rest, d, more));
   box.append(addRow("Add a skill", "module-options", "Rate limiter, Job scheduler…", async (value) => {
     const p = await findModule(value);
     if (!p) return "Pick a skill from the list.";
@@ -2047,6 +2115,29 @@ function focusSection(d) {
   }, el("a", { class: "btn btn-text btn-small", href: "#/paths" }, "Browse paths")));
   fillOptions();
   return box;
+}
+
+const FOCUS_ROWS = 6;
+const READY_CHIPS = 8;
+const LABEL_RANK = { dull: 1, dulling: 2, holding: 3, sharp: 4, "not started": 5 };
+/** What needs you first: a review due, then the dullest practiced skill, then skills you chose but have not started. */
+function edgeRank(e, today) {
+  if (!e.built) return 6;
+  if (e.review_due && e.review_due <= today) return 0;
+  return LABEL_RANK[e.label] ?? 5;
+}
+
+/** Modules that are ready but not in your focus, as a row of chips that open their first question. */
+function readyRow(edges, d, more) {
+  const chip = (e) => {
+    const next = d.questions.find((r) => r.module === e.module && r.status !== "solved");
+    return next ? el("a", { class: "chip-tag chip-link", href: `#/${next.key}`, title: `Start ${e.title}` }, e.title)
+      : requestButton("build", e.module, `Prepare ${e.title}`);
+  };
+  const shown = state.readyOpen ? edges : edges.slice(0, READY_CHIPS);
+  return el("div", { class: "chip-row ready-row" }, el("span", { class: "chip-row-label", text: "Ready to start" }),
+    ...shown.map(chip),
+    edges.length > READY_CHIPS ? more(edges.length, state.readyOpen, () => { state.readyOpen = !state.readyOpen; renderHome(); }) : null);
 }
 
 function chipList(label, items, onRemove, extra, mark) {
@@ -2104,7 +2195,9 @@ async function saveInterests(updates) {
 
 /* ---------- Progress: the numbers, kept off the Today page ---------- */
 function progressSections(d) {
-  const sections = [el("a", { class: "btn btn-text btn-small back-link", href: "#/practice" }, "← Today")];
+  const sections = [];
+  if (d.profile.stack && d.profile.stack.length) sections.push(el("ul", { class: "stack", "aria-label": "Your stack" }, d.profile.stack.map((t) => el("li", { text: t }))));
+  sections.push(el("a", { class: "btn btn-text btn-small back-link", href: "#/practice" }, "← Today"));
   sections.push(homeSection("Practice", el("div", { class: "week" }, el("p", { class: "home-sub", text: weekLine(d.week) }), calendar(d.active_days))));
   sections.push(homeSection("Your numbers", ledger(d.numbers)));
   if (gameOn()) sections.push(homeSection("Milestones", gameSection(d)));
@@ -2214,14 +2307,31 @@ function logLine(r) {
     el("span", { class: "log-result", text: `${r.passed}/${r.total}${solved ? " passed" : ""}` }));
 }
 
+const SOLVED = new Set(["solved", "assisted", "mastered"]);
 function setupSteps(d, paths) {
   const firstModule = (d.profile.focus || [])[0];
   return [
-    { done: Boolean(d.profile.name || d.profile.role || d.profile.goal), title: "Set up your profile", sub: "Your agent writes it from what it knows about you and your GitHub, plus a few questions.", action: requestButton("profile", "") },
-    { done: (d.profile.focus || []).length > 0 || (d.profile.paths || []).length > 0 || paths.some((p) => p.mine), title: "Choose what to keep sharp", sub: "Add skills to your focus below, or follow a path.", action: el("a", { class: "btn btn-secondary", href: "#/paths" }, "Browse paths") },
-    { done: d.questions.length > 0, title: "Get your first question", sub: "Your agent writes it and Whetstone checks it.", action: firstModule ? requestButton("build", firstModule) : null },
-    { done: d.questions.some((r) => r.status === "solved"), title: "Solve it", sub: "Run the tests as you go, then Submit." },
+    { done: Boolean(d.profile.name || d.profile.role || d.profile.goal), title: "Set up your profile", short: "set up your profile", sub: "Your agent writes it from what it knows about you and your GitHub, plus a few questions.", action: requestButton("profile", "") },
+    { done: (d.profile.focus || []).length > 0 || (d.profile.paths || []).length > 0 || paths.some((p) => p.mine), title: "Choose what to keep sharp", short: "choose what to keep sharp", sub: "Add skills to your focus below, or follow a path.", action: el("a", { class: "btn btn-secondary", href: "#/paths" }, "Browse paths") },
+    { done: d.questions.length > 0, title: "Get your first question", short: "get your first question", sub: "Your agent writes it and Whetstone checks it.", action: firstModule ? requestButton("build", firstModule) : null },
+    { done: d.questions.some((r) => SOLVED.has(r.status)), title: "Solve it", short: "solve your first question", sub: "Run the tests as you go, then Submit." },
   ];
+}
+
+const SETUP_KEY = "whetstone.setup";
+function setupHidden() { try { return localStorage.getItem(SETUP_KEY) === "off"; } catch (_) { return false; } }
+function hideSetup() { try { localStorage.setItem(SETUP_KEY, "off"); } catch (_) { /* per-viewer only */ } renderHome(); }
+
+/** The checklist: one line once three steps are done, gone after the first solve or when hidden. */
+function setupSection(steps, d) {
+  const done = steps.filter((st) => st.done).length;
+  if (done === steps.length || d.questions.some((r) => SOLVED.has(r.status)) || setupHidden()) return null;
+  const hide = el("button", { type: "button", class: "btn btn-text btn-small", title: "Hide the checklist", onclick: hideSetup }, "Hide");
+  if (done >= 3) {
+    const next = steps.find((st) => !st.done);
+    return el("p", { class: "setup-line home-sub" }, `${done} of ${steps.length} done: ${next.short}.`, next.action ? el("span", { class: "setup-action" }, next.action) : null, hide);
+  }
+  return homeSection("Get started", el("ol", { class: "setup" }, steps.map(setupItem)), null, hide);
 }
 
 function setupItem(st) {
@@ -2231,8 +2341,8 @@ function setupItem(st) {
     st.done || !st.action ? null : el("span", { class: "setup-action" }, st.action));
 }
 
-function homeSection(title, body, note) {
-  return el("section", { class: "home-section" }, el("h2", { text: title }), note || null, body);
+function homeSection(title, body, note, action) {
+  return el("section", { class: "home-section" }, el("div", { class: "home-head" }, el("h2", { text: title }), action || null), note || null, body);
 }
 
 function homeRow(title, sub, action) {
@@ -2272,6 +2382,25 @@ function showView(view) {
   for (const v of ["catalog", "paths", "design", "practice"]) $(`#nav-${v}`).setAttribute("aria-current", nav === v ? "page" : "false");
 }
 
+/* ---------- Skeletons: a list page shows its shape until its data arrives ---------- */
+const SKELETON = { home: ["#home-body", 4], paths: ["#paths-list", 6], design: ["#design-list", 5], catalog: ["#catalog-grid", 5] };
+function skeletonRow(tag, cls) {
+  return el(tag, { class: `skel ${cls}`, "aria-hidden": "true" }, el("span", { class: "skel-bar w-50" }), el("span", { class: "skel-bar w-80" }));
+}
+/** Fills an empty list with placeholder rows; a list that already has rows keeps them until the fresh ones land. */
+function showSkeleton(view) {
+  if (!SKELETON[view]) return;
+  const [sel, n] = SKELETON[view];
+  const box = $(sel);
+  if (box.children.length) return;
+  const rows = Array.from({ length: n }, () => skeletonRow(view === "home" ? "div" : "li", view === "paths" ? "skel-tile" : "skel-row"));
+  box.replaceChildren(...(view === "home" ? [skeletonRow("div", "skel-card"), el("div", { class: "skel-list" }, rows)] : rows));
+}
+function viewFor(hash) {
+  const parts = hash.replace(/^#\/?/, "").split("?")[0].split("/").filter(Boolean);
+  return parts.length === 2 ? "practice" : ["paths", "design", "catalog"].includes(parts[0]) ? parts[0] : "home";
+}
+
 // A page that cannot load says why, instead of staying blank.
 async function route() {
   $("#app-error").hidden = true;
@@ -2279,6 +2408,7 @@ async function route() {
   try {
     await showRoute();
   } catch (err) {
+    $$(".skel").forEach((s) => s.remove());
     showAppError(err);
   }
 }
@@ -2303,24 +2433,28 @@ async function showRoute() {
   }
   if (parts[0] === "paths") {
     showView("paths");
+    showSkeleton("paths");
     document.title = "Paths · Whetstone";
     await loadPaths();
     return;
   }
   if (parts[0] === "design") {
     showView("design");
+    showSkeleton("design");
     document.title = "Design · Whetstone";
     await loadDesign();
     return;
   }
   if (parts[0] === "catalog") {
     showView("catalog");
+    showSkeleton("catalog");
     document.title = "Catalog · Whetstone";
     await loadCatalog();
     renderCatalog();
     return;
   }
   showView("home");
+  showSkeleton("home");
   document.title = parts[0] === "progress" ? "Progress · Whetstone" : "Today · Whetstone";
   await loadHome();
 }
@@ -2358,6 +2492,9 @@ async function boot() {
   initPair();
   document.addEventListener("keydown", listKeys);
 
+  // A list page shows its shape while the editor and the first fetches load; a question keeps the editor hidden until it mounts.
+  const first = viewFor(location.hash);
+  if (first !== "practice") { showView(first); showSkeleton(first); }
   const [config] = await Promise.all([api("/api/config"), initEditor(), loadTracks()]);
   state.config = config;
   await loadStats();

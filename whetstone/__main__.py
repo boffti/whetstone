@@ -15,18 +15,34 @@ from pathlib import Path
 
 from .catalog import CLI, _rel
 from .config import load_settings
-from .content import ContentError, LearningPath, find_challenge, load_all_paths, load_profile, load_tracks, save_path, slugify
+from .content import (
+    QUESTION_TYPES,
+    ContentError,
+    LearningPath,
+    find_challenge,
+    load_all_paths,
+    load_profile,
+    load_tracks,
+    save_path,
+    slugify,
+)
 
-TEMPLATE = {
-    "challenge.yaml": (
+
+def _challenge_yaml(kind: str, lesson: str, support: str = "[]", minutes: int = 20) -> str:
+    return (
         "title: {title}  # name the scenario, not the technique\n"
-        "type: build  # build | predict | fix | review\n"
-        "lesson: after-run  # after-run = problem first; first = lesson first (use for predict)\n"
-        "difficulty: medium\nminutes: 20\ntags: []\nrequires: []\n"
-        "support: []  # predict and review: the code to read, e.g. [subject.py]\n"
+        f"type: {kind}  # build | predict | fix | review | tests | design\n"
+        f"lesson: {lesson}  # after-run = problem first; first = lesson first (use for predict)\n"
+        f"difficulty: medium\nminutes: {minutes}\ntags: []\nrequires: []\n"
+        f"support: {support}  # read-only files the learner sees; predict, review and tests: the code to read\n"
         "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
         "summary: One sentence about what the learner does.\n"
-    ),
+    )
+
+
+# A toy question of each type that passes `question add`; the author replaces every file. See AUTHORING.md.
+TEMPLATE = {
+    "challenge.yaml": _challenge_yaml("build", "after-run"),
     "lesson.md": "## The idea\n\n## Subgoals\n\n## In Python\n\n## Misconceptions\n\n## Interview angle\n\n## Tie-in to your work\n",
     "problem.md": "## Task\n\n## API\n\n## Rules\n\n## Example\n",
     "hints.md": (
@@ -42,6 +58,274 @@ TEMPLATE = {
     "mutants/01-off-by-one.py": '"""Misconception: one less is close enough."""\n\n\ndef solve():\n    return 41\n',
     "mutants/02-wrong-type.py": '"""Misconception: the text "42" is the same as the number 42."""\n\n\ndef solve():\n    return "42"\n',
 }
+
+_COMMON = {name: TEMPLATE[name] for name in ("lesson.md", "hints.md")}
+
+_PREDICT = {
+    **_COMMON,
+    "challenge.yaml": _challenge_yaml("predict", "first", "[subject.py]", 15),
+    "problem.md": "## Task\n\n## API\n\n## Predict\n\n## Example\n",
+    "subject.py": (
+        '"""The code the learner predicts. Keep it correct, realistic and under 60 lines."""\n\n\n'
+        "def take(bucket: dict, key: str, n: int = 1) -> bool:\n"
+        '    """Spend n tokens from bucket[key] if there are enough. A missing key has 0 tokens."""\n'
+        "    left = bucket.get(key, 0)\n"
+        "    if left < n:\n"
+        "        return False\n"
+        "    bucket[key] = left - n\n"
+        "    return True\n"
+    ),
+    "starter.py": (
+        '"""Your predictions. Replace each ... with the value the code produces. Predict by reading; do not run it."""\n\n'
+        "ANSWERS = {\n"
+        '    "second_take_from_one_token": ...,  # bool\n'
+        '    "take_from_a_missing_key": ...,  # bool\n'
+        "}\n"
+    ),
+    "solution.py": '"""The right predictions."""\n\nANSWERS = {\n    "second_take_from_one_token": False,\n    "take_from_a_missing_key": False,\n}\n',
+    "tests/test_visible.py": (
+        "from solution import ANSWERS\n\n"
+        'KEYS = ("second_take_from_one_token", "take_from_a_missing_key")\n\n\n'
+        "def test_every_prediction_is_filled_in():\n"
+        "    missing = [k for k in KEYS if k not in ANSWERS or ANSWERS[k] is ...]\n"
+        '    assert not missing, "Fill in every prediction: " + ", ".join(missing) + "."\n'
+    ),
+    "tests/test_hidden.py": (
+        "from pathlib import Path\n\n"
+        "import solution\n"
+        "from solution import ANSWERS\n"
+        "from subject import take\n\n\n"
+        "def test_solution_does_not_import_subject():\n"
+        '    assert "subject" not in Path(solution.__file__).read_text(), "Predict it by reading the code, not by running it."\n\n\n'
+        "def test_second_take_from_one_token():\n"
+        '    bucket = {"k": 1}\n'
+        '    take(bucket, "k")\n'
+        '    assert ANSWERS["second_take_from_one_token"] == take(bucket, "k"), "What is left after the first take spends the only token?"\n\n\n'
+        "def test_take_from_a_missing_key():\n"
+        '    assert ANSWERS["take_from_a_missing_key"] == take({}, "k"), "What does .get(key, 0) give for a key that was never added?"\n'
+    ),
+}
+
+_FIX_API = "def in_window(events: list[float], now: float, size: float) -> int:\n"
+_FIX_DOC = '    """How many events happened in the last `size` seconds. One exactly `size` seconds old still counts."""\n'
+_FIX = {
+    **_COMMON,
+    "challenge.yaml": _challenge_yaml("fix", "after-run"),
+    "problem.md": "## Task\n\n<!-- A bug report: the symptom, the steps to reproduce, expected and actual. Never the cause. -->\n\n## API\n\n## Rules\n\n## Example\n",
+    "starter.py": '"""Count the events inside a sliding window. Complete, and wrong in one place."""\n\n\n'
+    + _FIX_API
+    + _FIX_DOC
+    + "    return sum(1 for t in events if t > now - size)\n",
+    "solution.py": '"""Count the events inside a sliding window."""\n\n\n'
+    + _FIX_API
+    + _FIX_DOC
+    + "    return sum(1 for t in events if t >= now - size)\n",
+    "tests/test_visible.py": (
+        "from solution import in_window\n\n\n"
+        "def test_an_event_exactly_one_window_old_still_counts():\n"
+        "    assert in_window([0.0, 5.0, 10.0], now=10.0, size=10.0) == 3, (\n"
+        '        "The report says the oldest event in the window is dropped. Which comparison decides the edge?"\n'
+        "    )\n"
+    ),
+    "tests/test_hidden.py": (
+        "from solution import in_window\n\n\n"
+        "def test_older_events_are_dropped():\n"
+        '    assert in_window([2.0, 9.0], now=10.0, size=5.0) == 1, "An event from before the window must not count."\n\n\n'
+        "def test_the_edge_holds_for_any_window():\n"
+        '    assert in_window([3.0, 7.0], now=7.0, size=4.0) == 2, "Fixing only the reported numbers is not a fix. Does the edge hold elsewhere?"\n'
+    ),
+    "mutants/01-counts-every-event.py": '"""Misconception: the window is for show; every event counts."""\n\n\n'
+    + _FIX_API
+    + _FIX_DOC
+    + "    return len(events)\n",
+    "mutants/02-drops-the-newest.py": '"""Misconception: an event at `now` has not happened yet."""\n\n\n'
+    + _FIX_API
+    + _FIX_DOC
+    + "    return sum(1 for t in events if t >= now - size and t < now)\n",
+}
+
+_REVIEW = {
+    **_COMMON,
+    "challenge.yaml": _challenge_yaml("review", "after-run", "[subject.py]"),
+    "problem.md": "## Task\n\n## API\n\n## Categories\n\n## Example\n",
+    # Line numbers matter here: the seeded defects are on lines 10 and 12.
+    "subject.py": (
+        '"""Move money between two accounts held in one shared dict. Written by an AI assistant."""\n'
+        "\n"
+        "import threading\n"
+        "\n"
+        "LOCK = threading.Lock()\n"
+        "\n"
+        "\n"
+        "def transfer(accounts: dict[str, int], src: str, dst: str, amount: int) -> None:\n"
+        '    """Take `amount` from src and give it to dst. Refuse an overdraft."""\n'
+        "    if accounts[src] - amount <= 0:\n"
+        '        raise ValueError("insufficient funds")\n'
+        "    accounts[src] -= amount\n"
+        "    accounts[dst] += amount\n"
+    ),
+    "starter.py": (
+        '"""Your review of subject.py: one (line, category) pair per defect you find."""\n\n'
+        'FINDINGS: list[tuple[int, str]] = []  # e.g. [(17, "race")]; the categories are listed in the problem\n'
+    ),
+    "solution.py": '"""The seeded defects."""\n\nFINDINGS = [(10, "wrong-boundary"), (12, "race")]\n',
+    "tests/test_visible.py": (
+        "from solution import FINDINGS\n\n\n"
+        "def test_findings_are_line_and_category_pairs():\n"
+        '    assert FINDINGS, "List at least one finding: (line in subject.py, category)."\n'
+        '    assert all(isinstance(line, int) and isinstance(cat, str) for line, cat in FINDINGS), "Each finding is (line number, category)."\n'
+    ),
+    "tests/test_hidden.py": (
+        "from solution import FINDINGS\n\n"
+        'SEEDED = {10: "wrong-boundary", 12: "race"}\n\n\n'
+        "def _found(line: int, category: str) -> bool:\n"
+        "    return any(abs(found_line - line) <= 2 and found_cat == category for found_line, found_cat in FINDINGS)\n\n\n"
+        "def test_every_seeded_defect_is_found():\n"
+        "    missed = [cat for line, cat in SEEDED.items() if not _found(line, cat)]\n"
+        '    assert not missed, "A reviewer would still flag: " + ", ".join(missed) + ". Read the function once more, line by line."\n\n\n'
+        "def test_at_most_one_false_positive():\n"
+        "    extra = [f for f in FINDINGS if not any(abs(f[0] - line) <= 2 and f[1] == cat for line, cat in SEEDED.items())]\n"
+        '    assert len(extra) <= 1, f"{len(extra)} findings point at code that is fine. Which ones would you defend in a real review?"\n'
+    ),
+}
+
+_TESTS_SUBJECT = (
+    "def clamp(n: float, low: float, high: float) -> float:\n"
+    '    """Return n limited to the closed range [low, high]. Raise ValueError when low > high."""\n'
+)
+_TESTS = {
+    **_COMMON,
+    "challenge.yaml": _challenge_yaml("tests", "after-run", "[subject.py]", 25),
+    "problem.md": TEMPLATE["problem.md"],
+    "subject.py": '"""The code under test: correct, with its contract in the docstring. The learner reads it."""\n\n\n'
+    + _TESTS_SUBJECT
+    + "    if low > high:\n"
+    '        raise ValueError("low must not exceed high")\n'
+    "    return max(low, min(n, high))\n",
+    "starter.py": (
+        '"""Your tests for subject.py. Each function whose name starts with test_ is one test.\n\n'
+        "They must pass on the real subject.py. On Submit, they also run against hidden buggy\n"
+        "versions of it, and each buggy version must make at least one of your tests fail.\n"
+        '"""\n\n'
+        "from subject import clamp\n\n\n"
+        "def test_returns_the_number_when_it_is_in_range():\n"
+        "    assert clamp(5, 0, 10) == 5\n"
+    ),
+    "solution.py": (
+        '"""Reference tests: they pass on subject.py and catch every mutant."""\n\n'
+        "import pytest\n"
+        "from subject import clamp\n\n\n"
+        "def test_returns_the_number_when_it_is_in_range():\n"
+        "    assert clamp(5, 0, 10) == 5\n\n\n"
+        "def test_a_number_above_the_range_becomes_the_top():\n"
+        "    assert clamp(15, 0, 10) == 10\n\n\n"
+        "def test_a_number_below_the_range_becomes_the_bottom():\n"
+        "    assert clamp(-3, 0, 10) == 0\n\n\n"
+        "def test_an_inverted_range_is_refused():\n"
+        "    with pytest.raises(ValueError):\n"
+        "        clamp(5, 10, 0)\n"
+    ),
+    "mutants/01-only-a-floor.py": '"""Misconception: clamping only needs a floor; nobody passes a number above high."""\n\n\n'
+    + _TESTS_SUBJECT
+    + "    if low > high:\n"
+    '        raise ValueError("low must not exceed high")\n'
+    "    return max(low, n)\n",
+    "mutants/02-accepts-an-inverted-range.py": '"""Misconception: an inverted range is the caller\'s problem."""\n\n\n'
+    + _TESTS_SUBJECT
+    + "    return max(low, min(n, high))\n",
+}
+
+_DESIGN_CLASS = (
+    "class Deliveries:\n"
+    '    """Hand each message to `send` under the guarantee you chose."""\n\n'
+    "    def __init__(self) -> None:\n"
+    "        self.seen: set[str] = set()\n\n"
+    "    def deliver(self, message_id: str, send) -> None:\n"
+)
+_DESIGN_NOTE = (
+    '"""Design note:\n\n'
+    "Options: at-most-once (remember a message before sending it) or at-least-once (remember it after).\n"
+    "Trade-off: a crash between remembering and sending loses a message; one between sending and remembering repeats it.\n"
+    "Choice: at-most-once. A repeated message costs more here than a lost one.\n"
+    "Failure mode: a message whose send fails is never retried.\n"
+    '"""\n\n'
+    'GUARANTEE = "at-most-once"\n\n\n'
+)
+_DESIGN = {
+    **_COMMON,
+    "challenge.yaml": _challenge_yaml("design", "after-run", "[]", 30),
+    "problem.md": "## Task\n\n<!-- Name two or three options and the guarantee each gives. -->\n\n## API\n\n## Rules\n\n## Example\n",
+    "starter.py": (
+        '"""Design note (fill in every line before you code):\n\n'
+        "Options: ...\n"
+        "Trade-off: ...\n"
+        "Choice: ...\n"
+        "Failure mode: ...\n"
+        '"""\n\n'
+        'GUARANTEE = ""  # "at-most-once" or "at-least-once": the hidden tests check the one you declare\n\n\n'
+        + _DESIGN_CLASS
+        + "        send(message_id)\n"
+    ),
+    "solution.py": _DESIGN_NOTE + _DESIGN_CLASS + "        if message_id in self.seen:\n"
+    "            return\n"
+    "        self.seen.add(message_id)  # remember first: a failed send must not be repeated\n"
+    "        send(message_id)\n",
+    "tests/test_visible.py": (
+        "from solution import GUARANTEE, Deliveries\n\n\n"
+        "def test_a_guarantee_is_declared():\n"
+        '    assert GUARANTEE in ("at-most-once", "at-least-once"), "Set GUARANTEE to the option your design note chose."\n\n\n'
+        "def test_a_new_message_is_sent():\n"
+        "    sent = []\n"
+        '    Deliveries().deliver("m1", sent.append)\n'
+        '    assert sent == ["m1"]\n'
+    ),
+    "tests/test_hidden.py": (
+        "from solution import GUARANTEE, Deliveries\n\n\n"
+        "def test_a_repeated_message_follows_the_guarantee():\n"
+        "    sent = []\n"
+        "    d = Deliveries()\n"
+        '    d.deliver("m1", sent.append)\n'
+        '    d.deliver("m1", sent.append)\n'
+        '    if GUARANTEE == "at-most-once":\n'
+        '        assert sent == ["m1"], "You declared at-most-once. What does a duplicate delivery look like under it?"\n'
+        "    else:\n"
+        '        assert "m1" in sent\n\n\n'
+        "def test_a_failed_send_follows_the_guarantee():\n"
+        "    calls = []\n\n"
+        "    def flaky(message_id):\n"
+        "        calls.append(message_id)\n"
+        "        if len(calls) == 1:\n"
+        '            raise ConnectionError("first send fails")\n\n'
+        "    d = Deliveries()\n"
+        "    try:\n"
+        '        d.deliver("m1", flaky)\n'
+        "    except ConnectionError:\n"
+        "        pass\n"
+        '    d.deliver("m1", flaky)\n'
+        '    expected = 1 if GUARANTEE == "at-most-once" else 2\n'
+        '    assert len(calls) == expected, f"You declared {GUARANTEE}. Do you remember the message before or after the send?"\n'
+    ),
+    "mutants/01-remembers-after-sending.py": _DESIGN_NOTE.replace(
+        '"""Design note:', '"""Misconception: a message is delivered once it is sent, so remember it afterwards.\n\nDesign note:'
+    )
+    + _DESIGN_CLASS
+    + "        if message_id in self.seen:\n"
+    "            return\n"
+    "        send(message_id)\n"
+    "        self.seen.add(message_id)\n",
+    "mutants/02-forgets-between-calls.py": _DESIGN_NOTE.replace(
+        '"""Design note:', '"""Misconception: the caller never sends the same message twice.\n\nDesign note:'
+    )
+    + _DESIGN_CLASS
+    + "        send(message_id)\n",
+}
+
+SCAFFOLDS = {"build": TEMPLATE, "predict": _PREDICT, "fix": _FIX, "review": _REVIEW, "tests": _TESTS, "design": _DESIGN}
+
+
+def scaffold(kind: str) -> dict[str, str]:
+    """The files of a toy question of this type. It passes `question add` as is; the author replaces every file."""
+    return whiteboard_template() if kind == "whiteboard" else SCAFFOLDS[kind]
 
 
 def whiteboard_template() -> dict[str, str]:
@@ -288,11 +572,10 @@ def cmd_question_new(args) -> int:
     if stage.exists():
         return fail(f"{stage} already exists. Fill it in, or pick another slug.")
     title = args.title or slug.replace("-", " ").capitalize()
-    files = whiteboard_template() if args.type == "whiteboard" else TEMPLATE
-    for rel, body in files.items():
+    for rel, body in scaffold(args.type or "build").items():
         dest = stage / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(body.format(title=title), encoding="utf-8")
+        dest.write_text(body.replace("{title}", title), encoding="utf-8")  # not .format: the code templates hold braces
     rel_stage = _rel(stage)
     print(f"Created {rel_stage}/ with the files to fill in (see AUTHORING.md).")
     print(f"Then file it: {CLI} question add {rel_stage} --module {slugify(args.module)}")
@@ -435,13 +718,15 @@ def cmd_progress(args) -> int:
     store, tracks = _state(settings)
     rows = progress_rows(store, tracks.values())
     week = store.week()
+    types = {kind: sum(r["type"] == kind for r in rows) for kind in QUESTION_TYPES}  # zeros show which types nobody built
     if args.json:
-        print(json.dumps({"week": week, "active_days": store.active_days(), "questions": rows}, indent=2))
+        print(json.dumps({"week": week, "active_days": store.active_days(), "types": types, "questions": rows}, indent=2))
         return 0
     done = sum(r["status"] == "solved" for r in rows)
     print(
-        f"This week: {week['this_week']} of {week['target']} practice days. Weekly streak: {week['streak']}. Solved {done} of {len(rows)} questions.\n"
+        f"This week: {week['this_week']} of {week['target']} practice days. Weekly streak: {week['streak']}. Solved {done} of {len(rows)} questions."
     )
+    print("By type: " + ", ".join(f"{kind} {n}" for kind, n in types.items()) + ".\n")
     for r in rows:
         last = r["last_run"]
         notes = [f"runs={r['runs']}", f"hints={r['hints_opened']}/{r['hint_count']}"]
@@ -561,6 +846,28 @@ def cmd_test(args) -> int:
     return 0 if report.status == "passed" else 1
 
 
+def _clock_check(tz: str, in_container: bool) -> tuple[bool | None, str, str]:
+    """A Docker container's clock runs on UTC unless TZ is set, so practice done in the evening
+    would be dated tomorrow. Returns a doctor finding: (ok, what, fix)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    fix = "Set TZ=<your zone, e.g. America/Chicago> in .env, then run: docker compose up -d"
+    where = " (bin/whetstone doctor ran inside the container, whose clock this is, not your computer's)"
+    if not tz:
+        if in_container:
+            return None, "Clock: UTC, because TZ is not set" + where, fix
+        return True, f"Clock: {datetime.now().astimezone().tzname()} (the system's)", ""
+    try:
+        expected = datetime.now(ZoneInfo(tz)).utcoffset()
+    except ZoneInfoNotFoundError:
+        return None, f"Clock: TZ={tz} is not a zone this system knows", fix
+    actual = datetime.now().astimezone()
+    if expected != actual.utcoffset():
+        return None, f"Clock: TZ={tz} is set, but the clock runs on {actual.tzname()}" + (where if in_container else ""), fix
+    return True, f"Clock: {tz}", ""
+
+
 def cmd_doctor(args) -> int:
     """Check the setup, and say how to fix each problem. Exits with 1 when something is broken."""
     import os
@@ -649,6 +956,8 @@ def cmd_doctor(args) -> int:
         f"Web app at http://localhost:8000: {'running' if app_up else 'not running'}",
         "Start it with docker compose up -d, or bin/whetstone serve.",
     )
+
+    check(*_clock_check(os.environ.get("TZ", ""), in_container=Path("/.dockerenv").exists()))
 
     if (ROOT / ".git").exists() and user.resolve().is_relative_to(ROOT):
         rel = user.resolve().relative_to(ROOT).as_posix()
@@ -852,7 +1161,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     p = cmd(questions, "brief", cmd_question_brief, "instructions for writing the next question in a module")
     p.add_argument("module", help="module id, or a catalog problem id")
-    p.add_argument("--type", choices=["whiteboard"], help="whiteboard: a system design question instead of the module's next step")
+    p.add_argument(
+        "--type", choices=QUESTION_TYPES, help="ask for this type instead of the recipe's suggestion; whiteboard: a system design"
+    )
     p.add_argument("--topic", help="what the question teaches, for a module that is not in the catalog")
     p.add_argument("--difficulty", default="medium", choices=["easy", "medium", "hard"])
     p.add_argument("--notes", help="what the learner asked for")
@@ -860,7 +1171,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("module")
     p.add_argument("slug")
     p.add_argument("--title")
-    p.add_argument("--type", choices=["whiteboard"], help="whiteboard: scaffold a system design question (Markdown, rubric)")
+    p.add_argument(
+        "--type", choices=QUESTION_TYPES, help="the question type to scaffold (default build); whiteboard: Markdown and a rubric"
+    )
     p = cmd(questions, "add", cmd_question_add, "check a written question and file it as the module's next question")
     p.add_argument("dir")
     p.add_argument("--module", required=True)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -23,6 +23,7 @@ from .store import PAIR_MODES, REQUEST_KINDS, Store, progress_rows
 
 STATIC = Path(__file__).parent / "static"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+RECENT = timedelta(minutes=10)  # a request that finished this recently is still shown as news
 
 
 def allowed_hosts() -> set[str]:
@@ -31,13 +32,24 @@ def allowed_hosts() -> set[str]:
     return LOCAL_HOSTS | extra
 
 
+def _host_port(url: str) -> tuple[str, int] | None:
+    """(hostname, port) of a URL or a bare authority, with the scheme's default port filled in."""
+    try:
+        parts = urlsplit(url)
+        return (parts.hostname or ""), (parts.port or (443 if parts.scheme == "https" else 80))
+    except ValueError:  # a port that is not a number
+        return None
+
+
 def is_local_request(host_header: str, origin: str | None, allowed: set[str]) -> bool:
     """Whetstone runs the code it is sent, so it only answers this machine. A wrong Host header
-    means DNS rebinding (an outside site resolving its name to 127.0.0.1); a foreign Origin means
-    another site's page is sending the request."""
-    if (urlsplit(f"//{host_header}").hostname or "") not in allowed:
+    means DNS rebinding (an outside site resolving its name to 127.0.0.1); an Origin that is not
+    exactly this host and port means another page is sending the request, even one on another
+    local port."""
+    host = _host_port(f"//{host_header}")
+    if host is None or host[0] not in allowed:
         return False
-    return origin is None or (urlsplit(origin).hostname or "") in allowed
+    return origin is None or _host_port(origin) == host
 
 
 class CodeBody(BaseModel):
@@ -349,7 +361,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/requests")
     def list_requests():
-        return {"requests": store.requests(), "agent": agent_status(store)}
+        now = datetime.now()  # the server's clock, like the rows' stamps; the browser's may be in another zone
+        rows = [{**r, "recent": now - datetime.fromisoformat(r["updated_at"]) < RECENT} for r in store.requests()]
+        return {"requests": rows, "agent": agent_status(store)}
 
     @app.post("/api/requests/{request_id}/cancel")
     def cancel_request(request_id: int, request: Request):

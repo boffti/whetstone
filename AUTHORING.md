@@ -69,6 +69,8 @@ summary: One sentence about what the learner does.
 | `design` | writes a short design note, then code for the option they chose | the API, plus an empty design note | a check that the note is filled in, plus tests of the guarantee the note promises |
 | `whiteboard` | answers a system design interview prompt in Markdown, with Mermaid diagrams | `starter.md`: the section headings, each with a comment | a check that every section is filled in, then the learner's agent grades it against `rubric.yaml` |
 
+`bin/whetstone question new <module> <slug> --type <type>` scaffolds a toy question of that type which already passes `question add`. Replace every file and keep its shape: `predict` and `review` have `subject.py` plus an `ANSWERS` dict or a `FINDINGS` list; `tests` has `subject.py`, one weak test in `starter.py` and no `tests/` folder.
+
 ### build
 The core type. The starter is often a naive version that "works for one thread", so the learner sees exactly why it breaks.
 
@@ -176,7 +178,8 @@ A module has about 5 questions. `question brief` suggests the type for each posi
 
 After the core recipe, write variants (`variant_of`), and **one question that uses the idea in another domain or in the learner's own stack** (from `my/profile.md`). Adapt to the learner's progress:
 - a clean solve (no hints, 3 runs or fewer) means skip ahead;
-- an assisted solve (the last hint or the solution) means a variant of the same idea next.
+- an assisted solve (the last hint or the solution) means a variant of the same idea next;
+- when the profile's `ai_handles` names tests, code review or reading code, a `tests` or `review` question comes at position 2 or 3, not 4. Those skills fade fastest.
 
 ## lesson.md
 

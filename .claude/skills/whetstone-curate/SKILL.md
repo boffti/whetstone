@@ -37,6 +37,8 @@ Offer exactly **two** options, one line each, with the reason. Example:
 > 1. A variant of *Stop the cache stampede*, due today. You needed every hint last time.
 > 2. The next step in your staff path: the first question of *Retries, backoff and circuit breakers*.
 
+When **fix**, **review** and **tests** together are under a third of the built questions (`bin/whetstone progress` prints the tally by type), one of the two options is one of those types: they practice what the learner's AI now does for them.
+
 Let the learner pick, reorder or skip. When they pick, build it with the `whetstone-author` skill.
 
 ## Learning paths

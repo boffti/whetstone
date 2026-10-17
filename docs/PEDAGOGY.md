@@ -23,13 +23,13 @@ In a randomized trial, developers who learned a library with an AI assistant sco
 ### 3. Space it out, and re-solve variants
 Recall spread over time beats massed practice (g≈0.74 for spaced recall). Procedural skill loses about half its gain in months without use. A simple even schedule works as well as an expanding one.
 - Strength: strong.
-- In Whetstone: after a solve, schedule a *variant* (same idea, new surface) at about 3 days, 3 weeks and 3 months. A session puts due reviews before new work. A clean review lengthens the gap; a failed one shortens it.
+- In Whetstone: after a solve, schedule a *variant* (same idea, new surface) at about 3 days, 3 weeks, 3 months, 6 months, then yearly. A session puts due reviews before new work. A clean review lengthens the gap; a failed one shortens it to 2 days.
 - Sources: [Cepeda et al. 2008](https://doi.org/10.1111/j.1467-9280.2008.02209.x), [Latimier et al. 2021](https://doi.org/10.1007/s10648-020-09572-8), [skill decay meta-analysis 2025](https://doi.org/10.1037/bul0000481)
 
 ### 4. Mastery means clean and lasting
 A first checkmark is not mastery. Mastery learning with correction loops raises achievement.
 - Strength: moderate.
-- In Whetstone: a question is *mastered* when the hidden tests pass with no bottom-out hint and no viewed solution, and a spaced variant also passes. A solve after the last hint or the solution is *assisted*, and it queues a variant.
+- In Whetstone: a question is *mastered* when the hidden tests pass with no bottom-out hint and no viewed solution, and a spaced variant also passes when it comes due; a variant solved early does not count. A solve after the last hint or the solution is *assisted*, and it queues a variant.
 - Source: [Kulik et al. 1990](https://doi.org/10.3102/00346543060002265)
 
 ### 5. A gated hint ladder

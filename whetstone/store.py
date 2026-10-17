@@ -474,8 +474,11 @@ class Store:
 
 
 # Spaced review (docs/PEDAGOGY.md, rule 3): after a clean solve, a variant is due in 3 days, then
-# 3 weeks, then 3 months. An assisted solve gets its first variant after 2 days.
-REVIEW_GAPS = (3, 21, 90)
+# 3 weeks, 3 months, 6 months and a year. After that the last gap repeats, so a mastered skill keeps
+# coming back yearly while its sharpness fades. An assisted solve, or a failed review, gets its next
+# variant after 2 days.
+REVIEW_GAPS = (3, 21, 90, 180, 365)
+RETRY_GAP = 2
 
 
 def progress_rows(store: Store, tracks) -> list[dict]:
@@ -511,21 +514,28 @@ def progress_rows(store: Store, tracks) -> list[dict]:
 
 
 def add_reviews(rows: list[dict]) -> None:
-    """Add `mastered` and `review_due` to each progress row. A variant re-tests its original
-    question (variant_of); mastery is a clean solve plus a clean variant solve."""
+    """Add `mastered`, `clean_reviews` and `review_due` to each progress row. A variant re-tests
+    its original question (variant_of). Walking the solved variants in order: a clean one counts
+    as a passed review only if it was solved no more than a day before it was due, and moves the
+    schedule on; a failed (assisted) one pulls the next review in to 2 days and keeps the gap; an
+    early clean one does not count. Mastery is a clean solve plus one passed review."""
     variants: dict[str, list[dict]] = {}
     for r in rows:
-        if r["variant_of"]:
+        if r["variant_of"] and r["solve"]:
             variants.setdefault(r["variant_of"], []).append(r)
     for r in rows:
-        clean = sorted(v["solved_at"] for v in variants.get(r["key"], []) if v["solve"] == "clean")
-        r["mastered"] = r["solve"] == "clean" and bool(clean)
-        r["clean_reviews"] = len(clean)
-        r["review_due"] = None
-        if r["variant_of"] or not r["solve"] or len(clean) >= len(REVIEW_GAPS):
+        r["mastered"], r["clean_reviews"], r["review_due"] = False, 0, None
+        if r["variant_of"] or not r["solve"]:
             continue
-        if r["solve"] == "assisted" and not clean:
-            since, gap = r["solved_at"], 2
-        else:
-            since, gap = (clean[-1] if clean else r["solved_at"]), REVIEW_GAPS[len(clean)]
-        r["review_due"] = (date.fromisoformat(since[:10]) + timedelta(days=gap)).isoformat()
+        anchor, passed = date.fromisoformat(r["solved_at"][:10]), 0
+        gap = RETRY_GAP if r["solve"] == "assisted" else REVIEW_GAPS[0]
+        for v in sorted(variants.get(r["key"], []), key=lambda v: v["solved_at"]):
+            day = date.fromisoformat(v["solved_at"][:10])
+            if v["solve"] == "assisted":
+                anchor, gap = day, RETRY_GAP
+            elif (day - anchor).days >= gap - 1:
+                passed += 1
+                anchor, gap = day, REVIEW_GAPS[min(passed, len(REVIEW_GAPS) - 1)]
+        r["mastered"] = r["solve"] == "clean" and passed > 0
+        r["clean_reviews"] = passed
+        r["review_due"] = (anchor + timedelta(days=gap)).isoformat()

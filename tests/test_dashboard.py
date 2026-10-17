@@ -35,6 +35,7 @@ def test_grit_is_earned_by_mastery_not_volume():
     assert dash.grit([row("m/01", "solved", "clean", "2026-10-01T10:00:00")]) == 3000
     assert dash.grit([row("m/01", "solved", "clean", "2026-10-01T10:00:00", mastered=True)]) == 6000
     assert dash.grit([row("m/01", "solved", "clean", "2026-10-01T10:00:00", mastered=True, clean_reviews=2)]) == 8000
+    assert dash.grit([row("m/01", "solved", "assisted", "2026-10-01T10:00:00", clean_reviews=2)]) == 1000, "8000 needs mastery too"
 
 
 def test_edges_put_practiced_skills_first_and_add_focus_modules():

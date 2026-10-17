@@ -68,7 +68,7 @@ def test_only_local_requests_are_answered():
         ("localhost:8000", None),
         ("127.0.0.1:8000", "http://127.0.0.1:8000"),
         ("[::1]:8000", "http://[::1]:8000"),
-        ("localhost", "http://localhost:8000"),
+        ("localhost", "http://localhost"),
     ]
     blocked = [
         ("evil.example:8000", None),  # DNS rebinding: an outside name pointed at 127.0.0.1
@@ -79,6 +79,38 @@ def test_only_local_requests_are_answered():
     assert all(is_local_request(h, o, LOCAL_HOSTS) for h, o in ok)
     assert not any(is_local_request(h, o, LOCAL_HOSTS) for h, o in blocked)
     assert is_local_request("devbox:8000", None, LOCAL_HOSTS | {"devbox"}), "WHETSTONE_ALLOWED_HOSTS adds names"
+
+
+def test_origin_port_must_match_host_port():
+    """Another local server (a dev server at :9000, say) is a different origin, not this app."""
+    assert not is_local_request("localhost:8000", "http://localhost:9000", LOCAL_HOSTS)
+    assert not is_local_request("localhost:8000", "http://localhost", LOCAL_HOSTS), "no port means the default, 80"
+    assert not is_local_request("localhost:abc", None, LOCAL_HOSTS), "a bad port is not a local request"
+    assert is_local_request("localhost:8000", "http://LOCALHOST:8000", LOCAL_HOSTS), "host names are case-insensitive"
+
+
+def test_requests_say_whether_they_finished_recently(tmp_path):
+    """The app shows a just-finished build; the server decides what "just" means, so the browser
+    does not compare its clock with the container's (which runs on UTC)."""
+    import sqlite3
+    from datetime import datetime, timedelta
+
+    from fastapi.testclient import TestClient
+
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    mine.mkdir()
+    (content / "catalog.yaml").write_text(
+        yaml.safe_dump({"problems": [{"id": "rate-limiter", "title": "Rate limiter", "summary": "s", "reports": []}]})
+    )
+    settings = Settings(content, mine, "redis://localhost:1/0", None, "", 10)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+    r = client.post("/api/requests", json={"kind": "build", "target": "rate-limiter"}).json()
+    assert client.get("/api/requests").json()["requests"][0]["recent"] is True
+    with sqlite3.connect(settings.db_path) as conn:
+        stale = (datetime.now() - timedelta(minutes=11)).isoformat(timespec="seconds")
+        conn.execute("UPDATE requests SET updated_at = ? WHERE id = ?", (stale, r["id"]))
+    assert client.get("/api/requests").json()["requests"][0]["recent"] is False
 
 
 def test_hints_and_solution_open_in_order(tmp_path):
