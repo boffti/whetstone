@@ -1,4 +1,4 @@
-"""Record docs/demo.gif: Whetstone in a browser side pane, next to an AI agent's chat.
+"""Record docs/demo.webp: Whetstone in a browser side pane, next to an AI agent's chat.
 
     uv run --group demo playwright install chromium        # once
     uv run --group demo python scripts/demo/record_demo.py
@@ -7,8 +7,10 @@ It builds a throwaway home for a sample learner, "Sam" (a profile, two finished 
 weeks of history), starts the app on a free port, and plays a short session in headless Chromium:
 Sam presses Prepare, the "agent" (this script) builds the question, Sam solves it with one nudge
 in the editor's margin, then looks at Paths and Design. Frames come from Chrome's screencast and
-are laid into the browser pane of docs/demo-frame.png (made by clean_frame.py), then encoded with
-ffmpeg. Nothing touches your own my/ folder.
+are laid into the browser pane of docs/demo-frame.png (made by clean_frame.py) with ffmpeg, then
+packed into an animated WebP with img2webp (from libwebp: `brew install webp`). WebP keeps the
+window's soft shadow transparent, so the demo sits on either GitHub theme. Nothing touches your
+own my/ folder.
 """
 
 from __future__ import annotations
@@ -214,7 +216,7 @@ async def record(base: str, store: Store, home: Path, frames_dir: Path) -> list[
     return sorted(frames)
 
 
-def encode(frames: list[tuple[float, Path]], backdrop: Path, out: Path, width: int, fps: int, speed: float) -> None:
+def encode(frames: list[tuple[float, Path]], backdrop: Path, out: Path, width: int, fps: int, speed: float, quality: int) -> None:
     listing = frames[0][1].parent / "frames.txt"
     lines = []
     for (t, path), (t_next, _) in zip(frames, frames[1:] + [(frames[-1][0] + 1.5, None)], strict=True):
@@ -222,23 +224,35 @@ def encode(frames: list[tuple[float, Path]], backdrop: Path, out: Path, width: i
     lines.append(f"file '{frames[-1][1].name}'")
     listing.write_text("\n".join(lines) + "\n")
     x, y, w, h = PANE
+    # ffmpeg lays each frame into the pane at a steady rate, keeping the backdrop's transparency...
+    composed = listing.parent / "composed"
+    composed.mkdir(exist_ok=True)
     graph = (
-        f"[1:v]setpts=PTS/{speed},scale={w}:{h}:flags=lanczos,fps={fps}[app];"
-        f"[0:v][app]overlay={x}:{y}:shortest=1,scale={width}:-1:flags=lanczos,split[a][b];"
-        "[a]palettegen=stats_mode=diff:max_colors=192[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle"
+        f"[0:v]format=rgba[bg];[1:v]setpts=PTS/{speed},scale={w}:{h}:flags=lanczos,fps={fps}[app];"
+        f"[bg][app]overlay={x}:{y}:shortest=1:format=auto,fps={fps},scale={width}:-1:flags=lanczos,format=rgba"  # the looped backdrop runs at 25 fps
     )
     subprocess.run(
         ["ffmpeg", "-loglevel", "error", "-y", "-loop", "1", "-i", str(backdrop)]
-        + ["-f", "concat", "-safe", "0", "-i", str(listing), "-filter_complex", graph, "-loop", "0", str(out)],
+        + ["-f", "concat", "-safe", "0", "-i", str(listing), "-filter_complex", graph, str(composed / "%05d.png")],
         check=True,
     )
+    # ...and img2webp packs the frames into one looping animation with an alpha channel.
+    pngs = [str(f) for f in sorted(composed.glob("*.png"))]
+    subprocess.run(
+        ["img2webp", "-loop", "0", "-lossy", "-q", str(quality), "-m", "4", "-d", str(round(1000 / fps)), *pngs, "-o", str(out)],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    # A transparent background colour, for any viewer that reads it instead of the page's.
+    subprocess.run(["webpmux", "-set", "bgcolor", "0,0,0,0", str(out), "-o", str(out)], check=True, stdout=subprocess.DEVNULL)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--backdrop", default=str(ROOT / "docs/demo-frame.png"))
-    parser.add_argument("--out", default=str(ROOT / "docs/demo.gif"))
-    parser.add_argument("--width", type=int, default=1400, help="width of the GIF in pixels")
+    parser.add_argument("--out", default=str(ROOT / "docs/demo.webp"))
+    parser.add_argument("--width", type=int, default=1400, help="width of the animation in pixels")
+    parser.add_argument("--quality", type=int, default=72, help="WebP quality, 0 to 100")
     parser.add_argument("--fps", type=int, default=12)
     parser.add_argument("--speed", type=float, default=1.25, help="play the session this much faster")
     args = parser.parse_args()
@@ -248,7 +262,7 @@ def main() -> None:
         frames_dir.mkdir()
         frames = asyncio.run(record(base, store, home, frames_dir))
     print(f"{len(frames)} frames over {frames[-1][0] - frames[0][0]:.1f} s")
-    encode(frames, Path(args.backdrop), Path(args.out), args.width, args.fps, args.speed)
+    encode(frames, Path(args.backdrop), Path(args.out), args.width, args.fps, args.speed, args.quality)
     print(f"Wrote {args.out} ({Path(args.out).stat().st_size / 1e6:.1f} MB). Scratch files: {work}")
 
 

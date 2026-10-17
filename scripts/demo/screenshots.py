@@ -239,6 +239,7 @@ async def take(base: str, store, home: Path, theme: str) -> None:
         await page.wait_for_selector("#stop-tip:popover-open")
         await page.wait_for_timeout(200)
         await shot(page, "path-stop", 1000)
+        await page.mouse.move(0, 0)  # let go of the stop, so its popover closes before the next page
 
         # Catalog and Design
         await page.goto(f"{base}/#/catalog")

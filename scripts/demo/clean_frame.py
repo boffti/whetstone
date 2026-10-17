@@ -1,9 +1,10 @@
-"""Turn a screenshot of an agent's desktop app into the backdrop for docs/demo.gif.
+"""Turn a screenshot of an agent's desktop app into the backdrop for docs/demo.webp.
 
 The screenshot shows the agent's chat on the left and an empty browser pane on the right. This
 paints over everything personal (the list of other threads and the account name) with plain
 placeholder bars, which leak nothing, unlike a blur. It also titles the pane "Whetstone" with
-localhost:8000 in its address bar. record_demo.py then plays the app inside the pane.
+localhost:8000 in its address bar. The window's shadow stays transparent, so the demo sits on
+either GitHub theme. record_demo.py then plays the app inside the pane.
 
     uv run --group demo python scripts/demo/clean_frame.py screenshot.png docs/demo-frame.png
 
@@ -26,9 +27,7 @@ FONT = "/System/Library/Fonts/SFNS.ttf"
 
 
 def clean(src: str, dest: str) -> None:
-    window = Image.open(src).convert("RGBA")
-    page = Image.new("RGBA", window.size, (255, 255, 255, 255))  # flatten the shadow onto white
-    page.alpha_composite(window)
+    page = Image.open(src).convert("RGBA")  # keep the shadow's transparency
     draw = ImageDraw.Draw(page)
     rng = random.Random(7)  # the same placeholder layout every time
 
@@ -56,7 +55,7 @@ def clean(src: str, dest: str) -> None:
     draw.text((1211, 93), "localhost:8000", font=ui, fill=(205, 205, 200))
     draw.rectangle(PANE, fill=PANE_BG)
 
-    page.convert("RGB").save(dest, optimize=True)
+    page.save(dest, optimize=True)
 
 
 if __name__ == "__main__":

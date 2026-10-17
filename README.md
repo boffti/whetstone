@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare, the agent builds a caching question, the learner reads the problem's sections over the code, guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths page, where pointing at a stop shows its module, and the Design page.">
+  <img src="docs/demo.webp" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare, the agent builds a caching question, the learner reads the problem's sections over the code, guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths page, where pointing at a stop shows its module, and the Design page.">
 </p>
 
 ## Why Whetstone
@@ -132,7 +132,7 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 
 <table>
 <tr>
-<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.png"><img src="docs/screenshots/today.png" alt="Today: One next step and one alternative, then your focus: each skill with an edge that shows how sharp it is today."></picture><br><b>Today.</b> One next step and one alternative, then your focus: each skill with an edge that shows how sharp it is today.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.png"><img src="docs/screenshots/today.png" alt="Today: Your next step, one alternative and when your next review is due, then your focus: each skill with an edge that shows how sharp it is today."></picture><br><b>Today.</b> Your next step, one alternative and when your next review is due, then your focus: each skill with an edge that shows how sharp it is today.</td>
 <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/progress-dark.png"><img src="docs/screenshots/progress.png" alt="Progress: Practice days, honest numbers, milestones and personal records. The game layer rewards mastery, never volume."></picture><br><b>Progress.</b> Practice days, honest numbers, milestones and personal records. The game layer rewards mastery, never volume.</td>
 </tr>
 </table>
