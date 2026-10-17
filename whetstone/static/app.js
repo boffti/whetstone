@@ -1747,10 +1747,15 @@ function routeMap(p, interactive) {
   return el("span", { class: "route-map", ...(interactive ? { role: "group", "aria-label": "Modules" } : { "aria-hidden": "true" }) },
     p.modules.map((m) => {
       const s = moduleState(m);
-      const attrs = { class: "stop", "data-s": s, "data-focus": focus.has(m.module) ? "" : null, title: `${m.title}: ${STOP_TEXT[s]}` };
-      if (!interactive) return el("span", attrs);
+      const attrs = { class: "stop", "data-s": s, "data-focus": focus.has(m.module) ? "" : null };
+      let stop;
+      if (!interactive) {
+        stop = el("span", attrs);
+        stop.stopInfo = m;  // read by the stop popover
+        return stop;
+      }
       const on = state.pathFilter.module === m.module;
-      return el("button", {
+      stop = el("button", {
         type: "button", ...attrs, "data-module": m.module, "aria-pressed": String(on),
         "aria-label": `${m.title}, ${STOP_TEXT[s]}. Show every path that uses it.`,
         onclick: () => {
@@ -1759,7 +1764,52 @@ function routeMap(p, interactive) {
           if (again) again.focus();
         },
       });
+      stop.stopInfo = m;
+      return stop;
     }));
+}
+
+/* A popover for route stops: the module, where you are with it, and what it covers. It opens
+   quickly on hover or keyboard focus, and never takes the pointer. */
+function stopLine(m, s) {
+  if (s === "none") return `Your agent prepares it${m.reports ? `. Seen in ${plural(m.reports, "interview report")}` : ""}.`;
+  if (s === "done") return `Solved, all ${plural(m.questions, "question")}.`;
+  return moreToCome(m) ? `${m.questions} of ${m.planned} questions ready, ${m.solved} solved.` : `${m.solved} of ${plural(m.questions, "question")} solved.`;
+}
+
+function initStopTips() {
+  const tip = $("#stop-tip");
+  let timer = 0;
+  const show = (stop) => {
+    const m = stop.stopInfo;
+    tip.replaceChildren(
+      el("p", { class: "stop-tip-title" }, el("span", { class: "stop", "data-s": stop.dataset.s }), m.title,
+        stop.hasAttribute("data-focus") ? el("span", { class: "tag-focus", text: "Your focus" }) : null),
+      el("p", { class: "stop-tip-line", text: stopLine(m, stop.dataset.s) }),
+      m.summary ? el("p", { class: "stop-tip-what", text: m.summary }) : null,
+      stop.tagName === "BUTTON" ? el("p", { class: "stop-tip-hint", text: "Click to see every path that uses it." }) : null);
+    if (!tip.matches(":popover-open")) tip.showPopover();
+    const r = stop.getBoundingClientRect();
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+    tip.style.top = `${r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8}px`;
+  };
+  const hide = () => {
+    clearTimeout(timer);
+    if (tip.matches(":popover-open")) tip.hidePopover();
+  };
+  document.addEventListener("pointerover", (e) => {
+    const stop = e.target.closest && e.target.closest(".stop");
+    if (!stop || !stop.stopInfo) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => show(stop), 60);
+  });
+  document.addEventListener("pointerout", (e) => {
+    const next = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest(".stop");
+    if (e.target.closest && e.target.closest(".stop") && !(next && next.stopInfo)) hide();  // stop to stop: just move
+  });
+  document.addEventListener("focusin", (e) => (e.target.stopInfo ? show(e.target) : hide()));
+  document.addEventListener("scroll", hide, true);
 }
 
 function routeLegend(focus) {
@@ -2299,6 +2349,7 @@ async function boot() {
   $$(".kbd").forEach((k) => { k.textContent = (mac ? "⌘" : "Ctrl ") + (k.dataset.keys === "submit" ? "⇧" : "") + "↵"; });
   initCatalog();
   initPeek();
+  initStopTips();
   for (const [view, name] of [["practice", "target"], ["paths", "route"], ["design", "drafting-compass"], ["catalog", "library-big"]]) $(`#nav-${view}`).prepend(icon(name, "icon nav-icon"));
   PANE.addEventListener("change", onLayoutChange);
   PHONE.addEventListener("change", onLayoutChange);
