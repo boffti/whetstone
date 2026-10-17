@@ -64,6 +64,68 @@ function el(tag, attrs = {}, ...children) {
   return node;
 }
 
+/* ---------- Marks: company logos and icons, from static/marks.js ---------- */
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function icon(name, cls = "icon") {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("class", cls);
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = ICONS[name] || "";
+  return svg;
+}
+
+/** "Jane Street" -> "JS", "BlackRock" -> "BR", "IBM" -> "IBM". */
+function initials(name) {
+  if (name.length <= 3) return name;
+  const words = name.split(/\s+/);
+  if (words.length > 1) return (words[0][0] + words[1][0]).toUpperCase();
+  const cap = name.slice(1).match(/[A-Z]/);
+  return name[0].toUpperCase() + (cap ? cap[0] : "");
+}
+
+function lightHex(hex) {
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.6;
+}
+
+/** A company's logo on its brand colour, or its initials when there is no logo. */
+function companyMark(name) {
+  const logo = LOGOS[name];
+  if (!logo) return el("span", { class: "co co-initials", title: name }, initials(name));
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", logo[1]);
+  svg.append(path);
+  return el("span", { class: `co${lightHex(logo[0]) ? " co-light" : ""}`, title: name, style: `--co: #${logo[0]}` }, svg);
+}
+
+/** Overlapping logos: up to `max`, the last place taken by "+N" when there are more. */
+function companyStack(names, max = 4) {
+  if (!names.length) return null;
+  const shown = names.length > max ? names.slice(0, max - 1) : names;
+  const rest = names.slice(shown.length);
+  return el("span", { class: "co-stack", role: "img", "aria-label": names.join(", ") }, shown.map(companyMark),
+    rest.length ? el("span", { class: "co co-more", title: rest.join(", ") }, `+${rest.length}`) : null);
+}
+
+/** Each path domain's icon and colour family: money, people, search, or platforms. */
+const DOMAINS = {
+  "Payments & fintech": ["credit-card", "money"], "Trading & markets": ["chart-candlestick", "money"],
+  "Social & media": ["users", "people"], "Messaging & collaboration": ["messages-square", "people"],
+  "Marketplaces & mobility": ["car", "people"], "Search & ads": ["search", "search"],
+  "AI & developer platforms": ["bot", "platform"], "Data & infrastructure": ["database", "platform"],
+  "Enterprise software": ["building-2", "platform"], "Devices & industry": ["cpu", "platform"], "Foundations": ["layers", "platform"],
+};
+
+function domainTile(domain, small) {
+  const [name, family] = DOMAINS[domain] || ["layers", "platform"];
+  return el("span", { class: `dtile${small ? " dtile-small" : ""}`, "data-family": family, title: domain || "Other" }, icon(name));
+}
+
 function plural(n, word, many) { return `${n} ${n === 1 ? word : many || `${word}s`}`; }
 
 /* ---------- Theme ---------- */
@@ -349,7 +411,7 @@ async function openChallenge(trackId, cid) {
 
   $("#challenge-title").textContent = c.title;
   const meta = [el("span", { class: "diff", "data-d": c.difficulty, text: capital(c.difficulty) }), el("span", { text: `About ${c.minutes} min` })];
-  if (TYPE_LABEL[c.type]) meta.unshift(el("span", { class: "qtype", text: TYPE_LABEL[c.type] }));
+  if (TYPE_LABEL[c.type]) meta.unshift(el("span", { class: "qtype" }, icon(TYPE_ICON[c.type]), TYPE_LABEL[c.type]));
   if (c.requires.includes("redis")) {
     const ok = state.config && state.config.redis_ok;
     meta.push(el("span", { class: `needs${ok ? " ok" : ""}`, text: ok ? "Redis connected" : "Needs Redis: not reachable" }));
@@ -765,6 +827,7 @@ async function resetCode() {
 /* ---------- Running tests ---------- */
 const STATUS_TEXT = { new: "not started", attempted: "in progress", assisted: "solved with help", solved: "solved", mastered: "mastered" };
 const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review", tests: "Write the tests", design: "Design", whiteboard: "System design" };
+const TYPE_ICON = { predict: "eye", fix: "wrench", review: "scan-search", tests: "flask-conical", design: "pen-tool", whiteboard: "presentation" };
 const VERDICT = { passed: "Passed", failed: "Not yet", error: "Could not run", timeout: "Timed out", blocked: "Blocked" };
 
 /* ---------- Predict then explain (docs/PEDAGOGY.md, rule 8) ---------- */
@@ -1256,7 +1319,7 @@ function designQuestionRow(q) {
 
 /** One design question: who asks it and how often. Opening the row shows how it was asked. */
 function designRow(p, max) {
-  const shown = p.companies.slice(0, 3).join(", ") + (p.companies.length > 3 ? ` and ${p.companies.length - 3} more` : "");
+  const rowCompanies = p.companies;
   const q = p.questions.find((x) => x.status === "attempted") || p.questions.find((x) => x.status === "new") || p.questions[0];
   const action = q ? el("a", { class: "btn btn-quiet btn-small", href: `#/${q.key}` }, boardAction(q)) : requestButton("design", p.id);
   const asked = p.asked.length ? el("ul", { class: "design-asked", hidden: true }, p.asked.map((t) => el("li", { text: t }))) : null;
@@ -1267,7 +1330,7 @@ function designRow(p, max) {
       e.currentTarget.setAttribute("aria-expanded", String(!asked.hidden));
     } },
       el("span", { class: "row-main" },
-        el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), el("span", { class: "row-cos", text: shown })),
+        el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), companyStack(rowCompanies)),
         el("span", { class: "row-sub", text: p.asked[0] || p.summary })),
       el("span", { class: "row-asked" },
         el("span", { class: "freq", style: `--w:${Math.round((p.reports / max) * 100)}%`, "aria-hidden": "true" }),
@@ -1389,8 +1452,7 @@ function problemStatus(p) {
 /** One problem as a compact row: what it is, who asks it, how often, and two actions:
     add it to your focus, and practise it (or ask your agent to build it). */
 function catalogRow(p, hits, max) {
-  const companies = [...new Set(hits.map((r) => r.company))];
-  const shown = companies.slice(0, 3).join(", ") + (companies.length > 3 ? ` and ${companies.length - 3} more` : "");
+  const rowCompanies = [...new Set(hits.map((r) => r.company))].filter((c) => c !== "Unknown");
   const rounds = [...new Set(hits.map((r) => r.round))].map((r) => ROUNDS[r] || r).join(", ");
   const focus = (state.profile && state.profile.focus) || [];
   const inFocus = focus.includes(p.id);
@@ -1400,7 +1462,7 @@ function catalogRow(p, hits, max) {
   return el("div", { class: "row-item" },
     el("button", { type: "button", class: "row", title: rounds, onclick: () => openProblem(p.id) },
       el("span", { class: "row-main" },
-        el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), el("span", { class: "row-cos", text: shown })),
+        el("span", { class: "row-head" }, el("span", { class: "row-title", text: p.title }), companyStack(rowCompanies)),
         el("span", { class: "row-sub", text: p.summary })),
       el("span", { class: "row-asked" },
         el("span", { class: "freq", style: `--w:${Math.round((hits.length / max) * 100)}%`, "aria-hidden": "true" }),
@@ -1424,7 +1486,7 @@ function reportItem(r) {
   const links = r.sources.map(safeUrl).filter(Boolean);
   return el("li", { class: "report", "data-match": reportMatches(r) ? "true" : "false" },
     el("p", { class: "report-head" },
-      el("strong", { text: r.company }),
+      el("strong", { class: "report-co" }, r.company === "Unknown" ? null : companyMark(r.company), r.company),
       el("span", { text: bits }),
       el("span", { class: "conf", "data-c": r.confidence, text: CONFIDENCE[r.confidence] || r.confidence })),
     el("p", { class: "report-q", text: r.question }),
@@ -1742,10 +1804,11 @@ function yourPathRow(p) {
 function pathTile(p, st, match) {
   const cos = p.companies.length > 3 ? `${p.companies.slice(0, 3).join(", ")} and ${p.companies.length - 3} more` : p.companies.join(", ");
   return el("article", { class: "card path-tile", "data-path": p.id },
-    el("h3", { class: "card-title" },
-      el("button", { type: "button", class: "path-open", onclick: () => openPath(p.id) }, shortTitle(p)),
-      p.mine ? el("span", { class: "tag-mine", text: "Yours" }) : null),
-    cos ? el("p", { class: "path-cos", text: cos }) : null,
+    el("div", { class: "tile-head" }, domainTile(p.domain),
+      el("h3", { class: "card-title" },
+        el("button", { type: "button", class: "path-open", onclick: () => openPath(p.id) }, shortTitle(p)),
+        p.mine ? el("span", { class: "tag-mine", text: "Yours" }) : null),
+      companyStack(p.companies, 4)),
     p.goal ? el("p", { class: "card-summary path-goal-short", text: p.goal }) : null,
     matchLine(match),
     routeMap(p, true),
@@ -1786,8 +1849,9 @@ function pathCard(p) {
   const uses = moduleUse();
   return el("section", { class: "path", "aria-labelledby": `path-${p.id}` },
     el("span", { class: "wear", style: `--w:${st.total ? Math.round((st.solved / st.total) * 100) : 0}%`, "aria-hidden": "true" }),
-    p.domain ? el("p", { class: "path-domain", text: p.domain }) : null,
-    p.companies.length ? el("p", { class: "path-companies", text: p.companies.join(", ") }) : null,
+    p.domain ? el("p", { class: "path-domain" }, domainTile(p.domain, true), p.domain) : null,
+    p.companies.length ? el("ul", { class: "path-companies", "aria-label": "Modelled on" },
+      p.companies.map((c) => el("li", {}, companyMark(c), c))) : null,
     el("div", { class: "path-head" }, el("h2", { id: `path-${p.id}`, text: p.title }), followButton(p)),
     p.goal ? el("p", { class: "path-goal", text: p.goal }) : null,
     el("p", { class: "path-sum", text: `${pathSummary(p, st)}.${st.total ? ` ${st.solved} of ${plural(st.total, "question")} solved.` : ""}` }),
@@ -1873,7 +1937,7 @@ function todaySections(d, paths) {
     sections.push(homeSection("Today", el("ul", { class: "today" },
       picks.map((pk, i) => el("li", { class: `today-item${i ? "" : " main"}` },
         el("span", { class: "home-text" },
-          el("span", { class: "today-kind", text: i ? `Or: ${pk.kind}` : pk.kind }),
+          el("span", { class: "today-kind" }, icon(PICK_ICON[pk.kind] || "compass"), i ? `Or: ${pk.kind}` : pk.kind),
           el("span", { class: "home-title", text: pk.title }),
           el("span", { class: "home-sub", text: pk.why })),
         pk.action)))));
@@ -1920,6 +1984,8 @@ function todayPicks(d, paths) {
   return picks.filter((pk) => !seen.has(pk.target) && seen.add(pk.target)).slice(0, 2);
 }
 
+const PICK_ICON = { Review: "rotate-ccw", Continue: "play", "Next in your path": "route", "From your focus": "crosshair", "Start something new": "compass" };
+
 function moduleName(id) { return (state.tracks.find((t) => t.id === id) || { title: id }).title; }
 
 /** Your focus: each skill's edge, plus the companies and paths you follow. All editable. */
@@ -1932,7 +1998,7 @@ function focusSection(d) {
     if (!p) return "Pick a skill from the list.";
     await saveInterests({ focus: [...(profile.focus || []), p.id] });
   }));
-  box.append(chipList("Companies", profile.targets || [], (c) => saveInterests({ targets: profile.targets.filter((x) => x !== c) })));
+  box.append(chipList("Companies", profile.targets || [], (c) => saveInterests({ targets: profile.targets.filter((x) => x !== c) }), null, companyMark));
   box.append(addRow("Add a company", "company-options", "Stripe, Netflix…", async (value) => {
     await saveInterests({ targets: [...(profile.targets || []), value] });
   }));
@@ -1945,9 +2011,9 @@ function focusSection(d) {
   return box;
 }
 
-function chipList(label, items, onRemove, extra) {
+function chipList(label, items, onRemove, extra, mark) {
   return el("div", { class: "chip-row" }, el("span", { class: "chip-row-label", text: label }),
-    ...(items.length ? items.map((item) => el("span", { class: "chip-tag" }, item,
+    ...(items.length ? items.map((item) => el("span", { class: "chip-tag" }, mark ? mark(item) : null, item,
       el("button", { type: "button", class: "chip-x", "aria-label": `Remove ${item}`, onclick: () => onRemove(item) }, "×"))) : [el("span", { class: "home-sub", text: "None yet." })]),
     extra || null);
 }
@@ -2245,6 +2311,7 @@ async function boot() {
   $$(".kbd").forEach((k) => { k.textContent = (mac ? "⌘" : "Ctrl ") + (k.dataset.keys === "submit" ? "⇧" : "") + "↵"; });
   initCatalog();
   initPeek();
+  for (const [view, name] of [["practice", "target"], ["paths", "route"], ["design", "drafting-compass"], ["catalog", "library-big"]]) $(`#nav-${view}`).prepend(icon(name, "icon nav-icon"));
   PANE.addEventListener("change", onLayoutChange);
   PHONE.addEventListener("change", onLayoutChange);
   initPaths();

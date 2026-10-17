@@ -609,7 +609,7 @@ a.btn { display: inline-block; text-decoration: none; }
 .report-src a { color: var(--steel); }
 
 /* ---------- Paths ---------- */
-.path-domain { margin: 0; font-size: var(--step--1); font-weight: 600; color: var(--grit); }
+.path-domain { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: var(--step--1); font-weight: 600; color: var(--ink-soft); }
 .path-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.4rem 1rem; margin-bottom: 0.3rem; }
 .path .path-head h2 { margin: 0; }
 .tag-focus { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.5rem; font-size: var(--step--1); font-weight: 600; color: var(--whet); }
@@ -641,7 +641,10 @@ a.btn { display: inline-block; text-decoration: none; }
 .path-open::after { content: ""; position: absolute; inset: 0; }
 .path-open:focus-visible { outline: none; }
 .path-tile:has(.path-open:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
-.path-cos { margin: 0; font-size: var(--step--1); color: var(--grit); }
+/* Domain tile, title, then the companies at the top right; a long title wraps beside them. */
+.tile-head { display: flex; align-items: flex-start; gap: 0.6rem; }
+.tile-head .card-title { flex: 1; min-width: 0; margin-top: 0.2rem; text-wrap: balance; }
+.tile-head .co-stack { margin-top: 0.2rem; }
 .path-goal-short {
   margin: 0.15rem 0 0;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
@@ -671,7 +674,9 @@ button.stop:hover::before { transform: scale(1.3); }
 button.stop[aria-pressed="true"]::before { box-shadow: 0 0 0 2px var(--stone-raised), 0 0 0 3.5px var(--ink); }
 button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
 @media (prefers-reduced-motion: reduce) { .stop::before { transition: none; } }
-.path-companies { margin: 0 0 0.25rem; font-size: var(--step--1); color: var(--ink-soft); }
+.path-companies { list-style: none; margin: 0 0 0.25rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; font-size: var(--step--1); color: var(--ink-soft); }
+.path-companies li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.path-companies .co { --size: 22px; }
 #path-detail .path { border: none; background: none; padding: 0; overflow: visible; }
 #path-detail .path > .wear { display: none; }
 .path-step-what { color: var(--ink); font-size: var(--step--1); line-height: 1.45; margin-top: 0.1rem; }
@@ -854,6 +859,52 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .peek-pop.prose pre { font-size: 0.78rem; padding: 0.6rem 0.8rem; white-space: pre-wrap; }  /* long lines wrap at spaces: no sideways scroll in a popover */
 .peek-pop > :first-child { margin-top: 0; }
 .peek-pop > :last-child { margin-bottom: 0; }
+/* ---------- Marks: company logos, domain tiles, line icons ---------- */
+.icon {
+  width: 1em; height: 1em; flex: none; vertical-align: -0.14em;
+  fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+}
+.topnav a { display: inline-flex; align-items: center; gap: 0.4rem; }
+.nav-icon { opacity: 0.75; }
+.topnav a[aria-current="page"] .nav-icon { opacity: 1; }
+.qtype { display: inline-flex; align-items: center; gap: 0.3rem; }
+
+/* A company: its brand mark on its brand colour, or its initials on stone. Overlapped in stacks,
+   each ringed in the colour behind it so the edges read. */
+.co-stack { display: inline-flex; align-items: center; flex: none; padding-left: 2px; }
+.co {
+  --size: 24px;
+  width: var(--size); height: var(--size); flex: none; display: inline-grid; place-items: center;
+  border-radius: 50%; background: var(--co, var(--stone-sunk)); color: #FFFFFF;
+  box-shadow: 0 0 0 2px var(--co-ring, var(--stone)), inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.co-stack .co + .co { margin-left: calc(var(--size) * -0.3); }
+.co svg { width: 56%; height: 56%; fill: currentColor; }
+.co-light { color: #141413; }
+.co-initials, .co-more {
+  background: color-mix(in srgb, var(--ink) 13%, var(--stone-raised)); color: var(--ink);
+  font: 700 calc(var(--size) * 0.42)/1 var(--font-display); letter-spacing: -0.02em;
+}
+.card { --co-ring: var(--stone-raised); }
+.row-head .co-stack .co { --size: 21px; }
+.report-co { display: inline-flex; align-items: center; gap: 0.4rem; }
+.report-co .co { --size: 20px; }
+.chip-tag .co { --size: 18px; margin-right: 0.15rem; box-shadow: none; }
+
+/* A path's domain: a tile in its family's colour, the same tiles as the README's feature icons. */
+.dtile {
+  --tile: #2F6497;
+  width: 2rem; height: 2rem; flex: none; display: inline-grid; place-items: center;
+  border-radius: 8px; background: var(--tile); color: #FAF9F5;
+}
+.dtile .icon { width: 1.1rem; height: 1.1rem; stroke-width: 2; }
+.dtile[data-family="money"] { --tile: #2E7A4D; }
+.dtile[data-family="people"] { --tile: #B8572F; }
+.dtile[data-family="search"] { --tile: #A8741C; }
+.dtile-small { width: 1.35rem; height: 1.35rem; border-radius: 6px; }
+.dtile-small .icon { width: 0.8rem; height: 0.8rem; }
+.home-title .dtile-small { margin-right: 0.45rem; vertical-align: -0.3em; }
+
 .keys-hint { color: var(--grit); }
 .keys-hint kbd { font: 500 0.75rem/1 var(--font-code); padding: 0.1rem 0.3rem; border: 1px solid var(--rule); border-radius: 3px; }
 @media (hover: none), (max-width: 640px) { .keys-hint { display: none; } }
@@ -903,14 +954,14 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .agent-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--grit); }
 .agent-status[data-connected="true"] .agent-dot { background: var(--honed); }
 .app-error.info { background: color-mix(in srgb, var(--steel) 12%, var(--stone)); border-bottom-color: var(--steel); }
-@media (max-width: 640px) { .agent-label { display: none; } }
+@media (max-width: 640px) { .agent-label, .nav-icon { display: none; } }
 
 /* Today: one main next step and one alternative. */
 .today { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
 .today-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.8rem 1rem; border: 1px solid var(--rule); background: var(--stone-raised); border-radius: var(--radius-m); }
 .today-item.main { border-color: var(--ink-soft); padding: 1rem 1.1rem; }
 .today-item.main .home-title { font-family: var(--font-display); font-size: var(--step-2); }
-.today-kind { font-size: var(--step--1); color: var(--ink-soft); }
+.today-kind { display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--step--1); color: var(--ink-soft); }
 .progress-link { display: grid; gap: 0.15rem; padding: 0.8rem 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); color: inherit; text-decoration: none; }
 .progress-link:hover .home-title { text-decoration: underline; }
 .back-link { justify-self: start; padding-left: 0; }
