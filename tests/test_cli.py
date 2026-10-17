@@ -115,7 +115,7 @@ def test_weekly_streak_forgives_one_missed_week(tmp_path):
     today = date(2026, 10, 16)  # a Friday
     monday = today - timedelta(days=today.weekday())
 
-    def practise(*days):
+    def practice(*days):
         with store._conn() as conn:
             for d in days:
                 conn.execute(
@@ -124,16 +124,16 @@ def test_weekly_streak_forgives_one_missed_week(tmp_path):
                 )
 
     weeks_ago = lambda n, *offsets: [monday - timedelta(days=7 * n) + timedelta(days=o) for o in offsets]  # noqa: E731
-    practise(*weeks_ago(3, 0, 1, 2), *weeks_ago(2, 0, 2, 4), *weeks_ago(0, 0, 1))  # week 1 ago was missed
+    practice(*weeks_ago(3, 0, 1, 2), *weeks_ago(2, 0, 2, 4), *weeks_ago(0, 0, 1))  # week 1 ago was missed
     w = store.week(today)
     assert (w["this_week"], w["streak"], w["repaired"]) == (2, 2, True), "one missed week is forgiven"
 
-    practise(*weeks_ago(0, 2))
+    practice(*weeks_ago(0, 2))
     assert store.week(today)["streak"] == 3, "the current week counts once it reaches the target"
 
     store2 = Store(tmp_path / "w2.db")
     store, store2 = store2, store
-    practise(*weeks_ago(4, 0, 1, 2), *weeks_ago(0, 0))  # weeks 1-3 ago missed
+    practice(*weeks_ago(4, 0, 1, 2), *weeks_ago(0, 0))  # weeks 1-3 ago missed
     assert store.week(today)["streak"] == 0, "a second missed week ends the streak"
     assert store.week(today)["sessions"] == 4
 

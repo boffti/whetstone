@@ -1,6 +1,6 @@
 ---
 name: whetstone-interview
-description: Run a mock technical interview or design review on a Whetstone question, with a fixed rubric and real follow-ups from the catalog. Use when the learner asks to "interview me", "mock interview", "grill me on X", or "practise the <company> round".
+description: Run a mock technical interview or design review on a Whetstone question, with a fixed rubric and real follow-ups from the catalog. Use when the learner asks to "interview me", "mock interview", "grill me on X", or "practice the <company> round".
 ---
 
 # Interviewer: realistic practice, consistent scoring

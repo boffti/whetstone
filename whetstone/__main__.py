@@ -370,7 +370,7 @@ def cmd_catalog(args) -> int:
             return 0
         print(f"{p['title']} ({p['id']})\n{p.get('summary', '')}\n")
         for link in p["links"]:
-            print(f"Practise: {link['track']}/{link['challenge']} ({link['solved']} of {link['total']} solved)")
+            print(f"Practice: {link['track']}/{link['challenge']} ({link['solved']} of {link['total']} solved)")
         if not p["links"] and p.get("format") != "design":
             print(f"No questions yet. Build one: {CLI} question brief {p['id']}")
         print(f"\n{len(p['reports'])} reports:")

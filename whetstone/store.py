@@ -308,7 +308,7 @@ class Store:
 
     def facts(self) -> dict[str, dict]:
         """Per question: runs up to the solve, hints opened before it, how the first Submit
-        went, and the last day practised. Feeds the dashboard's numbers and edges."""
+        went, and the last day practiced. Feeds the dashboard's numbers and edges."""
         out: dict[str, dict] = {}
         queries = {
             "runs_to_solve": "SELECT r.challenge, COUNT(*) AS v FROM runs r JOIN solved s ON s.challenge = r.challenge "

@@ -380,7 +380,7 @@ function shortDate(iso) {
   return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** The last 28 days, one square per day, lit when you practised. */
+/** The last 28 days, one square per day, lit when you practiced. */
 function fillDays(box, activeDays) {
   const active = new Set(activeDays);
   const today = new Date();
@@ -390,7 +390,7 @@ function fillDays(box, activeDays) {
     days.push(el("span", { class: `day${active.has(iso) ? " on" : ""}${i === 0 ? " today" : ""}`, title: iso }));
   }
   box.replaceChildren(...days);
-  box.setAttribute("aria-label", `Practised on ${active.size} of the last 28 days`);
+  box.setAttribute("aria-label", `Practiced on ${active.size} of the last 28 days`);
 }
 
 /* ---------- Challenge ---------- */
@@ -1392,7 +1392,7 @@ async function loadCatalog() {
   const reports = state.catalog.reduce((n, p) => n + p.reports.length, 0);
   const asked = state.catalog.filter((p) => p.reports.length).length;
   $("#catalog-lede").textContent = state.catalog.length
-    ? `${plural(reports, "interview report")} from ${counts.size} companies, grouped into ${plural(asked, "problem")}. Open one to see what was asked, then practise it with a lesson, an editor and tests.`
+    ? `${plural(reports, "interview report")} from ${counts.size} companies, grouped into ${plural(asked, "problem")}. Open one to see what was asked, then practice it with a lesson, an editor and tests.`
     : "No catalog yet. Add content/catalog.yaml (see scripts/merge_catalog.py).";
 }
 
@@ -1450,14 +1450,14 @@ function problemStatus(p) {
 }
 
 /** One problem as a compact row: what it is, who asks it, how often, and two actions:
-    add it to your focus, and practise it (or ask your agent to build it). */
+    add it to your focus, and practice it (or ask your agent to build it). */
 function catalogRow(p, hits, max) {
   const rowCompanies = [...new Set(hits.map((r) => r.company))].filter((c) => c !== "Unknown");
   const rounds = [...new Set(hits.map((r) => r.round))].map((r) => ROUNDS[r] || r).join(", ");
   const focus = (state.profile && state.profile.focus) || [];
   const inFocus = focus.includes(p.id);
   const link = p.links[0];
-  const practise = link ? el("a", { class: "btn btn-quiet btn-small", href: `#/${link.track}/${link.challenge}` }, link.solved ? "Continue" : "Start")
+  const practice = link ? el("a", { class: "btn btn-quiet btn-small", href: `#/${link.track}/${link.challenge}` }, link.solved ? "Continue" : "Start")
     : requestButton(p.format === "design" ? "design" : "build", p.id);
   return el("div", { class: "row-item" },
     el("button", { type: "button", class: "row", title: rounds, onclick: () => openProblem(p.id) },
@@ -1471,7 +1471,7 @@ function catalogRow(p, hits, max) {
       el("button", { type: "button", class: `btn btn-text btn-small focus-toggle`, "aria-pressed": String(inFocus),
         title: inFocus ? "Remove from your focus" : "Add to your focus",
         onclick: () => saveInterests({ focus: inFocus ? focus.filter((x) => x !== p.id) : [...focus, p.id] }) }, inFocus ? "✓ In focus" : "+ Focus"),
-      practise));
+      practice));
 }
 
 function safeUrl(u) {
@@ -1582,7 +1582,7 @@ async function buildProblem(p) {
 // The filters live in the URL (#/paths?company=Stripe&module=ledger), so reload and Back keep them.
 const PATH_FILTERS = ["q", "foryou", "ready", "domain", "company", "module", "sort"];
 const PATH_SORTS = { match: "best match first", asked: "most asked first", ready: "readiest first", az: "A to Z" };
-const STOP_TEXT = { done: "solved", built: "ready to practise", none: "your agent prepares it" };
+const STOP_TEXT = { done: "solved", built: "ready to practice", none: "your agent prepares it" };
 
 function initPaths() {
   $("#p-search").addEventListener("input", (e) => setPathFilter({ q: e.target.value.trim() }));
@@ -1819,7 +1819,7 @@ function routeLegend(focus) {
     el("span", { text: "Pick a stop to see every path that uses its module." })];
 }
 
-/** What you can do with a path now: modules solved, ready to practise, and still to build. */
+/** What you can do with a path now: modules solved, ready to practice, and still to build. */
 function pathSummary(p, st) {
   const ready = st.built - st.done;
   const none = p.modules.length - st.built;
@@ -2133,7 +2133,7 @@ function edgeList(edges, game, d) {
     const bits = [];
     if (!e.built) bits.push("Not ready yet");
     else if (!e.state) bits.push("Not started");
-    else bits.push(`${capital(e.label)}, practised ${daysAgo(e.last_day)}`);
+    else bits.push(`${capital(e.label)}, practiced ${daysAgo(e.last_day)}`);
     const today = isoDay(new Date());
     const due = e.review_due ? el("span", { class: e.review_due <= today ? "due" : "", text: e.review_due <= today ? "Review due now" : `Review due ${shortDate(e.review_due)}` }) : null;
     const why = e.state ? `Best result: ${STATE_WORD[e.state]}. ${e.solved} of ${plural(e.questions, "question")} solved.` : "";
@@ -2158,7 +2158,7 @@ const STATE_WORD = { mastered: "mastered", clean: "solved on your own", assisted
 const GRIT_WORD = { 220: "Started", 1000: "Solved", 3000: "Solved on your own", 6000: "Mastered: solved cleanly, and again after a gap", 8000: "Kept sharp through a long review" };
 
 function edgeHelp(game) {
-  return el("p", { class: "home-sub section-note", text: "A skill dulls with time since you last practised it, and stays sharp longer once mastered."
+  return el("p", { class: "home-sub section-note", text: "A skill dulls with time since you last practiced it, and stays sharp longer once mastered."
     + (game ? " Grit is earned like a whetstone's: 220 started, 1000 solved, 3000 on your own, 6000 mastered, 8000 still sharp after a long review." : "") });
 }
 
@@ -2172,7 +2172,7 @@ function calendar(activeDays) {
     const iso = isoDay(d);
     cells.push(el("span", { class: `day${active.has(iso) ? " on" : ""}${iso === isoDay(today) ? " today" : ""}`, title: iso }));
   }
-  return el("div", { class: "calendar", role: "img", "aria-label": `Practised on ${activeDays.length} days in the last 26 weeks` }, cells);
+  return el("div", { class: "calendar", role: "img", "aria-label": `Practiced on ${activeDays.length} days in the last 26 weeks` }, cells);
 }
 
 function ledger(n) {

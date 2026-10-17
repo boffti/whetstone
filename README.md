@@ -33,11 +33,11 @@ Skills need three kinds of care, and Whetstone gives all three:
 
 - **Learn what you don't know.** Pick a system you want to understand, or a topic your next role will need. Your agent writes it as a series of steps, each one a little harder than the last, starting from what you already know.
 - **Relearn what you know.** The things you learned years ago, or now hand to your AI, fade quietly. Whetstone brings them back as fresh problems, so you find out what is still there.
-- **Keep your skills sharp.** Every idea you solve returns on a new surface after 3 days, 3 weeks and 3 months. Each skill shows how sharp it is today, and your agent suggests what to practise next.
+- **Keep your skills sharp.** Every idea you solve returns on a new surface after 3 days, 3 weeks and 3 months. Each skill shows how sharp it is today, and your agent suggests what to practice next.
 
 **Built around you.** You tell your agent about your work once: what you build, your stack, your experience and your goals, plus what your AI already does for you. Every question is then written for you. It's a scenario from your world, at the step you're ready for, explained the way you learn.
 
-**Real problems from real interviews.** The question bank is grounded in 621 interview reports from 93 companies, organised into 256 modules and 78 systems to build. The problems are practical: ledgers that must balance, retries that must not charge twice, rate limiters, caches and schedulers. There are no throwaway puzzles. That makes Whetstone good interview preparation too: filter by the companies you're aiming for, practise system design on a whiteboard, and ask your agent for a mock interview.
+**Real problems from real interviews.** The question bank is grounded in 621 interview reports from 93 companies, organised into 256 modules and 78 systems to build. The problems are practical: ledgers that must balance, retries that must not charge twice, rate limiters, caches and schedulers. There are no throwaway puzzles. That makes Whetstone good interview preparation too: filter by the companies you're aiming for, practice system design on a whiteboard, and ask your agent for a mock interview.
 
 **Your AI as reviewer and interviewer.** The same agent that writes your questions also reviews your solutions like a staff engineer, nudges you one step at a time when you're stuck without giving the answer away, pairs with you in the editor's margin, and runs mock interviews.
 
@@ -45,7 +45,7 @@ Skills need three kinds of care, and Whetstone gives all three:
 
 ### Same idea, written for you
 
-Three engineers ask their agents for the next question in the rate limiter module. Each one practises the same idea, a token bucket, in the world they work in:
+Three engineers ask their agents for the next question in the rate limiter module. Each one practices the same idea, a token bucket, in the world they work in:
 
 | The learner | The question their agent writes |
 |---|---|
@@ -56,9 +56,9 @@ Three engineers ask their agents for the next question in the rate limiter modul
 > [!NOTE]
 > Whetstone has no AI of its own. Your agent (Claude Code, Codex, Cursor or another) writes the questions on the subscription you already pay for, and Whetstone checks and grades them on your machine.
 
-## What you practise
+## What you practice
 
-| What your AI does for you | What you practise in Whetstone |
+| What your AI does for you | What you practice in Whetstone |
 |---|---|
 | Writes the code | **Build** questions: the problem comes first; the lesson opens after your first try |
 | Explains code you didn't write | **Predict** questions: read working code and say what it does before you run it |
@@ -107,8 +107,8 @@ Talk to your agent in plain words. It follows the skill files in `.claude/skills
 | You say | What happens |
 |---|---|
 | *"Set up my Whetstone profile."* | It drafts `my/profile.md` from what it knows about you and asks a few questions. With your consent it also reads your GitHub activity, including which code your AI co-wrote, because those skills fade first. |
-| *"Watch Whetstone."* | It waits in the background for the buttons you press in the app, and does the work while you keep practising. |
-| *"What should I practise next?"* | It reads your progress and offers two choices. Reviews that are due come first. |
+| *"Watch Whetstone."* | It waits in the background for the buttons you press in the app, and does the work while you keep practicing. |
+| *"What should I practice next?"* | It reads your progress and offers two choices. Reviews that are due come first. |
 | *"Make me a learning path to build a checkout system."* | It proposes an ordered list of modules, or finds a shipped path that fits, and creates it when you agree. |
 | *"Build the next question for the rate-limiter module."* | It writes the lesson, problem, hints, tests and wrong versions of the solution, then files the question once Whetstone's checks pass. |
 | *"I'm stuck on rate-limiter/02."* | It runs your code, then helps one step at a time: a question first, then the idea, then a hint. It doesn't write your solution unless you ask. |
@@ -195,7 +195,7 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/brand/icons/local.svg" width="44" height="44" align="left" alt=""><b>Private by design</b><br>Runs on your machine. No account, no telemetry, no API keys. Your work stays in a git-ignored folder.</td>
-<td width="50%" valign="top"><img src="docs/brand/icons/mastery.svg" width="44" height="44" align="left" alt=""><b>Ready for interviews, too</b><br>Filter by the companies you're aiming for, practise their real questions, and ask your agent for a mock interview.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/mastery.svg" width="44" height="44" align="left" alt=""><b>Ready for interviews, too</b><br>Filter by the companies you're aiming for, practice their real questions, and ask your agent for a mock interview.</td>
 </tr>
 </table>
 

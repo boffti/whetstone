@@ -37,7 +37,7 @@ def test_grit_is_earned_by_mastery_not_volume():
     assert dash.grit([row("m/01", "solved", "clean", "2026-10-01T10:00:00", mastered=True, clean_reviews=2)]) == 8000
 
 
-def test_edges_put_practised_skills_first_and_add_focus_modules():
+def test_edges_put_practiced_skills_first_and_add_focus_modules():
     rows = [row("caching/01", "solved", "clean", "2026-10-29T10:00:00"), row("queues/01", "attempted")]
     facts = {"caching/01": {"last_day": "2026-10-29"}, "queues/01": {"last_day": "2026-10-01"}}
     profile = {"focus": ["rate-limiter"], "ai_handles": ["concurrency code"]}

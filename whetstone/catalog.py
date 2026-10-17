@@ -36,7 +36,7 @@ def find_problem(settings: Settings, pid: str) -> dict | None:
 
 
 def catalog_links(problem: dict, tracks: dict[str, Track], solved: set[str]) -> list[dict]:
-    """Where a problem can be practised: its curated `track` link, then its own built track."""
+    """Where a problem can be practiced: its curated `track` link, then its own built track."""
     links = []
     for target in dict.fromkeys(filter(None, [problem.get("track"), slugify(problem["id"])])):
         track_id, _, cid = target.partition("/")

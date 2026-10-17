@@ -25,7 +25,7 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
    - Copy the quality of `examples/memoize/` (build) or `examples/retry-tests/` (tests).
 5. Go through the checklist below. Then run `bin/whetstone question add my/.staging/<slug> --module <module>`. Fix every problem it prints and run it again until it says "Added".
 6. Run `bin/whetstone question check <key>` twice more to catch flaky timing.
-7. Give the learner the link it printed, and one line on what the question practises. Never describe the solution.
+7. Give the learner the link it printed, and one line on what the question practices. Never describe the solution.
 
 ## Checklist before `question add`
 

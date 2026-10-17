@@ -12,7 +12,7 @@ from datetime import date, timedelta
 
 from .content import slugify
 
-# Sharpness: a skill's best state, dulled by time since it was last practised. The
+# Sharpness: a skill's best state, dulled by time since it was last practiced. The
 # half-life grows with mastery, as forgetting slows for well-learned skills.
 STATES = ("mastered", "clean", "assisted", "attempted")
 WEIGHT = {"mastered": 1.0, "clean": 0.8, "assisted": 0.5, "attempted": 0.25}
@@ -201,7 +201,7 @@ def records(rows: list[dict], facts: dict, days: list[str], target: int) -> dict
 
 
 def targets(profile: dict, catalog: list[dict], built: set[str]) -> list[dict]:
-    """For each company the learner cares about: what it asks, and how much is ready to practise."""
+    """For each company the learner cares about: what it asks, and how much is ready to practice."""
     out = []
     for company in profile.get("targets", []):
         asked = [p for p in catalog if any(r.get("company", "").lower() == company.lower() for r in p.get("reports", []))]

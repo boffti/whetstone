@@ -14,7 +14,7 @@ Experts learn less from worked examples and long explanations than novices do; f
 - In Whetstone: conceptual questions open on the problem. The lesson unlocks after the first test run. A worked example appears only as the last hint.
 - Sources: [Kalyuga et al. 2003](https://doi.org/10.1207/S15326985EP3801_4), [Sinha & Kapur 2021](https://doi.org/10.3102/00346543211019105)
 
-### 2. Practise what AI use skips
+### 2. Practice what AI use skips
 In a randomized trial, developers who learned a library with an AI assistant scored 17% lower on a later quiz, with the biggest gap in debugging. Those who asked conceptual questions, or read and questioned the generated code, kept their scores. Unrestricted GPT-4 raised practice scores but cut later exam scores; a tutor with guardrails avoided the harm.
 - Strength: moderate.
 - In Whetstone: every module mixes question types (see the menu below): predict, fix, review AI code, write the missing test, design and break. Building from a blank file is one type among several.
@@ -45,7 +45,7 @@ Next-step hints help now, but help later only with self-explanation. Learners mi
 - Sources: [Marwan et al. 2019](https://doi.org/10.1145/3291279.3339420), [Aleven et al. 2016](https://doi.org/10.1007/s40593-015-0089-1)
 
 ### 6. Mix topics from question 3 on
-Mixing problem types, so the learner must choose the approach, beats practising one type in a block. It helps most when types are easy to confuse. Learners rate it as less effective even when it works better.
+Mixing problem types, so the learner must choose the approach, beats practicing one type in a block. It helps most when types are easy to confuse. Learners rate it as less effective even when it works better.
 - Strength: moderate.
 - In Whetstone: questions 1–2 of a module stay on one idea. From question 3, reuse earlier modules' ideas without naming them. Title questions by scenario ("Throttle a webhook sender"), not by technique ("Token bucket"). Add pairs that look alike but need different solutions.
 - Source: [Brunmair & Richter 2019](https://doi.org/10.1037/bul0000209)
@@ -57,7 +57,7 @@ Feedback helps on average (d≈0.48). Over a third of feedback interventions mad
 - Sources: [Wisniewski et al. 2020](https://doi.org/10.3389/fpsyg.2019.03087), [Kluger & DeNisi 1996](https://doi.org/10.1037/0033-2909.119.2.254)
 
 ### 8. Predict, then explain
-Prompted self-explanation improves learning (g≈0.55). Overconfidence makes people stop practising too early. Confident errors that get corrected are remembered well.
+Prompted self-explanation improves learning (g≈0.55). Overconfidence makes people stop practicing too early. Confident errors that get corrected are remembered well.
 - Strength: moderate to strong.
 - In Whetstone: before a run, the learner predicts which tests pass. After a solve, they answer one question: "Why does your code handle *this* hidden case?" The app tracks prediction accuracy over time.
 - Sources: [Bisra et al. 2018](https://doi.org/10.1007/s10648-018-9434-x), [Deslauriers et al. 2019](https://doi.org/10.1073/pnas.1821936116)

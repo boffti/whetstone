@@ -13,7 +13,7 @@ In the app, the learner presses **Prepare**, **Prepare review variant** or **Pre
 2. Run `bin/whetstone watch` as a **background** process whose output wakes you. In Claude Code, use the Monitor tool. Without a background monitor, run `bin/whetstone watch --for 120` whenever the learner says "check".
    - While the watch runs, the app shows **Agent connected** in its top bar.
    - The watch first replays queued requests as `requested` events, then streams new events as they happen.
-3. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practising."
+3. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practicing."
 
 ## On a `requested` event
 
@@ -35,7 +35,7 @@ Each event has `id`, `kind`, `target` and `ask`. `ask` is the job in plain words
 3. Finish the request:
    - When it worked: `bin/whetstone request done <id> --result <question key>`. The app turns the button into **Start**. For an older `fill-path`, pass the first new key.
    - When it can't be done: `bin/whetstone request fail <id> --result "<one line: why, and what would fix it>"`. The app shows the reason.
-4. In the chat, give a short line: what you built and what it practises. Never describe the solution.
+4. In the chat, give a short line: what you built and what it practices. Never describe the solution.
 
 If several requests arrive while you are building, finish the current one first. Then run `bin/whetstone requests` and continue.
 

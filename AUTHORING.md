@@ -108,7 +108,7 @@ The core type. The starter is often a naive version that "works for one thread",
 - Every seeded defect is something an experienced reviewer would flag in a real pull request. No trick questions.
 
 ### tests
-Practises what most learners now hand to AI: writing the tests.
+Practices what most learners now hand to AI: writing the tests.
 - `subject.py` (listed in `support`) is correct code with a clear docstring contract. The learner reads it.
 - `starter.py` holds one weak happy-path test, which catches no mutant.
 - `solution.py` holds strong reference tests that pass on `subject.py` and catch every mutant.

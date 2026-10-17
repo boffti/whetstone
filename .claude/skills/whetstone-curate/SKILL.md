@@ -1,6 +1,6 @@
 ---
 name: whetstone-curate
-description: Choose what the learner practises next in Whetstone, schedule spaced reviews, or propose and create a learning path. Use when the learner asks "what should I practise?", "what's next?", "make me a learning path", or starts a Whetstone session without naming a question.
+description: Choose what the learner practices next in Whetstone, schedule spaced reviews, or propose and create a learning path. Use when the learner asks "what should I practice?", "what's next?", "make me a learning path", or starts a Whetstone session without naming a question.
 ---
 
 # Curate: choose the next practice

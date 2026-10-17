@@ -23,7 +23,7 @@ If they agree, collect evidence. Use whatever GitHub access you already have: th
 - **What they build:** `gh repo list --limit 100 --json name,description,primaryLanguage,pushedAt,isPrivate,isFork`. Weight repos pushed in the last 12 months, and skip forks.
 - **How much, and where:** `gh api graphql -f query='{ viewer { contributionsCollection { totalCommitContributions totalPullRequestReviewContributions commitContributionsByRepository(maxRepositories: 20) { repository { nameWithOwner primaryLanguage { name } } contributions { totalCount } } } } }'`
 - **What their AI writes:** count commits that carry an AI co-author trailer. In local repos, run `git log --since=6.months --author="<their email>" --format='%H %(trailers:key=Co-authored-by,valueonly)'`, and look for Claude, Copilot, Cursor, Codex and similar. Then look at which files those commits touch: tests, migrations, concurrency code, SQL, infrastructure. That shows what the learner no longer writes by hand. **This is the most useful signal you will find**, because those skills fade fastest.
-- **What is missing:** for example, repos with no tests, no retries or timeouts around network calls, or no concurrency control around shared state. These are gaps to practise, not judgements. Keep the wording neutral.
+- **What is missing:** for example, repos with no tests, no retries or timeouts around network calls, or no concurrency control around shared state. These are gaps to practice, not judgements. Keep the wording neutral.
 
 Read only the learner's own account and the folders they named. Read code only to classify it. Never copy code, secrets, customer names or internal hostnames into the profile.
 

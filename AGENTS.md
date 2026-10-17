@@ -23,7 +23,7 @@ Everything you build for the learner goes into `my/`; the CLI writes nowhere els
 
 ## First run: the learner's profile
 
-If `my/profile.md` does not exist, or has no YAML header, set it up before anything else with the [whetstone-profile skill](.claude/skills/whetstone-profile/SKILL.md). The skill builds the profile from what you already know about the learner, plus, with their consent, their GitHub activity and local repositories. Look especially for what their AI writes for them at work, for example from `Co-authored-by` commit trailers: those skills fade fastest, so Whetstone practises them first. Every question you write is tailored to this file, and the app's dashboard shows its header.
+If `my/profile.md` does not exist, or has no YAML header, set it up before anything else with the [whetstone-profile skill](.claude/skills/whetstone-profile/SKILL.md). The skill builds the profile from what you already know about the learner, plus, with their consent, their GitHub activity and local repositories. Look especially for what their AI writes for them at work, for example from `Co-authored-by` commit trailers: those skills fade fastest, so Whetstone practices them first. Every question you write is tailored to this file, and the app's dashboard shows its header.
 
 ## Commands
 
@@ -60,7 +60,7 @@ Each job has a skill file with the full steps. Claude Code loads them automatica
 |---|---|
 | "Watch Whetstone", or the learner presses Prepare in the app | [.claude/skills/whetstone-agent/SKILL.md](.claude/skills/whetstone-agent/SKILL.md) |
 | "Set up my Whetstone profile", "Refresh my profile from GitHub" | [.claude/skills/whetstone-profile/SKILL.md](.claude/skills/whetstone-profile/SKILL.md) |
-| "What should I practise?", "What's next?", "Make me a learning path" | [.claude/skills/whetstone-curate/SKILL.md](.claude/skills/whetstone-curate/SKILL.md) |
+| "What should I practice?", "What's next?", "Make me a learning path" | [.claude/skills/whetstone-curate/SKILL.md](.claude/skills/whetstone-curate/SKILL.md) |
 | "Build the next question for X", "Fill in my path", "Make a variant" | [.claude/skills/whetstone-author/SKILL.md](.claude/skills/whetstone-author/SKILL.md) |
 | "I'm stuck on X", "Why does this fail?" | [.claude/skills/whetstone-tutor/SKILL.md](.claude/skills/whetstone-tutor/SKILL.md) |
 | "Pair with me", "Watch me solve this", "Be my interviewer while I code" | [.claude/skills/whetstone-pair/SKILL.md](.claude/skills/whetstone-pair/SKILL.md) |
