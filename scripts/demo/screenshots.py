@@ -183,6 +183,11 @@ async def take(base: str, store, home: Path, theme: str) -> None:
         await page.wait_for_timeout(1500)
         await page.click(".tab-code")
         await code(page, FIRST_TRY)
+        # In a side pane each section of the problem opens over the editor.
+        await page.locator("#peek-row .chip").nth(1).click()
+        await page.wait_for_timeout(400)
+        await shot(page, "question-sections", 1000)
+        await page.keyboard.press("Escape")
         await page.click("#run-btn")
         await page.wait_for_selector("#results .guess-row")
         for row in await page.locator("#results .guess-row").all():
@@ -224,6 +229,16 @@ async def take(base: str, store, home: Path, theme: str) -> None:
         await page.wait_for_timeout(700)
         await shot(page, "path-detail", 1000)
         await page.keyboard.press("Escape")
+        # Pointing at a stop shows its module.
+        await page.click("#p-clear")
+        await page.wait_for_timeout(400)
+        stop = page.locator("#paths-list .path-tile").nth(1).locator("button.stop[data-s='built'], button.stop[data-focus]").first
+        await stop.scroll_into_view_if_needed()
+        await page.wait_for_timeout(300)
+        await stop.hover()
+        await page.wait_for_selector("#stop-tip:popover-open")
+        await page.wait_for_timeout(200)
+        await shot(page, "path-stop", 1000)
 
         # Catalog and Design
         await page.goto(f"{base}/#/catalog")

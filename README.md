@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare, the agent builds a caching question, the learner guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths and Design pages.">
+  <img src="docs/demo.gif" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare, the agent builds a caching question, the learner reads the problem's sections over the code, guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths page, where pointing at a stop shows its module, and the Design page.">
 </p>
 
 ## Why Whetstone
@@ -142,11 +142,11 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 <table>
 <tr>
 <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-guess-dark.png"><img src="docs/screenshots/question-guess.png" alt="Guess first: Before your first run, you guess which tests will pass. Predicting is how reading code sticks."></picture><br><b>Guess first.</b> Before your first run, you guess which tests will pass. Predicting is how reading code sticks.</td>
-<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-note-dark.png"><img src="docs/screenshots/question-note.png" alt="A note from your agent: A hidden test fails. Your agent, watching, asks one question at the line that matters."></picture><br><b>A note from your agent.</b> A hidden test fails. Your agent, watching, asks one question at the line that matters.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-sections-dark.png"><img src="docs/screenshots/question-sections.png" alt="The problem, beside your code: In a side pane, each section of the problem opens over the editor, so you read it without leaving your code."></picture><br><b>The problem, beside your code.</b> In a side pane, each section of the problem opens over the editor, so you read it without leaving your code.</td>
 </tr>
 <tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-note-dark.png"><img src="docs/screenshots/question-note.png" alt="A note from your agent: A hidden test fails. Your agent, watching, asks one question at the line that matters."></picture><br><b>A note from your agent.</b> A hidden test fails. Your agent, watching, asks one question at the line that matters.</td>
 <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-solved-dark.png"><img src="docs/screenshots/question-solved.png" alt="Solved: Every test passes. Whetstone asks you to explain one hidden case in your own words, and a variant comes back in 3 days."></picture><br><b>Solved.</b> Every test passes. Whetstone asks you to explain one hidden case in your own words, and a variant comes back in 3 days.</td>
-<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/catalog-dark.png"><img src="docs/screenshots/catalog.png" alt="Catalog: Every problem companies ask, with the reports behind it, most asked first."></picture><br><b>Catalog.</b> Every problem companies ask, with the reports behind it, most asked first.</td>
 </tr>
 </table>
 
@@ -154,12 +154,16 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 
 <p align="center"><sub>The same question at full screen: the module's questions, the problem, and the editor with test results.</sub></p>
 
-### Learning paths
+### Paths and the catalog
 
 <table>
 <tr>
 <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/paths-dark.png"><img src="docs/screenshots/paths.png" alt="Paths: 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module."></picture><br><b>Paths.</b> 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module.</td>
-<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/path-detail-dark.png"><img src="docs/screenshots/path-detail.png" alt="One path: The modules in order, with your focus marked. Prepare builds a missing module; one button builds them all."></picture><br><b>One path.</b> The modules in order, with your focus marked. Prepare builds a missing module; one button builds them all.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/path-detail-dark.png"><img src="docs/screenshots/path-detail.png" alt="One path: The modules in order, with the companies it is modelled on and your focus marked. Prepare all queues them in order, so you start the first while your agent prepares the rest."></picture><br><b>One path.</b> The modules in order, with the companies it is modelled on and your focus marked. Prepare all queues them in order, so you start the first while your agent prepares the rest.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/path-stop-dark.png"><img src="docs/screenshots/path-stop.png" alt="Every stop: Point at a stop to see the module, where you are with it, and what it covers."></picture><br><b>Every stop.</b> Point at a stop to see the module, where you are with it, and what it covers.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/catalog-dark.png"><img src="docs/screenshots/catalog.png" alt="Catalog: Every problem companies ask, with the reports behind it, most asked first."></picture><br><b>Catalog.</b> Every problem companies ask, with the reports behind it, most asked first.</td>
 </tr>
 </table>
 

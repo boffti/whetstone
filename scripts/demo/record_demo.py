@@ -86,6 +86,19 @@ class Session:
         await locator.click()
         await self.pause(wait)
 
+    async def hover(self, locator, wait: float = 1.4) -> None:
+        """Glide the pointer to the element and rest there, so its popover opens."""
+        await locator.scroll_into_view_if_needed()
+        box = await locator.bounding_box()
+        await self.page.evaluate(CURSOR)
+        await self.page.evaluate(
+            "([x, y]) => { document.getElementById('demo-cursor').style.transform = `translate(${x}px, ${y}px)`; }",
+            [box["x"] + box["width"] / 2 - 3, box["y"] + box["height"] / 2 - 2],
+        )
+        await self.pause(0.5)
+        await locator.hover()
+        await self.pause(wait)
+
     async def type_code(self, code: str, per_line: float = 0.09) -> None:
         lines = code.splitlines()
         for i in range(1, len(lines) + 1):
@@ -124,8 +137,11 @@ class Session:
         await self.pause(0.8)
         await self.click(start, wait=1.4)
 
-        # Read the problem, then write a first try in the editor.
+        # Read the problem, then write a first try in the editor. Its sections open over the code.
         await self.click(page.locator(".tab-code"), wait=0.6)
+        await self.hover(page.locator("#peek-row .chip").nth(0), wait=1.3)
+        await self.hover(page.locator("#peek-row .chip").nth(1), wait=1.6)
+        await self.hover(page.locator(".editor-wrap"), wait=0.3)
         await self.type_code(FIRST_TRY)
         await self.pause(0.6)
 
@@ -163,7 +179,8 @@ class Session:
             await self.click(page.locator(".explain").get_by_role("button", name="Save"), wait=1.6)
 
         # A quick look around: the paths, then system design.
-        await self.click(page.locator("#nav-paths"), wait=2.4)
+        await self.click(page.locator("#nav-paths"), wait=1.6)
+        await self.hover(page.locator("#paths-list .path-tile").first.locator("button.stop").nth(2), wait=1.8)
         await self.click(page.locator("#nav-design"), wait=2.6)
 
 
