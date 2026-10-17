@@ -9,11 +9,15 @@ services:
       - path: .env
         required: false
     volumes:
-      - ./content:/app/content   # shared catalog and paths; a git pull shows up live
-      - ./my:/app/my             # yours: profile, built questions, own paths, progress
+      - ./content:/app/content:ro   # shared catalog and paths; a git pull shows up live, the app never writes here
+      - ./my:/app/my                # yours: profile, built questions, own paths, progress
     depends_on:
       - redis
     restart: unless-stopped
+    # Submitted code runs in this container: cap what a runaway solution can take.
+    init: true          # a real PID 1 that reaps what a killed test run leaves behind
+    mem_limit: 2g
+    pids_limit: 256     # processes and threads together; enough for the threaded questions
 
   redis:
     image: redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499

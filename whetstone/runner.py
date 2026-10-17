@@ -7,6 +7,7 @@ import difflib
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -78,6 +79,12 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
     return _report(tests, output, duration, include_hidden, challenge, settings)
 
 
+# What the test run may see of the app's environment. Nothing else: the learner's code and the
+# agent-written tests run here, and the app's own environment holds ANTHROPIC_API_KEY and the like.
+CHILD_ENV = frozenset({"PATH", "HOME", "LANG", "TMPDIR", "VIRTUAL_ENV", "NO_COLOR", "SYSTEMROOT", "TEMP", "TMP"})
+CHILD_ENV_PREFIXES = ("LC_", "PYTHON")
+
+
 def _pytest(files: dict[str, str | Path], target: str, timeout: int, settings: Settings) -> tuple[list[TestResult] | None, str, float]:
     """Run pytest on `target` in a throwaway folder holding `files` (name -> text, or a file to
     copy). Returns (tests, output, seconds); tests is None when the run timed out."""
@@ -107,16 +114,33 @@ def _pytest(files: dict[str, str | Path], target: str, timeout: int, settings: S
             str(tmp),
             f"--junitxml={junit}",
         ]
-        env = {k: v for k, v in os.environ.items() if k not in ("FORCE_COLOR", "PY_COLORS")}
+        env = {k: v for k, v in os.environ.items() if k in CHILD_ENV or k.startswith(CHILD_ENV_PREFIXES)}
         env |= {"PYTHONPATH": str(tmp), "PYTHONDONTWRITEBYTECODE": "1", "REDIS_URL": settings.redis_url, "NO_COLOR": "1"}
         started = time.monotonic()
+        # Its own session (process group), so a timeout can take down whatever the tests started too.
+        proc = subprocess.Popen(cmd, cwd=tmp, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
         try:
-            proc = subprocess.run(cmd, cwd=tmp, env=env, capture_output=True, text=True, timeout=timeout)
-        except subprocess.TimeoutExpired as exc:
-            out = (exc.stdout or b"").decode() if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            return None, _tail(out), time.monotonic() - started
-        output = _tail(proc.stdout + ("\n" + proc.stderr if proc.stderr.strip() else ""))
+            out, err = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            out, err = _kill_group(proc)
+            return None, _tail(out + ("\n" + err if err.strip() else "")), time.monotonic() - started
+        except BaseException:  # the app is going down (Ctrl-C): don't leave the run behind
+            _kill_group(proc)
+            raise
+        output = _tail(out + ("\n" + err if err.strip() else ""))
         return (_parse_junit(junit) if junit.exists() else []), output, time.monotonic() - started
+
+
+def _kill_group(proc: subprocess.Popen) -> tuple[str, str]:
+    """Kill the run and everything it started, then collect what it printed."""
+    try:
+        if hasattr(os, "killpg"):
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:  # Windows has no process groups to speak of
+            proc.kill()
+    except ProcessLookupError:
+        pass
+    return proc.communicate()
 
 
 def _timeout(timeout: int, duration: float, output: str) -> RunReport:
