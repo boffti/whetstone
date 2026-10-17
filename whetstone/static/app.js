@@ -1730,8 +1730,8 @@ function renderPaths() {
   $("#paths-count").textContent = rows.length
     ? `${filtering ? "Showing " : ""}${plural(rows.length, yours.length ? "more path" : "path")}, ${PATH_SORTS[sort]}.`
     : "";
-  $("#paths-legend").replaceChildren(...(rows.length ? routeLegend(mine.focus.size > 0) : []));
-  $("#paths-list").replaceChildren(...(rows.length ? rows.map(({ p, st, match }) => el("li", {}, pathTile(p, st, match))) : [el("li", { class: "agent-ask" },
+  $("#paths-legend").replaceChildren(...(rows.length || yours.length ? routeLegend(mine.focus.size > 0) : []));
+  $("#paths-list").replaceChildren(...(rows.length ? rows.map(({ p, st }) => el("li", {}, pathTile(p, st))) : [el("li", { class: "agent-ask" },
     el("p", { class: "note", text: state.paths.length ? "Nothing matches. Clear a filter, or ask your agent for a new path:" : "No learning paths yet. Open this folder in Claude Code, Codex, Cursor or another coding agent and ask:" }),
     el("p", { class: "ask-line" }, el("code", { text: "Make me a Whetstone learning path to build …" })))]));
 }
@@ -1777,32 +1777,21 @@ function pathSummary(p, st) {
   return parts.length ? `Modules: ${parts.join(", ")}` : "No modules yet";
 }
 
-function matchLine(match) {
-  const bits = [];
-  if (match.focus.length === 1) bits.push(`Uses ${match.focus[0].title}, in your focus.`);
-  else if (match.focus.length) bits.push(`Uses ${match.focus.length} of your focus modules.`);
-  if (match.targets.length) bits.push(`Includes ${match.targets.join(" and ")}, ${match.targets.length > 1 ? "companies" : "a company"} you target.`);
-  return bits.length ? el("p", { class: "path-match", text: bits.join(" ") }) : null;
-}
-
 function yourPathRow(p) {
-  const st = pathStats(p);
   const m = p.modules.find((x) => !x.built || x.solved < x.questions);
   const action = !m ? el("button", { type: "button", class: "btn btn-quiet", onclick: () => openPath(p.id) }, "Review")
     : m.built ? el("a", { class: "btn btn-primary", href: `#/${m.module}/${m.next}` }, m.solved ? `Continue: ${m.title}` : `Start: ${m.title}`)
       : requestButton("build", m.module, `Prepare: ${m.title}`);
   return el("li", { class: "home-row" },
     el("button", { type: "button", class: "home-text link-like", onclick: () => openPath(p.id) },
-      el("span", { class: "home-title", text: p.title }),
-      routeMap(p, false),
-      el("span", { class: "home-sub", text: `${pathSummary(p, st)}.` })),
+      el("span", { class: "home-title" }, domainTile(p.domain, true), p.title),
+      routeMap(p, false)),
     action);
 }
 
 /** A path on the grid. The title button opens it, and its click area covers the card; the stops
     sit above that area so each one can filter by its module. */
-function pathTile(p, st, match) {
-  const cos = p.companies.length > 3 ? `${p.companies.slice(0, 3).join(", ")} and ${p.companies.length - 3} more` : p.companies.join(", ");
+function pathTile(p, st) {
   return el("article", { class: "card path-tile", "data-path": p.id },
     el("div", { class: "tile-head" }, domainTile(p.domain),
       el("h3", { class: "card-title" },
@@ -1810,9 +1799,8 @@ function pathTile(p, st, match) {
         p.mine ? el("span", { class: "tag-mine", text: "Yours" }) : null),
       companyStack(p.companies, 4)),
     p.goal ? el("p", { class: "card-summary path-goal-short", text: p.goal }) : null,
-    matchLine(match),
     routeMap(p, true),
-    el("p", { class: "card-foot" }, el("span", { text: pathSummary(p, st) }), el("span", { class: "card-rounds", text: plural(st.reports, "report") })));
+    el("p", { class: "card-foot" }, el("span", { class: "card-rounds", text: plural(st.reports, "interview report") })));
 }
 
 function openPath(id) {

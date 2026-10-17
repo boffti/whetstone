@@ -649,9 +649,7 @@ a.btn { display: inline-block; text-decoration: none; }
   margin: 0.15rem 0 0;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
 }
-.path-match { margin: 0; display: flex; gap: 0.45rem; align-items: baseline; font-size: var(--step--1); color: var(--ink-soft); }
-.path-match::before { content: ""; flex: none; width: 0.35rem; height: 0.35rem; border-radius: 50%; background: var(--whet); transform: translateY(-0.1rem); }
-.path-tile .route-map { margin-top: auto; padding-top: 0.5rem; }  /* routes and feet line up across a row */
+.path-tile .route-map { margin-top: auto; padding-top: 0.2rem; }  /* routes and feet line up across a row */
 .path-tile .card-foot { margin: 0.2rem 0 0; color: var(--ink-soft); }
 
 /* The route: one stop per module, on a line. Filled = solved, blue ring = ready, small grey ring = not built yet. */
