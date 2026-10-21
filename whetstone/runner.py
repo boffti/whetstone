@@ -47,8 +47,8 @@ class RunReport:
         return asdict(self)
 
 
-def _label(name: str) -> str:
-    if name.startswith("tests.") or name.endswith(".py"):
+def _label(name: str, collect: bool = False) -> str:
+    if collect or name.startswith("tests.") or name.endswith(".py"):
         return f"{name.split('.')[-1] if name.startswith('tests.') else name} could not load"
     base = name.split("[")[0]
     if base.startswith("test_"):
@@ -60,8 +60,9 @@ def _tail(text: str, limit: int = 6000) -> str:
     return text if len(text) <= limit else "...\n" + text[-limit:]
 
 
-def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) -> RunReport:
-    """mode = 'run' (visible tests only) or 'submit' (all tests)."""
+def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings, replace: dict[str, str | Path] | None = None) -> RunReport:
+    """mode = 'run' (visible tests only) or 'submit' (all tests). `replace` swaps support files
+    by name, for a mutant of the subject under study."""
     if challenge.is_whiteboard:
         return check_whiteboard(code)
     if challenge.kind == "tests":
@@ -69,7 +70,7 @@ def run_tests(challenge: Challenge, code: str, mode: str, settings: Settings) ->
     include_hidden = mode == "submit"
     timeout = int(challenge.timeout or settings.run_timeout)
     files: dict[str, str | Path] = {"solution.py": code}
-    files |= {name: challenge.path / name for name in challenge.support}
+    files |= {name: challenge.path / name for name in challenge.support} | (replace or {})
     files |= {f"tests/{f.name}": f for f in challenge.test_files(include_hidden)}
     tests, output, duration = _pytest(files, "tests", timeout, settings)
     if tests is None:
@@ -155,12 +156,17 @@ def _timeout(timeout: int, duration: float, output: str) -> RunReport:
 def _report(
     tests: list[TestResult], output: str, duration: float, include_hidden: bool, challenge: Challenge, settings: Settings
 ) -> RunReport:
+    # A hidden failure reports the author's message, never the test body or the values it compared
+    # (docs/PEDAGOGY.md, rule 7): pytest's rewritten `assert 99.8 == 100.2` is the answer key.
+    for t in tests:
+        if t.hidden:
+            t.message, t.details = _author_message(t.message), ""
     report = RunReport(status="failed", summary="", duration=duration, tests=tests, output=output)
     report.total = len(tests)
     report.passed = sum(t.outcome == "passed" for t in tests)
     report.skipped = sum(t.outcome == "skipped" for t in tests)
     report.failed = sum(t.outcome in ("failed", "error") for t in tests)
-    collection_error = any(t.outcome == "error" and (t.name.startswith(("tests.", "test_yours")) or t.name.endswith(".py")) for t in tests)
+    collection_error = any(t.outcome == "error" and t.message == COLLECT_FAILURE for t in tests)
 
     if report.total == 0 or collection_error:
         report.status = "error"
@@ -178,7 +184,15 @@ def _report(
     else:
         report.status = "failed"
         report.summary = f"{report.passed} of {report.total} tests passed."
+    if report.status != "error" and any(t.hidden and t.outcome != "passed" for t in tests):
+        report.output = ""  # the raw pytest output holds the same tracebacks
     return report
+
+
+def _author_message(message: str) -> str:
+    """The text an assertion was given, without pytest's rewritten `assert a == b` lines."""
+    message = re.split(r"(?:^|\n)assert\b", message, maxsplit=1)[0].strip()
+    return message.removeprefix("AssertionError:").strip()
 
 
 # ---------- "tests" questions: the learner writes the tests ----------
@@ -486,6 +500,9 @@ def grade_design(challenge: Challenge, payload: object) -> tuple[dict, list[str]
     return {"points": points, "summary": summary, "covered": covered, "total": len(points), "status": status}, problems
 
 
+COLLECT_FAILURE = "collection failure"  # pytest's message when a test file could not load (its name is the bare module)
+
+
 def _parse_junit(path: Path) -> list[TestResult]:
     results: list[TestResult] = []
     root = ET.parse(path).getroot()
@@ -500,15 +517,16 @@ def _parse_junit(path: Path) -> list[TestResult]:
                 message = (node.get("message") or "").strip()
                 details = (node.text or "").strip()
                 break
+        collect = message == COLLECT_FAILURE
         results.append(
             TestResult(
                 name=name,
-                label=_label(name),
+                label=_label(name, collect),
                 outcome=outcome,
                 duration=float(case.get("time", 0) or 0),
                 message=message[:500],
                 details=_tail(details, 4000),
-                hidden="hidden" in classname,
+                hidden="hidden" in classname or (collect and "hidden" in name),
             )
         )
     return results
@@ -527,7 +545,7 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
     test, and the starter fails at least one test. `strict` (used when a question is added)
     also enforces the current format; older questions only get notes."""
     problems: list[str] = []
-    notes: list[str] = []
+    notes: list[str] = _lint(challenge)
     for problem in _format_problems(challenge):
         (problems if strict else notes).append(problem)
     if challenge.kind not in QUESTION_TYPES:
@@ -612,22 +630,59 @@ def _validate_whiteboard(challenge: Challenge, problems: list[str], notes: list[
 
 
 # Questions whose tests grade the learner's code. Their tests must catch every mutant: a wrong
-# version of the reference, one per misconception. (For "tests" questions the mutants are what
-# the learner's tests must catch, so the reference solution check already covers them.)
-MUTATION_GATED = ("build", "fix", "design")
+# version of the reference, one per misconception. For "predict" a mutant is a wrong version of
+# the subject instead, and the reference ANSWERS must fail on it. (For "tests" questions the
+# mutants are what the learner's tests must catch, so the reference solution check already covers them.)
+MUTATION_GATED = ("build", "fix", "design", "predict")
 
 
 def _mutation_gate(challenge: Challenge, settings: Settings, strict: bool) -> tuple[list[str], list[str]]:
     mutants = challenge.mutants()
+    predict = challenge.kind == "predict"
     if len(mutants) < 2:
-        gap = "add 2 or more mutants/*.py: wrong versions of the solution, one per misconception, that the tests must catch"
+        what = f"wrong versions of {challenge.support[0]} that change a prediction" if predict else "wrong versions of the solution"
+        gap = f"add 2 or more mutants/*.py: {what}, one per misconception, that the tests must catch"
         return ([gap], []) if strict else ([], [gap])
-    survivors = [m for m in mutants if run_tests(challenge, m.read_text(encoding="utf-8"), "submit", settings).status == "passed"]
+
+    def status(m: Path) -> str:
+        if predict:
+            return run_tests(challenge, challenge.read("solution.py"), "submit", settings, {challenge.support[0]: m}).status
+        return run_tests(challenge, m.read_text(encoding="utf-8"), "submit", settings).status
+
+    outcomes = {m: status(m) for m in mutants}
+    survivors = [m for m, s in outcomes.items() if s == "passed"]
+    broken = [m for m, s in outcomes.items() if s == "error"] if predict else []  # an answer key is not a subject
     found = [
-        f"mutants/{m.name} survives: no test catches '{misconception(m)}'. Add a hidden test for it, or fix the mutant." for m in survivors
+        f"mutants/{m.name} survives: the reference ANSWERS still pass on it, so no prediction tests '{misconception(m)}'. "
+        "Change the mutant, or add a prediction it changes."
+        if predict
+        else f"mutants/{m.name} survives: no test catches '{misconception(m)}'. Add a hidden test for it, or fix the mutant."
+        for m in survivors
     ]
-    note = f"mutants: the tests catch {len(mutants) - len(survivors)} of {len(mutants)}"
+    found += [
+        f"mutants/{m.name} does not run in place of {challenge.support[0]}: a predict mutant is a wrong version of that file"
+        for m in broken
+    ]
+    note = f"mutants: the tests catch {len(mutants) - len(survivors) - len(broken)} of {len(mutants)}"
     return (found, [note]) if strict else ([], [note, *found])
+
+
+# Tags that name the technique give away the approach; a tag names the domain (AUTHORING.md).
+TECHNIQUE_TAGS = frozenset({"ring-buffer", "numerical-drift", "state-machines", "token-bucket", "lru", "bisect", "double-check", "fencing"})
+LESSON_WORDS = 500
+
+
+def _lint(challenge: Challenge) -> list[str]:
+    """Warnings, never refusals: what AUTHORING.md asks for but a question can live without."""
+    notes = []
+    if (challenge.path / "lesson.md").exists():
+        words = len(challenge.read("lesson.md").split())
+        if words > LESSON_WORDS:
+            notes.append(f"lesson.md has {words} words; keep it under {LESSON_WORDS}, the learner reads it between attempts")
+    technique = [t for t in challenge.tags if t in TECHNIQUE_TAGS]
+    if technique:
+        notes.append(f"tags name the technique ({', '.join(technique)}), which gives the approach away; tag the domain instead")
+    return notes
 
 
 def _format_problems(challenge: Challenge) -> list[str]:

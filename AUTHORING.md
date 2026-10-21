@@ -32,7 +32,7 @@ my/
         tests/
           test_visible.py          # shown to the learner; run by "Run tests"
           test_hidden.py           # not shown; run by "Submit"
-          conftest.py              # optional shared fixtures (for example, Redis)
+          conftest.py              # optional shared fixtures (for example, Redis); predict: the guard against importing the subject
 ```
 
 The learner's code is saved as `solution.py` in a temporary folder, next to the support files and the `tests/` folder. Tests import from it: `from solution import Thing`.
@@ -54,6 +54,7 @@ summary: One sentence about what the learner does.
 ```
 
 - **Titles name the scenario** ("Throttle a webhook sender"), not the technique ("Token bucket"). A technique in the title gives away the approach.
+- **Tags name the domain** (`payments`, `ledger`, `concurrency`), not the technique: `question add` warns about `token-bucket`, `lru`, `ring-buffer` and the like.
 - **`lesson: after-run`** is the default for `build` and `fix`. Use `lesson: first` for `predict` questions, and for a first contact with truly unfamiliar ideas.
 - **`variant_of`** marks a question that re-tests the same idea as an earlier one, with a new surface (different domain, names, data). Always point at the original question, even for a variant of a variant. Variants are how spaced review works: `bin/whetstone progress` shows when each review is due.
 
@@ -86,7 +87,8 @@ The core type. The starter is often a naive version that "works for one thread",
   ```
 - `solution.py` holds the right values. The **hidden tests compute the expected values by running `subject.py`**, so the answers are never written into the tests.
 - The visible test checks only the format: every key is present, and no value is `...`.
-- Forbid the shortcut: a hidden test checks that `solution.py` does not import `subject`.
+- The scaffold's `tests/conftest.py` forbids the shortcut: it imports `solution.py` with every support module blocked, so `import subject` fails on Run and on Submit; keep it as it is. Hidden tests compare with `ok = ANSWERS[k] == RESULT[k]` and then `assert ok, msg`, so a failure shows the message and never the values, and one hidden test checks that every value is a plain `int`, `float`, `str`, `bool` or `Decimal` by `type()`.
+- `mutants/` holds 2 to 4 wrong versions of the first support file (`subject.py`), one per misconception. `question add` runs the reference `ANSWERS` against each one and refuses the question when a mutant changes no prediction.
 - Use 3 to 6 predictions. At least one targets a misconception, for example "read-then-write is atomic".
 
 ### fix
@@ -155,7 +157,7 @@ A system design interview, answered on a scratchpad the learner's agent can watc
 
 ## mutants/
 
-Every `build`, `fix`, `design` and `tests` question has 2 to 5 mutants. A `whiteboard` question has a rubric instead. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. Its docstring's first line names it:
+Every `build`, `fix`, `design`, `tests` and `predict` question has 2 to 5 mutants. A `whiteboard` question has a rubric instead. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. For `predict` it is a wrong copy of `subject.py` instead, and the gate passes when the reference `ANSWERS` come out wrong on it. Its docstring's first line names it:
 
 ```python
 """Misconception: a dict in the class body belongs to each object."""
@@ -194,7 +196,7 @@ Write in Simplified Technical English most of the time: short sentences, active 
 
 Add an `## Analogy` section after "The idea" only if the learner's profile asks for analogies.
 
-Length: 250 to 500 words.
+Length: 250 to 500 words. `question add` warns above 500.
 
 ## problem.md
 
@@ -276,4 +278,4 @@ A question passes when:
 - the reference solution passes all tests;
 - the starter fails at least one.
 
-`question add` also enforces the current format: exactly four hints, and 2 or more mutants that the tests all catch. `question check` only reports these gaps in older questions. Run `question check` three times to catch flaky timing.
+`question add` also enforces the current format: exactly four hints, and 2 or more mutants that the tests all catch. `question check` only reports these gaps in older questions. Both warn, without refusing, about a lesson over 500 words and a tag that names a technique. Run `question check` three times to catch flaky timing.

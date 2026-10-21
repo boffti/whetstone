@@ -777,6 +777,7 @@ async function revealSolution() {
   const s = await api(`/api/challenges/${track}/${id}/solution`, { method: "POST", body: { give_up: !open } });
   state.challenge.solution_open = true;
   $("#solution-gate").hidden = true;
+  if (s.lesson_html) { state.challenge.lesson_html = s.lesson_html; renderLesson(); }  // predict: the misconceptions open
   if (s.html) {
     const doc = $("#solution-doc");
     doc.innerHTML = s.html;
@@ -928,6 +929,7 @@ async function run(mode, guess) {
     state.hintReady = true;
     updateHintButton();
     if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
+    if (report.lesson_html) { state.challenge.lesson_html = report.lesson_html; renderLesson(); }  // predict: the misconceptions open
     if (report.first_solve) { state.challenge.solution_open = true; updateSolutionGate(); }
     await loadTracks().then(renderRail);
   } catch (err) {

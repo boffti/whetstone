@@ -90,19 +90,73 @@ _PREDICT = {
         "    missing = [k for k in KEYS if k not in ANSWERS or ANSWERS[k] is ...]\n"
         '    assert not missing, "Fill in every prediction: " + ", ".join(missing) + "."\n'
     ),
-    "tests/test_hidden.py": (
+    "tests/conftest.py": (
+        '"""Predict by reading: solution.py may not import the code it predicts, on Run or on Submit."""\n\n'
+        "import sys\n"
         "from pathlib import Path\n\n"
-        "import solution\n"
+        "import pytest\n\n"
+        "# Every module next to solution.py is code under study (the question's support files).\n"
+        'SUBJECTS = [p.stem for p in Path(__file__).resolve().parent.parent.glob("*.py") if p.stem != "solution"]\n\n\n'
+        '@pytest.fixture(autouse=True, scope="session")\n'
+        "def predictions_come_from_reading():\n"
+        '    """Import solution.py again with the subjects blocked: None in sys.modules makes `import subject` fail."""\n'
+        "    kept = {name: sys.modules.get(name) for name in SUBJECTS}\n"
+        "    sys.modules.update(dict.fromkeys(SUBJECTS))\n"
+        '    sys.modules.pop("solution", None)\n'
+        "    try:\n"
+        "        import solution\n\n"
+        '        getattr(solution, "ANSWERS", None)  # a module __getattr__ that runs the code counts too\n'
+        "    except ImportError:\n"
+        '        pytest.fail("solution.py runs the code it should predict. Read it, write the value, and leave the import out.", pytrace=False)\n'
+        "    finally:\n"
+        "        for name, module in kept.items():\n"
+        "            if module is None:\n"
+        "                sys.modules.pop(name, None)\n"
+        "            else:\n"
+        "                sys.modules[name] = module\n"
+    ),
+    "tests/test_hidden.py": (
+        '"""The expected values come from running subject.py here, never from a copy of the answers."""\n\n'
+        "from decimal import Decimal\n\n"
         "from solution import ANSWERS\n"
-        "from subject import take\n\n\n"
-        "def test_solution_does_not_import_subject():\n"
-        '    assert "subject" not in Path(solution.__file__).read_text(), "Predict it by reading the code, not by running it."\n\n\n'
-        "def test_second_take_from_one_token():\n"
+        "from subject import take\n\n"
+        "PLAIN = (int, float, str, bool, Decimal)\n\n\n"
+        "def _result() -> dict:\n"
         '    bucket = {"k": 1}\n'
         '    take(bucket, "k")\n'
-        '    assert ANSWERS["second_take_from_one_token"] == take(bucket, "k"), "What is left after the first take spends the only token?"\n\n\n'
+        '    return {"second_take_from_one_token": take(bucket, "k"), "take_from_a_missing_key": take({}, "k")}\n\n\n'
+        "RESULT = _result()\n\n\n"
+        "def test_predictions_are_plain_values():\n"
+        "    # Exact types: a value with its own __eq__ would agree with anything.\n"
+        '    assert type(ANSWERS) is dict, "Keep ANSWERS a plain dict."\n'
+        "    odd = [k for k, v in ANSWERS.items() if type(v) not in PLAIN]\n"
+        '    assert not odd, "Each prediction is a plain int, float, str, bool or Decimal: " + ", ".join(odd) + "."\n\n\n'
+        "# `ok = a == b; assert ok` so a failure shows the message and never the values.\n"
+        "def test_second_take_from_one_token():\n"
+        '    ok = ANSWERS["second_take_from_one_token"] == RESULT["second_take_from_one_token"]\n'
+        '    assert ok, "What is left after the first take spends the only token?"\n\n\n'
         "def test_take_from_a_missing_key():\n"
-        '    assert ANSWERS["take_from_a_missing_key"] == take({}, "k"), "What does .get(key, 0) give for a key that was never added?"\n'
+        '    ok = ANSWERS["take_from_a_missing_key"] == RESULT["take_from_a_missing_key"]\n'
+        '    assert ok, "What does .get(key, 0) give for a key that was never added?"\n'
+    ),
+    # A predict mutant is a wrong subject.py; the reference ANSWERS must come out wrong on it.
+    "mutants/01-a-missing-key-is-full.py": (
+        '"""Misconception: a key that was never added starts with enough tokens."""\n\n\n'
+        "def take(bucket: dict, key: str, n: int = 1) -> bool:\n"
+        "    left = bucket.get(key, n)\n"
+        "    if left < n:\n"
+        "        return False\n"
+        "    bucket[key] = left - n\n"
+        "    return True\n"
+    ),
+    "mutants/02-a-take-spends-nothing.py": (
+        '"""Misconception: take only checks the balance; nothing spends it."""\n\n\n'
+        "def take(bucket: dict, key: str, n: int = 1) -> bool:\n"
+        "    left = bucket.get(key, 0)\n"
+        "    if left < n:\n"
+        "        return False\n"
+        "    bucket[key] = left\n"
+        "    return True\n"
     ),
 }
 

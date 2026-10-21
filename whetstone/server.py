@@ -246,7 +246,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "minutes": c.minutes,
             "tags": c.tags,
             "requires": c.requires,
-            "lesson_html": render_md(c.read("lesson.md")),
+            "lesson_html": lesson_html(c, store),
             "problem_html": render_md(c.read("problem.md")),
             "hint_count": len(c.hints()),
             "visible_tests": visible_test_names(c),
@@ -293,7 +293,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             store.record_event(c.key, "solution", {"gave_up": body.give_up})
         store.record_reveal(c.key, "solution")
         code = c.read(c.solution_file)
-        return {"code": code, "html": render_md(code)} if c.is_whiteboard else {"code": code}
+        if c.is_whiteboard:
+            return {"code": code, "html": render_md(code)}
+        return {"code": code, "lesson_html": lesson_html(c, store)} if c.kind == "predict" else {"code": code}
 
     @app.get("/api/challenges/{track}/{cid}/notes")
     def notes(track: str, cid: str, after: int = 0):
@@ -424,7 +426,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "predicted": {k: prediction[k] for k in ("correct", "total")} if prediction else None,
             },
         )
-        return {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None, "prediction": prediction}
+        out = {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None, "prediction": prediction}
+        if c.kind == "predict" and mode == "submit":
+            out["lesson_html"] = lesson_html(c, store)  # the first Submit opens the misconceptions
+        return out
 
     @app.post("/api/challenges/{track}/{cid}/explanation")
     def explain(track: str, cid: str, body: ExplainBody, request: Request):
@@ -564,6 +569,18 @@ def _status(row: dict) -> str:
     if row["solve"] == "assisted":
         return "assisted"
     return row["status"]
+
+
+def lesson_html(c, store: Store) -> str:
+    """The lesson. A predict lesson's misconceptions name what the hidden predictions test, so
+    that section waits for the first Submit or a reveal; the rest reads before the attempt."""
+    text = c.read("lesson.md")
+    opened = c.key in store.solved_keys() or "solution" in store.reveals(c.key) or "first_submit" in store.facts().get(c.key, {})
+    if c.kind == "predict" and not opened:
+        text = re.sub(
+            r"(^##[ \t]+Misconceptions[ \t]*\n).*?(?=^##[ \t]|\Z)", r"\1\n*Opens after your first Submit.*\n\n", text, flags=re.M | re.S
+        )
+    return render_md(text)
 
 
 def visible_test_names(c) -> list[dict]:

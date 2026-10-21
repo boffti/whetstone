@@ -233,3 +233,29 @@ def test_learner_edits_interests_and_keeps_their_profile_text(tmp_path):
     assert (saved["name"], saved["focus"], saved["targets"], saved["paths"]) == ("Sam", ["rate-limiter"], ["Stripe"], ["staff"])
     assert "Writes Go at work." in (mine / "profile.md").read_text(), "the free text below the header is kept"
     assert load_profile(mine / "profile.md")["focus"] == ["rate-limiter"]
+
+
+def test_a_predict_lesson_keeps_its_misconceptions_until_the_first_submit(tmp_path):
+    """The misconceptions name what the hidden predictions test, so they open with the first Submit (or a reveal)."""
+    from fastapi.testclient import TestClient
+
+    from whetstone.__main__ import scaffold
+
+    q = tmp_path / "my/tracks/m/01-q"
+    for name, text in scaffold("predict").items():
+        (q / name).parent.mkdir(parents=True, exist_ok=True)
+        (q / name).write_text(text)
+    (q / "lesson.md").write_text(
+        "## The idea\n\nRead first.\n\n## Misconceptions\n\n- a missing key has tokens\n\n## Interview angle\n\nNext.\n"
+    )
+    (tmp_path / "content").mkdir()
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 60)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+
+    html = client.get("/api/challenges/m/01-q").json()["lesson_html"]
+    assert "a missing key has tokens" not in html and "Opens after your first Submit" in html and "Next." in html
+    starter = (q / "starter.py").read_text()
+    assert "lesson_html" not in client.post("/api/challenges/m/01-q/run", json={"code": starter, "mode": "run"}).json()
+    r = client.post("/api/challenges/m/01-q/run", json={"code": starter, "mode": "submit"}).json()
+    assert r["status"] == "failed" and "a missing key has tokens" in r["lesson_html"], "the first Submit opens them, right or wrong"
+    assert "a missing key has tokens" in client.get("/api/challenges/m/01-q").json()["lesson_html"]
