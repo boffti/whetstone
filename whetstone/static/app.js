@@ -369,30 +369,12 @@ function renderRail() {
 function capital(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 /** The rail's "Last 4 weeks" calendar. */
-async function loadStats() {
-  const s = await api("/api/stats");
-  fillDays($("#days"), s.active_days);
-}
-
 function isoDay(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function shortDate(iso) {
   return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-/** The last 28 days, one square per day, lit when you practiced. */
-function fillDays(box, activeDays) {
-  const active = new Set(activeDays);
-  const today = new Date();
-  const days = [];
-  for (let i = 27; i >= 0; i--) {
-    const iso = isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
-    days.push(el("span", { class: `day${active.has(iso) ? " on" : ""}${i === 0 ? " today" : ""}`, title: iso }));
-  }
-  box.replaceChildren(...days);
-  box.setAttribute("aria-label", `Practiced on ${active.size} of the last 28 days`);
 }
 
 /* ---------- Challenge ---------- */
@@ -947,7 +929,7 @@ async function run(mode, guess) {
     updateHintButton();
     if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
     if (report.first_solve) { state.challenge.solution_open = true; updateSolutionGate(); }
-    await Promise.all([loadTracks().then(renderRail), loadStats()]);
+    await loadTracks().then(renderRail);
   } catch (err) {
     $("#results").replaceChildren(el("p", { class: "results-empty", text: `The run failed: ${err.message}` }));
     showResults("error", "Could not run");
@@ -1241,7 +1223,7 @@ async function refreshReview() {
   }
   if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
   renderReview(r.review, firstSolve);
-  await Promise.all([loadTracks().then(renderRail), loadStats()]);
+  await loadTracks().then(renderRail);
 }
 
 const POINT_DOT = { covered: "passed", partial: "partial", missing: "failed" };
@@ -1580,7 +1562,7 @@ async function buildProblem(p) {
     log.textContent = res.log.join("\n") + (res.ok ? "" : `\n\n${res.error}`);
     log.hidden = false;
     if (!res.ok) return retry();
-    await Promise.all([loadTracks(), loadStats()]);
+    await loadTracks();
     $("#problem-dialog").close();
     location.hash = `#/${res.track}/${res.id}`;
   } catch (err) {
@@ -2497,7 +2479,6 @@ async function boot() {
   if (first !== "practice") { showView(first); showSkeleton(first); }
   const [config] = await Promise.all([api("/api/config"), initEditor(), loadTracks()]);
   state.config = config;
-  await loadStats();
   window.addEventListener("hashchange", route);
   await route();
 }

@@ -34,7 +34,6 @@
   --step-2: 1.375rem;
   --step-3: 1.75rem;
 
-  --rail-w: 15.5rem;
   --radius-s: 4px;
   --radius-m: 6px;
 }
@@ -192,22 +191,22 @@ code, pre { font-family: var(--font-code); }
 }
 
 /* ---------- Workspace ---------- */
+/* Two columns: the reader and the bench. A slim row above the reader picks the module and steps
+   through its questions; the module's question list lives at the end of the Problem tab. */
 .workspace {
   display: grid;
-  grid-template-columns: var(--rail-w) minmax(22rem, 1fr) minmax(26rem, 1.15fr);
+  grid-template-columns: minmax(22rem, 1fr) minmax(26rem, 1.15fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
+.rail { grid-column: 1; grid-row: 1; padding: 0.55rem 1.6rem; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.reader { grid-column: 1; grid-row: 2; }
+.bench { grid-column: 2; grid-row: 1 / -1; }
 
-/* Rail: the challenge sequence. The vertical line is the stone; solved notches are honed. */
-.rail {
-  border-right: 1px solid var(--rule);
-  padding: 1rem 0.9rem 1rem 1rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.rail-desc { margin: 0; color: var(--ink-soft); font-size: var(--step--1); line-height: 1.45; }
+/* The module's questions, in order. The vertical line is the stone; solved notches are honed. */
+.module-list { margin-top: 2.6rem; padding-top: 1.1rem; border-top: 1px solid var(--rule); max-width: 66ch; }
+.module-list h2 { font-family: var(--font-ui); font-size: var(--step-1); font-weight: 700; margin: 0 0 0.3rem; }
+.rail-desc { margin: 0 0 0.8rem; color: var(--ink-soft); font-size: var(--step--1); line-height: 1.45; }
 .rail-list { list-style: none; margin: 0; padding: 0; position: relative; }
 .rail-list::before {
   content: "";
@@ -248,9 +247,6 @@ code, pre { font-family: var(--font-code); }
 .rail-title { display: block; font-weight: 700; line-height: 1.3; padding-top: 0.12rem; }
 .rail-sub { display: block; color: var(--ink-soft); font-size: var(--step--1); }
 
-.rail-foot { margin-top: auto; }
-.rail-foot-label { margin: 0 0 0.35rem; color: var(--ink-soft); font-size: var(--step--1); }
-.days { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; max-width: 13rem; }
 .day { aspect-ratio: 1; border-radius: 2px; background: var(--stone-sunk); border: 1px solid var(--rule); }
 .day.on { background: var(--steel); border-color: var(--steel); }
 .day.today { outline: 1px solid var(--ink-soft); outline-offset: 1px; }
@@ -322,7 +318,7 @@ code, pre { font-family: var(--font-code); }
 .solution-code { max-width: none; }
 
 /* Bench: editor + results */
-.bench { display: grid; grid-template-rows: auto minmax(14rem, 1fr) auto minmax(9rem, 38%); min-height: 0; min-width: 0; }
+.bench { display: grid; grid-template-rows: auto minmax(14rem, 1fr) auto auto; min-height: 0; min-width: 0; }
 .file-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rule); overflow-x: auto; background: var(--stone); }
 .file-tab {
   font: inherit;
@@ -355,8 +351,8 @@ code, pre { font-family: var(--font-code); }
 }
 .save-state { color: var(--grit); font-size: var(--step--1); margin-left: 0.6rem; }
 
-.results { overflow-y: auto; padding: 0.9rem 1rem 1.2rem; }
-.results-empty { color: var(--ink-soft); margin: 0; max-width: 60ch; }
+.results { overflow-y: auto; max-height: 40vh; padding: 0.9rem 1rem 1.2rem; }
+.results-empty { color: var(--ink-soft); margin: 0; max-width: 60ch; font-size: var(--step--1); }
 .verdict { display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
 .verdict-word { font-family: var(--font-display); font-weight: 600; font-size: var(--step-2); }
 .verdict[data-status="passed"] .verdict-word { color: var(--honed); }
@@ -726,10 +722,12 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .path-step[data-s="none"] .path-step-title { color: var(--ink-soft); }
 
 /* ---------- Narrow screens ---------- */
-/* ---------- Rail head: module picker and question stepper ---------- */
-.rail-head { display: grid; gap: 0.5rem; }
-.rail .track-picker select { width: 100%; }
-.stepper, .tab-code, .results-toggle { display: none; }
+/* ---------- Module row: picker and question stepper ---------- */
+.rail-head { display: flex; align-items: center; gap: 0.6rem; }
+.rail .track-picker { flex: 1; min-width: 0; }
+.rail .track-picker select { width: 100%; text-overflow: ellipsis; }
+.stepper { display: flex; align-items: center; gap: 0.1rem; }
+.tab-code, .results-toggle { display: none; }
 .results-toggle { margin-left: auto; align-items: center; gap: 0.35rem; font-weight: 700; font-size: var(--step--1); padding: 0.35rem 0.6rem; border-radius: 999px; background: var(--stone-sunk); }
 .results-toggle::after { content: ""; width: 0.4rem; height: 0.4rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 150ms ease; }
 .results-toggle[aria-expanded="false"]::after { transform: rotate(-135deg) translateY(-1px); }
@@ -750,12 +748,8 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 
   .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .workspace.code-view { grid-template-rows: auto auto minmax(0, 1fr); }
-  .rail { padding: 0.4rem 0.8rem; gap: 0; border-right: none; border-bottom: 1px solid var(--rule); overflow: visible; }
-  .rail-list, .rail-desc, .rail-foot { display: none; }
-  .rail-head { display: flex; align-items: center; gap: 0.6rem; }
-  .rail .track-picker { flex: 1; min-width: 0; }
-  .rail .track-picker select { text-overflow: ellipsis; }
-  .stepper { display: flex; align-items: center; gap: 0.1rem; }
+  .rail { padding: 0.4rem 0.8rem; border-right: none; }
+  .bench { grid-column: 1; grid-row: 3; }
 
   .reader { border-right: none; }
   .reader-head { padding: 0.8rem 1rem 0; }
