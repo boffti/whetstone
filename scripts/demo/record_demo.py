@@ -122,6 +122,8 @@ class Session:
         self.store.update_request(rid, "claimed")
         await self.pause(2.4)
         install(self.home, "memoize", MODULE, "01-memoize")
+        made = self.home / "tracks" / MODULE / "01-memoize" / "challenge.yaml"
+        made.write_text(made.read_text() + "framing: work\n")  # Sam chose "My work" in Prepare's chooser
         self.store.update_request(rid, "done", KEY)
 
     async def run(self) -> None:
@@ -133,6 +135,10 @@ class Session:
             page.locator("li, .edge").filter(has_text="Thread-safe cache and locks").filter(has=page.get_by_role("button", name="Prepare"))
         )
         await self.click(row.first.get_by_role("button", name="Prepare"))
+        mine = page.locator("#prep-pop .prep-work")  # Prepare asks what it is for: Sam's own work
+        await mine.wait_for(timeout=5_000)
+        await self.pause(1.6)
+        await self.click(mine)
         await self.agent_builds()
         start = page.get_by_role("link", name="Start").first
         await start.wait_for(timeout=15_000)

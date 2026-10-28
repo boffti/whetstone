@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.webp" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare, the agent builds a caching question, the learner reads the problem's sections over the code, guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths page, where pointing at a stop shows its module, and the Design page.">
+  <img src="docs/demo.webp" width="860" alt="Whetstone in the browser pane of an AI agent's desktop app. The learner presses Prepare and picks their own work, the agent builds a caching question, the learner reads the problem's sections over the code, guesses then runs the tests, a hidden test fails, the agent asks a question at line 13, the fix passes every test, and the learner explains why. Then the Paths page, where pointing at a stop shows its module, and the Design page.">
 </p>
 
 ## Why Whetstone
@@ -33,7 +33,7 @@ Skills need three kinds of care, and Whetstone gives all three:
 
 - **Learn what you don't know.** Pick a system you want to understand, or a topic your next role will need. Your agent writes it as a series of steps, each one a little harder than the last, starting from what you already know.
 - **Relearn what you know.** The things you learned years ago, or now hand to your AI, fade quietly. Whetstone brings them back as fresh problems, so you find out what is still there.
-- **Keep your skills sharp.** Every idea you solve returns on a new surface after 3 days, 3 weeks and 3 months. Each skill shows how sharp it is today, and your agent suggests what to practice next.
+- **Keep your skills sharp.** Every idea you solve returns on a new surface after 3 days, 3 weeks, 3 months, 6 months and a year. Each skill shows how sharp it is today, and your agent suggests what to practice next.
 
 **Built around you.** Your agent already knows you from the work you've done together: what you build, your stack and experience, where you're headed, and what it now writes for you. It drafts your profile from that, and from your GitHub activity if you agree, so there's nothing to fill in. You only check the draft. Every question is then written for you: a scenario from your world, at the step you're ready for, explained the way you learn.
 
@@ -52,6 +52,8 @@ Three engineers ask their agents for the next question in the rate limiter modul
 | A payments engineer | **Throttle the webhook sender.** Card networks accept 50 calls a second per merchant. Queue the rest instead of dropping them, and never let one busy merchant starve the others. |
 | A trading engineer | **Stay under the exchange's order limit.** The venue rejects a burst over 200 orders a second and bans you for a minute. Smooth a burst at the open without losing the order. |
 | An LLM platform engineer | **Share a token budget across model providers.** Each provider allows a number of tokens a minute. Spend the budget across many users fairly, and fall back when one provider is full. |
+
+You pick the world, too. When you press Prepare, choose your own work, a company you're preparing for, or a domain such as payments or trading. Before an interview at Uber, the same rate limiter question can come back set in Uber's world, built on the questions Uber candidates report.
 
 > [!NOTE]
 > Whetstone has no AI of its own. Your agent (Claude Code, Codex, Cursor or another) writes the questions on the subscription you already pay for, and Whetstone checks and grades them on your machine.
@@ -96,7 +98,7 @@ flowchart LR
     classDef green fill:#2E7A4D,stroke:#245F3C,color:#FFFFFF
 ```
 
-Your profile holds your job, stack, goals and gaps. Before a question reaches you, Whetstone checks that its reference solution passes, its starter fails, and every wrong version of the solution is caught by the tests. Solved ideas come back as variants after 3 days, 3 weeks and 3 months.
+Your profile holds your job, stack, goals and gaps. Before a question reaches you, Whetstone checks that its reference solution passes, its starter fails, and every wrong version of the solution is caught by the tests. Solved ideas come back as variants after 3 days, 3 weeks, 3 months, 6 months and a year.
 
 Your agent drives a plain command line (`bin/whetstone`); the app only creates, checks and grades. While you work, your agent can watch the app and ask one question at a time in your editor's margin, like a pair would. (An optional in-app generator can use your own Anthropic API key. It is off unless you set one.)
 
@@ -122,7 +124,8 @@ Talk to your agent in plain words. It follows the skill files in `.claude/skills
 
 While your agent watches, you can work from the app instead:
 
-- **Prepare** on a module, a path or a system design question asks your agent to build it. The button turns into **Start** when the question is ready.
+- **Prepare** on a module, a path or a system design question asks your agent to build it. It first asks what for: your own work, a company you're preparing for, or a domain. The button turns into **Start** when the question is ready.
+- **Prepare again for…**, under a question's title, sets the same idea in another world, for example your job and then Uber's. Both versions stay, each with its own progress.
 - **Ask for review** on a design has your agent grade it against the rubric.
 - **Follow this path** and **+ Focus** tell your agent what you want to keep sharp.
 
@@ -166,9 +169,18 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 </tr>
 </table>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/full-question-dark.png"><img src="docs/screenshots/full-question.png" alt="A question at full screen: the module rail, the problem, and the editor with a failing hidden test and a note from the agent at line 13."></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/full-question-dark.png"><img src="docs/screenshots/full-question.png" alt="A question at full screen in two columns: the problem on the left, and the editor with a failing hidden test and a note from the agent at line 13."></picture>
 
-<p align="center"><sub>The same question at full screen: the module's questions, the problem, and the editor with test results.</sub></p>
+<p align="center"><sub>The same question at full screen: the problem beside the editor and its test results.</sub></p>
+
+### Prepared for you, or for a company
+
+<table>
+<tr>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/prepare-for-dark.png"><img src="docs/screenshots/prepare-for.png" alt="Prepare this for…: Your own work, a company you're preparing for (your targets first, then the companies that ask this module most), or a domain."></picture><br><b>Prepare this for….</b> Your own work, a company you're preparing for (your targets first, then the companies that ask this module most), or a domain.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/question-versions-dark.png"><img src="docs/screenshots/question-versions.png" alt="Prepare again for…: The same idea set in another world. Every version stays, with its own progress, linked from the others."></picture><br><b>Prepare again for….</b> The same idea set in another world. Every version stays, with its own progress, linked from the others.</td>
+</tr>
+</table>
 
 ### Paths and the catalog
 
@@ -206,7 +218,7 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 <td width="50%" valign="top"><img src="docs/brand/icons/systems.svg" width="44" height="44" align="left" alt=""><b>Real problems from real interviews</b><br>2,771 interview reports from 397 companies, organised into 271 modules and 78 systems to build.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/brand/icons/spaced.svg" width="44" height="44" align="left" alt=""><b>Learn, relearn, keep sharp</b><br>New ideas step by step, faded ones brought back, and every solved idea returning after 3 days, 3 weeks and 3 months.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/spaced.svg" width="44" height="44" align="left" alt=""><b>Learn, relearn, keep sharp</b><br>New ideas step by step, faded ones brought back, and every solved idea returning after 3 days, 3 weeks, 3 months, 6 months and a year.</td>
 <td width="50%" valign="top"><img src="docs/brand/icons/agent.svg" width="44" height="44" align="left" alt=""><b>Your AI as reviewer and interviewer</b><br>It curates, writes, tutors, pairs in your editor's margin, reviews like a staff engineer and runs mock interviews.</td>
 </tr>
 <tr>
@@ -215,7 +227,7 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/brand/icons/local.svg" width="44" height="44" align="left" alt=""><b>Private by design</b><br>Runs on your machine. No account, no telemetry. The only thing that uses an API key is the optional in-app generator. Your work stays in a git-ignored folder.</td>
-<td width="50%" valign="top"><img src="docs/brand/icons/mastery.svg" width="44" height="44" align="left" alt=""><b>Ready for interviews, too</b><br>Filter by the companies you're aiming for, practice their real questions, and ask your agent for a mock interview.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/mastery.svg" width="44" height="44" align="left" alt=""><b>Ready for interviews, too</b><br>Prepare any question for a company you're aiming for, built on its real reports, and ask your agent for a mock interview.</td>
 </tr>
 </table>
 
