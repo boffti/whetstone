@@ -546,11 +546,13 @@ async function openPrepare(anchor, target, onPick) {
   const companies = el("div", { class: "prep-chips" }, targets.map((c) => chip(c, `company:${c}`, companyMark(c))));
   const other = el("input", { type: "text", list: "company-options", placeholder: "Another company", "aria-label": "Another company",
     onkeydown: (e) => { if (e.key === "Enter" && e.target.value.trim()) pick(`company:${e.target.value.trim().slice(0, 60)}`); } });
+  const otherRow = el("div", { class: "prep-other" }, icon("search"), other,
+    el("button", { type: "button", class: "btn btn-secondary btn-small", onclick: () => other.value.trim() && pick(`company:${other.value.trim().slice(0, 60)}`) }, "Prepare"));
   pop.replaceChildren(
     el("p", { class: "prep-title", text: "Prepare this for…" }),
     el("button", { type: "button", class: "btn btn-primary prep-work", onclick: () => pick("work") }, icon("target"), "My work",
       el("span", { class: "prep-sub", text: "from your profile" })),
-    el("p", { class: "prep-label", text: "A company you're preparing for" }), companies, other,
+    el("p", { class: "prep-label", text: "A company you're preparing for" }), companies, otherRow,
     el("p", { class: "prep-label", text: "A domain" }),
     el("div", { class: "prep-chips" }, Object.keys(DOMAINS).map((d) => chip(d, `domain:${d}`, domainTile(d, true)))));
   const r = anchor.getBoundingClientRect();

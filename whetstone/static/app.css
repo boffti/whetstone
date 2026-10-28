@@ -928,7 +928,18 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .prep-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .prep-chip { display: inline-flex; align-items: center; gap: 0.35rem; }
 .prep-chip .co { --size: 18px; box-shadow: none; }
-.prep-pop input { width: 100%; }
+.prep-other {
+  display: flex; align-items: center; gap: 0.45rem; padding: 0.2rem 0.25rem 0.2rem 0.6rem;
+  background: var(--stone); border: 1px solid var(--rule); border-radius: var(--radius-s);
+}
+.prep-other:focus-within { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+.prep-other .icon { color: var(--grit); }
+.prep-other input {
+  flex: 1; min-width: 0; padding: 0.3rem 0; border: 0; background: none; outline: none;
+  font: inherit; font-size: var(--step--1); color: var(--ink);
+}
+.prep-other input::placeholder { color: var(--grit); }
+.prep-other input::-webkit-calendar-picker-indicator { display: none !important; }  /* suggestions still show as you type */
 .framing { display: inline-flex; align-items: center; gap: 0.35rem; }
 .framing .co { --size: 18px; box-shadow: none; }
 .keys-hint { color: var(--grit); }
