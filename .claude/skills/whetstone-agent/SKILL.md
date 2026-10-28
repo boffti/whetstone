@@ -18,7 +18,9 @@ In the app, the learner presses **Prepare**, **Prepare review variant** or **Pre
 
 ## On a `requested` event
 
-Each event has `id`, `kind`, `target` and `ask`. `ask` is the job in plain words. Handle one request at a time, oldest first.
+Each event has `id`, `kind`, `target`, `framing` and `ask`. `ask` is the job in plain words. Handle one request at a time, oldest first.
+
+`framing` is what the learner chose when they pressed Prepare: `work` (their own job), `company:<Name>` (they are preparing for that company's interviews) or `domain:<Domain>`. Pass it on: `bin/whetstone question brief <module> --for <framing>`. It may be empty on older requests; that means their own work.
 
 1. `bin/whetstone request claim <id>`. The app now shows *Your agent is building*.
    If the request is already `claimed`, an earlier run of you stopped mid-job and left the claim orphaned: `request claim` takes it over and says so, and you do the job from the start.

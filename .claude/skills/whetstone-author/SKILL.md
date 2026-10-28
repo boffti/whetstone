@@ -9,7 +9,7 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
 
 ## Steps
 
-1. Run `bin/whetstone question brief <module>`. It gives:
+1. Run `bin/whetstone question brief <module>`, adding `--for <framing>` when the request has one. It gives:
    - the topic;
    - what already exists, with types;
    - real interview reports;
@@ -30,6 +30,7 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
 ## Checklist before `question add`
 
 - [ ] The title names a scenario, not the technique.
+- [ ] The scenario follows the brief's **Framing**: the learner's own work, the company they are preparing for (their product, scale and follow-ups; never the learner's employer), or the domain. `framing:` in challenge.yaml says which. For a review variant with no framing given, pick a different world from the original: same idea, new surface.
 - [ ] `grounded_in` lists the Source links of the reports the scenario comes from. Reports marked "title only" in the brief give breadth, not the anchor.
 - [ ] `type` and `lesson` are set (`after-run` for build and fix). `variant_of` is set for a variant.
 - [ ] The problem does not restate the lesson. The lesson lists named subgoals, and the hints reuse those names.

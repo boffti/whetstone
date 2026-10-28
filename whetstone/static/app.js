@@ -396,6 +396,11 @@ async function openChallenge(trackId, cid) {
   $("#challenge-title").textContent = c.title;
   const meta = [el("span", { class: "diff", "data-d": c.difficulty, text: capital(c.difficulty) }), el("span", { text: `About ${c.minutes} min` })];
   if (TYPE_LABEL[c.type]) meta.unshift(el("span", { class: "qtype" }, icon(TYPE_ICON[c.type]), TYPE_LABEL[c.type]));
+  if (c.framing) {
+    const [fk, fname] = framingParts(c.framing);
+    meta.push(el("span", { class: "framing", title: "What this question was prepared for" },
+      fk === "company" ? companyMark(fname) : fk === "domain" ? domainTile(fname, true) : icon("target"), framingLabel(c.framing)));
+  }
   if (c.requires.includes("redis")) {
     const ok = state.config && state.config.redis_ok;
     meta.push(el("span", { class: `needs${ok ? " ok" : ""}`, text: ok ? "Redis connected" : "Needs Redis: not reachable" }));
@@ -461,18 +466,20 @@ function renderRequest(wrap) {
     const p = state.paths.find((x) => x.id === target);
     const missing = p ? p.modules.filter((m) => !m.built) : [];
     const left = missing.filter((m) => !state.requests[`build:${m.module}`] && !olderFill(m.module)).length;
-    nodes = left ? [button(left < missing.length ? `Prepare the other ${plural(left, "module")}` : wrap.dataset.label, "btn-secondary", () => prepareAll(target))]
+    nodes = left ? [button(left < missing.length ? `Prepare the other ${plural(left, "module")}` : wrap.dataset.label, "btn-secondary",
+      (e) => openPrepare(e.currentTarget, null, (f) => prepareAll(target, f)))]
       : [el("span", { class: "req-state working", text: "Your agent prepares them in order. Each one shows Start as soon as it is ready." })];
   } else if (!r) {
-    nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", () => sendRequest(kind, target))];
+    nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", (e) => (FRAMED.has(kind)
+      ? openPrepare(e.currentTarget, target, (f) => sendRequest(kind, target, f)) : sendRequest(kind, target)))];
   } else if (r.status === "queued") {
-    nodes = [el("span", { class: "req-state", text: state.agent.connected ? "Queued for your agent" : "Waiting for your agent" }),
+    nodes = [el("span", { class: "req-state", text: `${state.agent.connected ? "Queued for your agent" : "Waiting for your agent"}${framedFor(r)}` }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "claimed" && r.stale && !state.agent.connected) {
     nodes = [el("span", { class: "req-state failed", text: "Your agent stopped. Cancel or retry." }),
       button("Cancel", "btn-text", () => cancelRequest(r.id)), button("Retry", "btn-text", () => retryRequest(r.id, kind, target))];
   } else if (r.status === "claimed") {
-    nodes = [el("span", { class: "req-state working", text: REVIEWING.has(kind) ? "Your agent is reviewing…" : "Your agent is preparing it…" }),
+    nodes = [el("span", { class: "req-state working", text: REVIEWING.has(kind) ? "Your agent is reviewing…" : `Your agent is preparing it${framedFor(r)}…` }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "done" && REVIEWING.has(kind)) {
     nodes = [el("span", { class: "req-state done", text: "Reviewed" }), button("Ask again", "btn-text", () => sendRequest(kind, target))];
@@ -480,15 +487,15 @@ function renderRequest(wrap) {
     nodes = r.result && r.result.includes("/") ? [el("a", { class: "btn btn-primary", href: `#/${r.result}` }, "Start")] : [el("span", { class: "req-state done", text: "Done" })];
   } else {
     nodes = [el("span", { class: "req-state failed", text: `${REVIEWING.has(kind) ? "Not reviewed" : "Not prepared"}: ${r.result || "your agent could not do it."}` }),
-      button("Try again", "btn-text", () => sendRequest(kind, target))];
+      button("Try again", "btn-text", () => sendRequest(kind, target, r.framing))];
   }
   wrap.replaceChildren(...nodes);
 }
 
-async function sendRequest(kind, target) {
+async function sendRequest(kind, target, framing) {
   try {
     if (kind === "grade") await Promise.all([saveDraft(), state.board && saveBoard()]);  // the agent grades what is saved
-    const r = await api("/api/requests", { method: "POST", body: { kind, target } });
+    const r = await api("/api/requests", { method: "POST", body: { kind, target, ...(framing ? { framing } : {}) } });
     state.requests[`${kind}:${r.target}`] = r;
     $$(".req").forEach(renderRequest);
     if (!state.agent.connected) showAgentHint();
@@ -504,9 +511,64 @@ function olderFill(module) {
 }
 
 /** Queue a build for each module that is not ready, in path order: the agent takes the oldest first. */
-async function prepareAll(pathId) {
+async function prepareAll(pathId, framing) {
   const p = state.paths.find((x) => x.id === pathId);
-  for (const m of p ? p.modules : []) if (!m.built && !state.requests[`build:${m.module}`]) await sendRequest("build", m.module);
+  for (const m of p ? p.modules : []) if (!m.built && !state.requests[`build:${m.module}`]) await sendRequest("build", m.module, framing);
+}
+
+/* ---------- Prepare for…: your work, a company, or a domain ---------- */
+// The rubric is the skill; the framing is the world it is set in. Pressing Prepare asks which one,
+// and the agent writes the question for it (the brief's Framing section).
+const FRAMED = new Set(["build", "variant", "design"]);
+
+/** "company:Uber" -> ["company", "Uber"]; nothing -> ["work", ""]. */
+function framingParts(f) {
+  const [kind, ...rest] = (f || "work").split(":");
+  return [kind, rest.join(":")];
+}
+
+function framingLabel(f) {
+  const [kind, name] = framingParts(f);
+  return kind === "company" ? `For ${name}` : kind === "domain" ? `Set in ${name}` : "For your work";
+}
+
+/** ", for Uber" on a queued request; nothing for your own work. */
+function framedFor(r) {
+  return r.framing && r.framing !== "work" ? `, ${framingLabel(r.framing).replace(/^For/, "for").replace(/^Set/, "set")}` : "";
+}
+
+/** The chooser, under the button pressed. `target` is a module or question key, or null for a whole path. */
+async function openPrepare(anchor, target, onPick) {
+  const pop = $("#prep-pop");
+  const pick = (f) => { pop.hidePopover(); onPick(f); };
+  const chip = (label, f, mark) => el("button", { type: "button", class: "chip prep-chip", onclick: () => pick(f) }, mark || null, label);
+  const targets = (state.profile && state.profile.targets) || [];
+  const companies = el("div", { class: "prep-chips" }, targets.map((c) => chip(c, `company:${c}`, companyMark(c))));
+  const other = el("input", { type: "text", list: "company-options", placeholder: "Another company", "aria-label": "Another company",
+    onkeydown: (e) => { if (e.key === "Enter" && e.target.value.trim()) pick(`company:${e.target.value.trim().slice(0, 60)}`); } });
+  pop.replaceChildren(
+    el("p", { class: "prep-title", text: "Prepare this for…" }),
+    el("button", { type: "button", class: "btn btn-primary prep-work", onclick: () => pick("work") }, icon("target"), "My work",
+      el("span", { class: "prep-sub", text: "from your profile" })),
+    el("p", { class: "prep-label", text: "A company you're preparing for" }), companies, other,
+    el("p", { class: "prep-label", text: "A domain" }),
+    el("div", { class: "prep-chips" }, Object.keys(DOMAINS).map((d) => chip(d, `domain:${d}`, domainTile(d, true)))));
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - 348, r.left))}px`;
+  pop.style.top = `${r.bottom + 6}px`;
+  pop.showPopover();
+  if (pop.getBoundingClientRect().bottom > innerHeight - 8) pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 6)}px`;
+  pop.querySelector(".prep-work").focus();
+  fillOptions();
+  // After your targets: the companies that asked this module most.
+  const module = target && target.split("/")[0];
+  const problem = module && (await catalogList()).find((p) => p.id === module);
+  if (!problem) return;
+  const asked = new Map();
+  for (const rep of problem.reports) if (rep.company !== "Unknown") asked.set(rep.company, (asked.get(rep.company) || 0) + 1);
+  const shown = new Set(targets.map((c) => c.toLowerCase()));
+  [...asked].filter(([c]) => !shown.has(c.toLowerCase())).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .forEach(([c, n]) => companies.append(chip(`${c} (${n})`, `company:${c}`, companyMark(c))));
 }
 
 async function cancelRequest(id) {

@@ -28,6 +28,14 @@ from .content import (
 )
 
 
+def _framing(value: str) -> str:
+    from .catalog import FRAMING
+
+    if not FRAMING.match(value):
+        raise argparse.ArgumentTypeError("use work, company:<Name> or domain:<Domain>")
+    return value
+
+
 def _challenge_yaml(kind: str, lesson: str, support: str = "[]", minutes: int = 20) -> str:
     return (
         "title: {title}  # name the scenario, not the technique\n"
@@ -37,6 +45,7 @@ def _challenge_yaml(kind: str, lesson: str, support: str = "[]", minutes: int = 
         f"support: {support}  # read-only files the learner sees; predict, review and tests: the code to read\n"
         "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
         "grounded_in: []  # Source links of the interview reports this question is based on (the brief lists them)\n"
+        "framing: work  # what it was prepared for: work, company:<Name> or domain:<Domain> (from the request; the brief says)\n"
         "summary: One sentence about what the learner does.\n"
     )
 
@@ -612,13 +621,22 @@ def cmd_question_brief(args) -> int:
     store, _ = _state(settings)
     ratings = {c.key: r for c in (track.challenges if track else []) if (r := store.rating(c.key))}
     if problem and not args.topic:
-        text = make_brief(settings, problem, difficulty=args.difficulty, notes=args.notes or "", kind=args.type, ratings=ratings)
+        text = make_brief(
+            settings, problem, difficulty=args.difficulty, notes=args.notes or "", kind=args.type, ratings=ratings, framing=args.framing
+        )
     else:
         topic = args.topic or (f"{track.title}: {track.description}" if track else None)
         if not topic:
             return fail(f'{module} is not a module or a catalog problem yet. Pass --topic "..." to say what it teaches.', 2)
         text = make_brief(
-            settings, topic=topic, track=module, difficulty=args.difficulty, notes=args.notes or "", kind=args.type, ratings=ratings
+            settings,
+            topic=topic,
+            track=module,
+            difficulty=args.difficulty,
+            notes=args.notes or "",
+            kind=args.type,
+            ratings=ratings,
+            framing=args.framing,
         )
     print(text)
     return 0
@@ -1130,7 +1148,16 @@ def cmd_watch(args) -> int:
 
     # Work the learner queued before the watch started comes first.
     for r in reversed(store.requests(open_only=True)):
-        emit("requested", None, id=r["id"], kind=r["kind"], target=r["target"], status=r["status"], ask=request_ask(r))
+        emit(
+            "requested",
+            None,
+            id=r["id"],
+            kind=r["kind"],
+            target=r["target"],
+            framing=r.get("framing"),
+            status=r["status"],
+            ask=request_ask(r),
+        )
     store.mark_agent_seen()
     last_seen = time.monotonic()
     try:
@@ -1289,6 +1316,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--topic", help="what the question teaches, for a module that is not in the catalog")
     p.add_argument("--difficulty", default="medium", choices=["easy", "medium", "hard"])
     p.add_argument("--notes", help="what the learner asked for")
+    p.add_argument(
+        "--for",
+        dest="framing",
+        type=_framing,
+        help="what to frame it for, from the request: work, company:<Name> (interview prep) or domain:<Domain>",
+    )
     p = cmd(questions, "new", cmd_question_new, "scaffold a question's files in my/.staging/<slug>/")
     p.add_argument("module")
     p.add_argument("slug")

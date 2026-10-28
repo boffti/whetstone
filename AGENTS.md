@@ -39,7 +39,7 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone path show <path>` | Lists the path's modules in order, with progress, and says which modules are not built. |
 | `bin/whetstone module create <id> [--from-catalog <problem>]` | Creates an empty module. `question add` also creates a module when it needs one. |
 | `bin/whetstone module list` | Lists all modules, with progress. |
-| `bin/whetstone question brief <module> [--topic "..."] [--type whiteboard]` | Gives instructions for the module's next question: what to read, what exists, real reports, and the suggested question type. `--type whiteboard` gives a system design brief. |
+| `bin/whetstone question brief <module> [--topic "..."] [--type whiteboard] [--for F]` | Gives instructions for the module's next question: what to read, what exists, real reports, and the suggested question type. `--type whiteboard` gives a system design brief. `--for` frames it: `work`, `company:<Name>` (interview prep, with that company's reports) or `domain:<Domain>`; requests from the app carry it as `framing`. |
 | `bin/whetstone question new <module> <slug> [--type whiteboard]` | Creates the question's files to fill in, in `my/.staging/<slug>/`. `--type whiteboard` scaffolds a system design question. |
 | `bin/whetstone question add <folder> --module <id>` | Checks the format, that the reference solution passes and that the starter fails, then files the question as the module's next one. |
 | `bin/whetstone question check [module or module/question]` | Checks questions again. Run it to catch flaky tests. |

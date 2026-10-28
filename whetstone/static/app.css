@@ -913,6 +913,24 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .dtile-small .icon { width: 0.8rem; height: 0.8rem; }
 .home-title .dtile-small { margin-right: 0.45rem; vertical-align: -0.3em; }
 
+/* Prepare for…: a small chooser under the Prepare button. */
+.prep-pop {
+  position: fixed; inset: auto; margin: 0; width: min(340px, calc(100vw - 16px)); max-height: min(70vh, 30rem); overflow: auto;
+  padding: 0.8rem; display: none; flex-direction: column; gap: 0.45rem;
+  color: var(--ink); background: var(--stone-raised); border: 1px solid var(--rule); border-radius: var(--radius-m);
+  box-shadow: 0 12px 32px color-mix(in srgb, #000 22%, transparent);
+}
+.prep-pop:popover-open { display: flex; }
+.prep-title { margin: 0; font-weight: 600; }
+.prep-label { margin: 0.35rem 0 0; font-size: var(--step--1); color: var(--ink-soft); }
+.prep-work { display: inline-flex; align-items: center; gap: 0.4rem; justify-content: flex-start; }
+.prep-sub { font-weight: 400; opacity: 0.8; margin-left: auto; font-size: var(--step--1); }
+.prep-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.prep-chip { display: inline-flex; align-items: center; gap: 0.35rem; }
+.prep-chip .co { --size: 18px; box-shadow: none; }
+.prep-pop input { width: 100%; }
+.framing { display: inline-flex; align-items: center; gap: 0.35rem; }
+.framing .co { --size: 18px; box-shadow: none; }
 .keys-hint { color: var(--grit); }
 .keys-hint kbd { font: 500 0.75rem/1 var(--font-code); padding: 0.1rem 0.3rem; border: 1px solid var(--rule); border-radius: 3px; }
 @media (hover: none), (max-width: 640px) { .keys-hint { display: none; } }

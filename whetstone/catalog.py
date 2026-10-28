@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
 
 from .config import EXAMPLE, ROOT, Settings
-from .content import LearningPath, Track, load_profile, load_tracks, slugify
+from .content import LearningPath, Track, load_all_paths, load_profile, load_tracks, slugify
 
 CLI = "bin/whetstone"
 
@@ -129,10 +130,12 @@ def make_brief(
     notes: str = "",
     kind: str | None = None,
     ratings: dict[str, str] | None = None,
+    framing: str | None = None,
 ) -> str:
     """Instructions for an AI agent to write a module's next question, for a catalog problem or a free topic.
     kind asks for one question type instead of the recipe's suggestion; "whiteboard" is a system design question.
-    ratings maps the module's question keys to how the learner rated them."""
+    ratings maps the module's question keys to how the learner rated them. framing is what the learner
+    chose to prepare it for: "work", "company:<name>" or "domain:<name>" (see framing_lines)."""
     whiteboard = kind == "whiteboard"
     if problem:
         track_id, track_title = slugify(problem["id"]), problem["title"]
@@ -210,6 +213,7 @@ def make_brief(
             "That names tests, code review or reading code: the skills that fade fastest. Pull a tests or review question "
             "forward to position 2 or 3; do not wait for position 4. This outranks the suggestion above."
         )
+    lines += ["", "## Framing", *framing_lines(settings, framing, problem)]
     if reports:
         lines += ["", "## Real interview reports to ground it in", *[report_line(r) for r in reports]]
         lines.append("Use the reports for realism. Paraphrase them; do not name the source sites in the lesson.")
@@ -230,6 +234,52 @@ def make_brief(
         f"3. Run {CLI} question check <key> twice more to catch flaky timing.",
     ]
     return "\n".join(lines)
+
+
+FRAMING = re.compile(r"^(work|company:[^\n]{1,60}|domain:[^\n]{1,60})$")
+
+
+def framing_lines(settings: Settings, framing: str | None, problem: dict | None) -> list[str]:
+    """What the scenario is set in. The learner picks it when they press Prepare: their own work,
+    a company whose interviews they are preparing for, or a domain. The rubric is the skill and stays;
+    the framing changes the world, the scale and the follow-ups around it."""
+    kind, _, name = (framing or "work").partition(":")
+    record = f"Write `framing: {framing or 'work'}` in challenge.yaml."
+    if kind == "company":
+        theirs = [r for r in (problem or {}).get("reports", []) if r["company"].lower() == name.lower()]
+        lines = [
+            f"Frame it for {name}: the learner is preparing for their interviews. Set the scenario in {name}'s product, "
+            "users and scale, as a candidate there would meet it. Use the profile for level and language, not for the "
+            "setting, and leave the learner's own employer out of it.",
+        ]
+        if theirs:
+            lines += [
+                f"{name}'s own reports for this module; their follow-ups are the follow-ups:",
+                *[report_line(r) for r in pick_reports(theirs)],
+            ]
+        else:
+            lines.append(
+                f"The catalog has no {name} reports for this module: build on what is public about {name}'s product, around the reports below."
+            )
+        return [*lines, record]
+    if kind == "domain":
+        paths = [p for p in load_all_paths(settings.shared_paths_dir, settings.paths_dir) if p.domain.lower() == name.lower()]
+        lines = [
+            f"Set it in {name}: a company of that kind, with its users, scale and the cost of getting it wrong. Not the learner's own employer."
+        ]
+        lines += [f"- {p.title}: {p.goal}" for p in paths[:5]]
+        return [*lines, record]
+    return ["Frame it in the learner's own work: the role, stack and domain in their profile.", record]
+
+
+def framing_ask(framing: str | None) -> str:
+    """The framing in the learner's words, for a request's `ask`."""
+    kind, _, name = (framing or "").partition(":")
+    return {
+        "work": " Frame it in my own work.",
+        "company": f" Frame it for {name}: I'm preparing for their interviews.",
+        "domain": f" Set it in {name}.",
+    }.get(kind, "")
 
 
 def build_notes(problem: dict, limit: int = 6) -> str:

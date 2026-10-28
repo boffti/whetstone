@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import dashboard as dash
-from .catalog import build_notes, catalog_links, find_problem, load_catalog, path_rows
+from .catalog import FRAMING, build_notes, catalog_links, find_problem, framing_ask, load_catalog, path_rows
 from .config import Settings, load_settings
 from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, save_profile_header, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
@@ -90,6 +90,7 @@ class InterestsBody(BaseModel):
 class RequestBody(BaseModel):
     kind: str = Field(pattern="^(" + "|".join(REQUEST_KINDS) + ")$")
     target: str = Field(default="", max_length=200)
+    framing: str | None = Field(default=None, pattern=FRAMING.pattern)  # work, company:<name> or domain:<name>
 
 
 class PairBody(BaseModel):
@@ -268,6 +269,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "solved": solved,
             "runs": store.run_count(c.key),
             "rating": store.rating(c.key),
+            "framing": c.framing,
         }
 
     @app.get("/api/challenges/{track}/{cid}/review")
@@ -363,8 +365,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def add_request(body: RequestBody, request: Request):
         require_json(request)
         target = check_target(body.kind, body.target)
-        r = store.add_request(body.kind, target)
-        store.record_event(None, "requested", {"id": r["id"], "kind": r["kind"], "target": r["target"], "ask": request_ask(r)})
+        framing = body.framing if body.kind in ("build", "variant", "design") else None
+        r = store.add_request(body.kind, target, framing)
+        store.record_event(
+            None, "requested", {"id": r["id"], "kind": r["kind"], "target": r["target"], "framing": r["framing"], "ask": request_ask(r)}
+        )
         return r
 
     @app.get("/api/requests")
@@ -654,6 +659,10 @@ def review_view(review: dict | None, reveal: bool) -> dict | None:
 
 def request_ask(r: dict) -> str:
     """The plain-words job, as the learner would say it to their agent."""
+    return framed(r) + framing_ask(r.get("framing")) if r["kind"] in ("build", "variant", "design") else framed(r)
+
+
+def framed(r: dict) -> str:
     return {
         "build": f"Build the next Whetstone question for the {r['target']} module.",
         "variant": f"Build a Whetstone variant of {r['target']} for review.",

@@ -2,7 +2,7 @@ import yaml
 
 from whetstone.config import Settings
 from whetstone.content import LearningPath, save_path
-from whetstone.server import LOCAL_HOSTS, create_app, is_local_request
+from whetstone.server import LOCAL_HOSTS, create_app, is_local_request, request_ask
 from whetstone.store import Store
 
 
@@ -321,3 +321,26 @@ def test_learner_rates_a_question_after_submit(tmp_path):
     assert progress_rows(store, load_tracks(settings.tracks_dir))[0]["rating"] == "too-hard"
     client.post("/api/challenges/m/01-memo/rating", json={"rating": "right"})
     assert store.rating("m/01-memo") == "right"
+
+
+def test_a_request_carries_what_it_is_framed_for(tmp_path):
+    """Prepare asks: your work, a company you are preparing for, or a domain. The choice travels
+    with the request and reaches the agent in its ask. The same module framed two ways is two jobs."""
+    from fastapi.testclient import TestClient
+
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    mine.mkdir()
+    (content / "catalog.yaml").write_text(
+        yaml.safe_dump({"problems": [{"id": "job-scheduler", "title": "Job scheduler", "summary": "s", "reports": []}]})
+    )
+    client = TestClient(create_app(Settings(content, mine, "redis://localhost:1/0", None, "", 10)), base_url="http://localhost")
+    uber = client.post("/api/requests", json={"kind": "design", "target": "job-scheduler", "framing": "company:Uber"}).json()
+    assert uber["framing"] == "company:Uber"
+    mine_ = client.post("/api/requests", json={"kind": "design", "target": "job-scheduler", "framing": "work"}).json()
+    assert mine_["id"] != uber["id"], "a different framing is a different job"
+    again = client.post("/api/requests", json={"kind": "design", "target": "job-scheduler", "framing": "company:Uber"}).json()
+    assert again["id"] == uber["id"], "the same framing reuses the open request"
+    assert client.post("/api/requests", json={"kind": "build", "target": "job-scheduler", "framing": "vendor:x"}).status_code == 422
+    assert request_ask(uber).endswith("Frame it for Uber: I'm preparing for their interviews.")
+    assert request_ask({**uber, "framing": None}).endswith("module."), "an older request reads as before"

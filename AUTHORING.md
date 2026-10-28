@@ -50,6 +50,7 @@ requires: []                        # [redis] if the tests need Redis
 support: []                         # read-only files shown to the learner, e.g. [subject.py]
 variant_of: caching/02-ttl          # optional: this re-tests an earlier question on a new surface
 grounded_in: [https://example.com/report]   # the Source links of the interview reports it is based on
+framing: company:Uber                       # optional: work, company:<Name> or domain:<Domain>
 timeout: 60                         # optional; seconds before the run is stopped
 summary: One sentence about what the learner does.
 ```
@@ -58,6 +59,7 @@ summary: One sentence about what the learner does.
 - **Tags name the domain** (`payments`, `ledger`, `concurrency`), not the technique: `question add` warns about `token-bucket`, `lru`, `ring-buffer` and the like.
 - **`lesson: after-run`** is the default for `build` and `fix`. Use `lesson: first` for `predict` questions, and for a first contact with truly unfamiliar ideas.
 - **`variant_of`** marks a question that re-tests the same idea as an earlier one, with a new surface (different domain, names, data). Always point at the original question, even for a variant of a variant. Variants are how spaced review works: `bin/whetstone progress` shows when each review is due.
+- **`framing`** is what the question was prepared for: `work` (the learner's own job), `company:<Name>` or `domain:<Domain>`. It comes from the request and the brief's Framing section; the app shows it in the question's header. The rubric stays the same across framings: it is the skill. The scenario, scale and follow-ups change.
 - **`grounded_in`** lists the Source links of the interview reports the question is based on; `question brief` prints them. It makes "a real problem" auditable. `question add` notes when it is empty in a module that has reports. Leave it empty for a free topic.
 
 ## Question types

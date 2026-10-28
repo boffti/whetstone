@@ -484,3 +484,64 @@ def test_brief_shows_how_the_learner_rated_earlier_questions(tmp_path, monkeypat
     assert "01-first" in out and "rated too hard" in out, out
     assert main(["progress"]) == 0
     assert "rated too-hard" in capsys.readouterr().out
+
+
+def test_brief_frames_the_question_for_a_company_or_a_domain(tmp_path, monkeypatch, capsys):
+    """For a company, the brief leads with that company's own reports and keeps the learner's
+    employer out of it; for a domain it gives that domain's systems; either way it asks for framing."""
+    catalog = {
+        "problems": [
+            {
+                "id": "job-scheduler",
+                "title": "Job scheduler",
+                "summary": "Run jobs on time.",
+                "reports": [
+                    {
+                        "company": "Uber",
+                        "round": "system-design",
+                        "year": 2026,
+                        "confidence": "medium",
+                        "question": "Design a scheduler for driver payouts.",
+                        "sources": ["https://example.com/uber"],
+                    },
+                    {
+                        "company": "Lyft",
+                        "round": "system-design",
+                        "year": 2025,
+                        "confidence": "medium",
+                        "question": "Design a cron service.",
+                        "sources": ["https://example.com/lyft"],
+                    },
+                ],
+            }
+        ]
+    }
+    content, mine = tmp_path / "content", tmp_path / "my"
+    (content / "paths").mkdir(parents=True)
+    (content / "catalog.yaml").write_text(yaml.safe_dump(catalog))
+    (content / "paths" / "payments.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "id": "payments",
+                "title": "Build a payment processor",
+                "goal": "Charge once.",
+                "domain": "Payments & fintech",
+                "modules": ["job-scheduler"],
+            }
+        )
+    )
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+
+    assert main(["question", "brief", "job-scheduler", "--for", "company:Uber"]) == 0
+    out = capsys.readouterr().out
+    framing = out[out.index("## Framing") : out.index("## Real interview reports")]
+    assert "Frame it for Uber" in framing and "Design a scheduler for driver payouts." in framing and "Lyft" not in framing
+    assert "own employer out of it" in framing and "framing: company:Uber" in framing
+
+    assert main(["question", "brief", "job-scheduler", "--for", "domain:Payments & fintech"]) == 0
+    out = capsys.readouterr().out
+    assert "Set it in Payments & fintech" in out and "Build a payment processor: Charge once." in out
+
+    assert main(["question", "brief", "job-scheduler"]) == 0
+    assert "own work" in capsys.readouterr().out, "no choice reads as the learner's own work"

@@ -144,6 +144,12 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 CREATE INDEX IF NOT EXISTS ratings_by_challenge ON ratings (challenge, id);
 """,
+    # 9: what a question is framed for, chosen when the learner presses Prepare: their own work
+    # ("work"), a company they are preparing for ("company:<name>") or a domain ("domain:<name>").
+    # NULL means no choice was made, which reads as their own work.
+    """
+ALTER TABLE requests ADD COLUMN framing TEXT;
+""",
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 
@@ -406,18 +412,19 @@ class Store:
         return {**dict(row), "points": json.loads(row["points"])} if row else None
 
     # ---------- Agent inbox ----------
-    def add_request(self, kind: str, target: str) -> dict:
-        """Queue work for the learner's agent. An open request for the same thing is reused."""
+    def add_request(self, kind: str, target: str, framing: str | None = None) -> dict:
+        """Queue work for the learner's agent. An open request for the same thing, framed the same way, is reused."""
         now = datetime.now().isoformat(timespec="seconds")
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT * FROM requests WHERE kind = ? AND target = ? AND status IN ('queued', 'claimed')", (kind, target)
+                "SELECT * FROM requests WHERE kind = ? AND target = ? AND framing IS ? AND status IN ('queued', 'claimed')",
+                (kind, target, framing),
             ).fetchone()
             if row:
                 return dict(row)
             cur = conn.execute(
-                "INSERT INTO requests (kind, target, status, created_at, updated_at) VALUES (?, ?, 'queued', ?, ?)",
-                (kind, target, now, now),
+                "INSERT INTO requests (kind, target, framing, status, created_at, updated_at) VALUES (?, ?, ?, 'queued', ?, ?)",
+                (kind, target, framing, now, now),
             )
             return dict(conn.execute("SELECT * FROM requests WHERE id = ?", (cur.lastrowid,)).fetchone())
 
