@@ -290,11 +290,35 @@ WHITEBOARD_SECTIONS = {
 SECTION_MIN_WORDS = 12
 
 
+def strip_comments(text: str) -> str:
+    """The text without HTML comments. An unclosed comment is kept as written. A plain scan, not a
+    regex: the text is the learner's, and a lazy regex over many unclosed comments is quadratic."""
+    out, i = [], 0
+    while (start := text.find("<!--", i)) != -1:
+        end = text.find("-->", start + 4)
+        if end == -1:
+            break
+        out.append(text[i:start])
+        i = end + 3
+    out.append(text[i:])
+    return "".join(out)
+
+
 def whiteboard_sections(text: str) -> dict[str, str]:
-    """The design's level-2 sections ("## Name"), by lowercased name, without HTML comments."""
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
-    parts = re.split(r"^##[ \t]+(.+?)[ \t]*#*[ \t]*$", text, flags=re.M)
-    return {parts[i].strip().lower(): parts[i + 1] for i in range(1, len(parts) - 1, 2)}
+    """The design's level-2 sections ("## Name"), by lowercased name, without HTML comments.
+    Line by line, so the time stays linear in the length of the learner's design."""
+    sections: dict[str, str] = {}
+    name, body = None, []
+    for line in strip_comments(text).split("\n"):
+        if line.startswith("##") and line[2:3] in (" ", "\t"):
+            if name is not None:
+                sections[name] = "\n".join(body) + "\n"  # the newline before the next heading
+            name, body = line[2:].strip().rstrip("#").strip().lower(), [""]
+        elif name is not None:
+            body.append(line)
+    if name is not None:
+        sections[name] = "\n".join(body)
+    return sections
 
 
 # ---------- The whiteboard drawing, as Mermaid for the agent ----------

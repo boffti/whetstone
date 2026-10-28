@@ -188,3 +188,17 @@ def test_a_whiteboard_drawing_reaches_the_agent_as_mermaid(tmp_path, monkeypatch
     out = capsys.readouterr().out
     assert "## The learner's whiteboard drawing, as Mermaid" in out and '-.->|"GET code"|' in out
     assert "- Also on the board: text on the board: 'TTL 5 s'" in out
+
+
+def test_sections_parse_in_linear_time_on_hostile_input():
+    """A design is the learner's text. The old regexes took minutes on a long run of spaces in a
+    heading or on many unclosed comments; the scan must stay fast and keep the same sections."""
+    import time
+
+    from whetstone.runner import whiteboard_sections
+
+    assert whiteboard_sections("## A\n<!-- gone -->kept\n## B ##\r\nx <!-- open\n") == {"a": "\nkept\n", "b": "\nx <!-- open\n"}
+    started = time.perf_counter()
+    for text in ("<!--" * 50_000, "## " + " " * 50_000 + "x" + " " * 50_000, "## " + "#" * 20_000 + " " * 20_000 + "x"):
+        whiteboard_sections(text)
+    assert time.perf_counter() - started < 1, "section parsing must stay linear"

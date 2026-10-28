@@ -4,7 +4,7 @@
 
 Please report security problems privately. Do not open a public issue.
 
-Use GitHub's private vulnerability reporting: open the repository's **Security** tab, then click **Report a vulnerability**. Include what you found, how to reproduce it, and the impact you expect.
+Use GitHub's private vulnerability reporting: [report a vulnerability](https://github.com/boffti/whetstone/security/advisories/new), or open the repository's **Security** tab and click **Report a vulnerability**. Include what you found, how to reproduce it, and the impact you expect.
 
 You should get a reply within 7 days. We fix confirmed issues on `main` and credit reporters who want it. Only the latest `main` is supported.
 
