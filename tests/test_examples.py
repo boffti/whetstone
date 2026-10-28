@@ -1,3 +1,5 @@
+import pytest
+
 from whetstone.config import EXAMPLE, Settings
 from whetstone.content import load_challenge
 from whetstone.runner import run_tests, validate_challenge
@@ -76,3 +78,31 @@ def test_the_system_design_example_is_valid(tmp_path):
     result = validate_challenge(load_challenge(EXAMPLE.parent / "short-links-whiteboard", "examples"), settings, strict=True)
     assert result.ok, result.problems
     assert "reference design: all 9 parts filled in" in result.notes
+
+
+@pytest.mark.parametrize("name", sorted(p.name for p in EXAMPLE.parent.iterdir() if (p / "challenge.yaml").exists()))
+def test_every_shipped_example_passes_strict_validation(tmp_path, name):
+    """Agents copy examples/ for quality, one per question type, so each must pass its own gate."""
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 60)
+    result = validate_challenge(load_challenge(EXAMPLE.parent / name, "examples"), settings, strict=True)
+    assert result.ok, result.problems
+    assert not [n for n in result.notes if "hints.md" in n or "technique" in n or "no numbers" in n], result.notes
+
+
+def test_realism_lint_warns_on_technique_titles_and_numberless_problems(tmp_path):
+    """Warnings, not refusals: a title that is the answer, or a problem with no scale in it."""
+    import shutil
+
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 60)
+    copy = tmp_path / "memoize"
+    shutil.copytree(EXAMPLE, copy)
+    meta = (
+        (copy / "challenge.yaml")
+        .read_text()
+        .replace("title: Stop paying twice for a slow lookup", "title: LRU cache with double-check locking")
+    )
+    (copy / "challenge.yaml").write_text(meta)
+    (copy / "problem.md").write_text("Wrap a slow function so each input is computed once.\n")
+    result = validate_challenge(load_challenge(copy, "examples"), settings)
+    assert result.ok and any("title names the technique (double-check, lru)" in n for n in result.notes), result.notes
+    assert any("problem.md has no numbers" in n for n in result.notes)

@@ -83,9 +83,34 @@ def path_rows(settings: Settings, lp: LearningPath, tracks: dict[str, Track], so
     return rows
 
 
+RANK = {"high": 0, "medium": 1, "low": 2}
+# One finished question per type, for "copy the quality of".
+EXAMPLES_BY_TYPE = {
+    "build": "examples/memoize/",
+    "tests": "examples/retry-tests/",
+    "predict": "examples/limiter-predict/",
+    "fix": "examples/payments-fix/",
+    "review": "examples/payout-review/",
+    "whiteboard": "examples/short-links-whiteboard/",
+}
+
+
 def report_line(r: dict) -> str:
+    """One report for the brief. A low-confidence report is a title seen once on an aggregator,
+    paraphrased, so it is labelled; the first source link is what grounded_in should cite."""
+    meta = [r["round"], r.get("year"), "title only" if r.get("confidence") == "low" else None]
     follow = f" Follow-ups: {'; '.join(r['follow_ups'][:3])}" if r.get("follow_ups") else ""
-    return f"- {r['company']} ({r['round']}): {r['question']}{follow}"
+    source = f" Source: {r['sources'][0]}" if r.get("sources") else ""
+    return f"- {r['company']} ({', '.join(str(m) for m in meta if m)}): {r['question']}{follow}{source}"
+
+
+def pick_reports(reports: list[dict], limit: int = 8) -> list[dict]:
+    """The reports a brief shows: high and medium confidence first, newest first, then title-only
+    ones fill the rest so new companies still appear."""
+    ordered = sorted(reports, key=lambda r: (RANK.get(r.get("confidence"), 2), -(r.get("year") or 0)))
+    solid = [r for r in ordered if r.get("confidence") != "low"][: limit - 2] if len(ordered) > limit else ordered
+    rest = [r for r in ordered if r not in solid]
+    return (solid + rest)[:limit]
 
 
 def _rel(path: Path) -> str:
@@ -113,7 +138,7 @@ def make_brief(
         reports = problem.get("reports", [])
         if whiteboard:
             reports = [r for r in reports if r.get("round") == "system-design"] or reports
-        reports = reports[:8]
+        reports = pick_reports(reports)
     elif topic and track:
         track_id, track_title, reports = slugify(track), track, []
     else:
@@ -142,9 +167,11 @@ def make_brief(
         "- AUTHORING.md: the file format, the question types, the test-writing rules and mutants/. Follow it exactly.",
         "- docs/PEDAGOGY.md: why the format works this way. Skim it once.",
         f"- {_rel(settings.profile_path)}: who the learner is, their goals, and how to write for them.",
-        "- examples/short-links-whiteboard/: a finished system design question to match for quality."
-        if whiteboard
-        else f"- {_rel(EXAMPLE)}/ and examples/retry-tests/: finished questions to match for quality.",
+        f"- {EXAMPLES_BY_TYPE[kind]}: a finished {kind} question to match for quality."
+        if kind in EXAMPLES_BY_TYPE
+        else f"- {_rel(EXAMPLE)}/ and examples/retry-tests/, plus the example for the type you choose "
+        f"({', '.join(f'{k}: {v}' for k, v in EXAMPLES_BY_TYPE.items() if k not in ('build', 'tests', 'whiteboard'))}): "
+        "finished questions to match for quality.",
     ]
     if settings.profile_path.name == "profile.example.md":
         lines.append("- The learner has no profile yet. First create my/profile.md from that template (see AGENTS.md, 'First run').")
@@ -176,6 +203,12 @@ def make_brief(
     if reports:
         lines += ["", "## Real interview reports to ground it in", *[report_line(r) for r in reports]]
         lines.append("Use the reports for realism. Paraphrase them; do not name the source sites in the lesson.")
+        if any(r.get("confidence") == "low" for r in reports):
+            lines.append(
+                "A report marked 'title only' is one aggregator's title, paraphrased, with no candidate account behind it: "
+                "use it for breadth; anchor the scenario in the reports above it."
+            )
+        lines.append("Put the Source links of the reports you used in grounded_in in challenge.yaml.")
     lines += [
         "",
         "## Steps",

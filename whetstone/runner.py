@@ -545,7 +545,7 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
     test, and the starter fails at least one test. `strict` (used when a question is added)
     also enforces the current format; older questions only get notes."""
     problems: list[str] = []
-    notes: list[str] = _lint(challenge)
+    notes: list[str] = _lint(challenge) + _provenance_note(challenge, settings)
     for problem in _format_problems(challenge):
         (problems if strict else notes).append(problem)
     if challenge.kind not in QUESTION_TYPES:
@@ -682,7 +682,30 @@ def _lint(challenge: Challenge) -> list[str]:
     technique = [t for t in challenge.tags if t in TECHNIQUE_TAGS]
     if technique:
         notes.append(f"tags name the technique ({', '.join(technique)}), which gives the approach away; tag the domain instead")
+    # ponytail: two cheap realism checks, word lists not a classifier; a reviewer subagent does the rest
+    title = challenge.title.lower().replace(" ", "-")
+    named = sorted(t for t in TECHNIQUE_TAGS if t in title)
+    if named:
+        notes.append(f"the title names the technique ({', '.join(named)}); name the scenario instead, the technique is the answer")
+    if (challenge.path / "problem.md").exists() and not re.search(r"\d", challenge.read("problem.md")):
+        notes.append("problem.md has no numbers: a real problem has a scale, a limit, a timeout or a sum of money")
     return notes
+
+
+def _provenance_note(challenge: Challenge, settings: Settings) -> list[str]:
+    """A question in a module with interview reports should say which reports it is based on, so
+    "real" is auditable instead of assumed. A note, never a refusal: free topics have no reports."""
+    if challenge.grounded_in:
+        return []
+    from .catalog import find_problem  # ponytail: local import, catalog imports content which runner also uses
+
+    problem = find_problem(settings, challenge.track_id)
+    if not problem or not problem.get("reports"):
+        return []
+    return [
+        f"grounded_in is empty: this module has {len(problem['reports'])} interview reports; list the Source links "
+        "of the ones this question is based on in challenge.yaml (the brief prints them)"
+    ]
 
 
 def _format_problems(challenge: Challenge) -> list[str]:

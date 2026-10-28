@@ -1,0 +1,10 @@
+title: Review the nightly payout job
+type: review
+lesson: after-run
+difficulty: medium
+minutes: 20
+tags: [payments, code-review]
+requires: []
+support: [subject.py]
+grounded_in: []
+summary: Review an AI-written job that pays merchants each night, and flag the lines you would block the pull request for.

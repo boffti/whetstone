@@ -36,6 +36,7 @@ def _challenge_yaml(kind: str, lesson: str, support: str = "[]", minutes: int = 
         f"difficulty: medium\nminutes: {minutes}\ntags: []\nrequires: []\n"
         f"support: {support}  # read-only files the learner sees; predict, review and tests: the code to read\n"
         "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
+        "grounded_in: []  # Source links of the interview reports this question is based on (the brief lists them)\n"
         "summary: One sentence about what the learner does.\n"
     )
 
@@ -236,7 +237,7 @@ _REVIEW = {
         "    return any(abs(found_line - line) <= 2 and found_cat == category for found_line, found_cat in FINDINGS)\n\n\n"
         "def test_every_seeded_defect_is_found():\n"
         "    missed = [cat for line, cat in SEEDED.items() if not _found(line, cat)]\n"
-        '    assert not missed, "A reviewer would still flag: " + ", ".join(missed) + ". Read the function once more, line by line."\n\n\n'
+        '    assert not missed, f"{len(missed)} defect(s) would still block this pull request. Take each promise in the docstrings and find the line that breaks it."\n\n\n'
         "def test_at_most_one_false_positive():\n"
         "    extra = [f for f in FINDINGS if not any(abs(f[0] - line) <= 2 and f[1] == cat for line, cat in SEEDED.items())]\n"
         '    assert len(extra) <= 1, f"{len(extra)} findings point at code that is fine. Which ones would you defend in a real review?"\n'
