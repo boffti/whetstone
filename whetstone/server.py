@@ -187,6 +187,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             "tags": c.tags,
                             "requires": c.requires,
                             "status": _status(rows[c.key]),
+                            "framing": c.framing,
+                            "variant_of": c.variant_of,
                         }
                         for c in t.challenges
                     ],
@@ -270,6 +272,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "runs": store.run_count(c.key),
             "rating": store.rating(c.key),
             "framing": c.framing,
+            "variant_of": c.variant_of,
         }
 
     @app.get("/api/challenges/{track}/{cid}/review")
@@ -665,7 +668,7 @@ def request_ask(r: dict) -> str:
 def framed(r: dict) -> str:
     return {
         "build": f"Build the next Whetstone question for the {r['target']} module.",
-        "variant": f"Build a Whetstone variant of {r['target']} for review.",
+        "variant": f"Build a Whetstone variant of {r['target']}: the same idea on a new surface.",
         "fill-path": f"Fill in my {r['target']} Whetstone path.",  # older requests; the app now queues one build per module
         "review": f"Review my solution to {r['target']}.",
         "design": f"Build a Whetstone system design question (whiteboard) for the {r['target']} module.",

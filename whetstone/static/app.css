@@ -774,7 +774,7 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
   .bench.has-results .results-toggle { display: inline-flex; }
   .bench.has-results .save-state { margin-left: 0.6rem; }
   .workspace:not(.code-view) .bench { display: none; }
-  .workspace.code-view .reader-body, .workspace.code-view .meta { display: none; }
+  .workspace.code-view .reader-body, .workspace.code-view .meta, .workspace.code-view .versions { display: none; }
   .workspace.code-view .reader-head h1 { font-size: var(--step-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0; }
   .workspace.code-view .reader { border-bottom: 1px solid var(--rule); }
   /* The problem's sections share the file tabs' row, so they cost no height. */
@@ -942,6 +942,11 @@ button.stop:focus-visible { outline: 2px solid var(--focus); outline-offset: -1p
 .prep-other input::-webkit-calendar-picker-indicator { display: none !important; }  /* suggestions still show as you type */
 .framing { display: inline-flex; align-items: center; gap: 0.35rem; }
 .framing .co { --size: 18px; box-shadow: none; }
+.versions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; margin-top: 0.4rem; font-size: var(--step--1); }
+.versions:empty { display: none; }
+.versions-label { color: var(--ink-soft); }
+.versions .chip { text-decoration: none; }
+.versions .req .btn { font-size: var(--step--1); padding: 0.18rem 0.6rem; }
 .keys-hint { color: var(--grit); }
 .keys-hint kbd { font: 500 0.75rem/1 var(--font-code); padding: 0.1rem 0.3rem; border: 1px solid var(--rule); border-radius: 3px; }
 @media (hover: none), (max-width: 640px) { .keys-hint { display: none; } }

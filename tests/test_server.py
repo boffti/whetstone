@@ -344,3 +344,8 @@ def test_a_request_carries_what_it_is_framed_for(tmp_path):
     assert client.post("/api/requests", json={"kind": "build", "target": "job-scheduler", "framing": "vendor:x"}).status_code == 422
     assert request_ask(uber).endswith("Frame it for Uber: I'm preparing for their interviews.")
     assert request_ask({**uber, "framing": None}).endswith("module."), "an older request reads as before"
+    again_for = {"kind": "variant", "target": "job-scheduler/01-end-of-day-jobs", "framing": "company:Uber"}
+    assert request_ask(again_for) == (
+        "Build a Whetstone variant of job-scheduler/01-end-of-day-jobs: the same idea on a new surface. "
+        "Frame it for Uber: I'm preparing for their interviews."
+    ), "Prepare again for... is a variant with the new framing"

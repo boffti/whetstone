@@ -29,7 +29,7 @@ Each event has `id`, `kind`, `target`, `framing` and `ask`. `ask` is the job in 
    | `kind` | `target` | Do |
    |---|---|---|
    | `build` | a module id | `whetstone-author`: the module's next question |
-   | `variant` | a question key | `whetstone-author`: a variant for spaced review, with `variant_of` set |
+   | `variant` | a question key | `whetstone-author`: a variant for spaced review, with `variant_of` set. With a `framing`, the learner pressed **Prepare again for…**: the same idea, reframed for that work, company or domain |
    | `fill-path` | a path id | Older requests only: build the first question of each unbuilt module, filing and reporting each one before the next |
    | `review` | a question key | `whetstone-review`, then put the main points in the app with `bin/whetstone note` |
    | `design` | a module id | `whetstone-author`: a system design question (`--type whiteboard`) for the module |

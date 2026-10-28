@@ -362,8 +362,24 @@ function renderRail() {
         el("span", { class: "notch", "aria-hidden": "true" }, ["solved", "assisted", "mastered"].includes(c.status) ? "✓" : String(c.number)),
         el("span", {},
           el("span", { class: "rail-title", text: c.title }),
-          el("span", { class: "rail-sub", text: `${capital(c.difficulty)}, ${c.minutes} min${c.requires.length ? `, needs ${c.requires.join(", ")}` : ""}` }))));
+          el("span", { class: "rail-sub", text: `${capital(c.difficulty)}, ${c.minutes} min${c.requires.length ? `, needs ${c.requires.join(", ")}` : ""}${c.framing ? `, ${framingLabel(c.framing).replace(/^For your/, "for your").replace(/^For /, "for ").replace(/^Set /, "set ")}` : ""}` }))));
   }));
+}
+
+/** The other versions of this question (the original and its variants, each framed for something
+    else) and a way to prepare one more. Every version keeps its own progress. */
+function renderVersions(c) {
+  const track = state.tracks.find((t) => t.id === c.track);
+  const key = `${c.track}/${c.id}`;
+  const root = c.variant_of || key;
+  const others = (track ? track.challenges : []).filter((q) => {
+    const k = `${c.track}/${q.id}`;
+    return k !== key && (k === root || q.variant_of === root);
+  });
+  $("#challenge-versions").replaceChildren(
+    ...(others.length ? [el("span", { class: "versions-label", text: "Also prepared:" })] : []),
+    ...others.map((q) => el("a", { class: "chip version", href: `#/${c.track}/${q.id}`, title: q.title }, framingLabel(q.framing))),
+    requestButton("variant", root, "Prepare again for…"));  // every version hangs off the original
 }
 
 function capital(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -407,6 +423,7 @@ async function openChallenge(trackId, cid) {
   }
   meta.push(...c.tags.map((t) => el("span", { class: "tag", text: t })));
   $("#challenge-meta").replaceChildren(...meta);
+  renderVersions(c);
 
   renderLesson();
   $("#panel-problem").innerHTML = c.problem_html;
