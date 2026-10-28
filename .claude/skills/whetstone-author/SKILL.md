@@ -17,6 +17,7 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
 2. Read `my/profile.md` and `bin/whetstone progress --json`. Adjust the plan to the learner:
    - **Clean solves** (no hints, 3 runs or fewer): skip a scaffold step or go harder.
    - **Assisted solves or many runs:** stay on the concept, and target the misconception they hit.
+   - **Their ratings** (`rating`, one tap after Submit; the brief shows them too): after `too-hard` add scaffolding and stay on the concept; after `too-easy` skip a step; after `artificial` set the next scenario in their real work from the profile.
    - **A variant for review** (the curator chose one): same idea, new surface. Use a new domain, new names and new data. Set `variant_of` to the *original* question's key.
    - **Their stack and what they hand off to AI at work:** use these for the scenario and the tie-in.
 3. Choose the type: **build**, **predict**, **fix**, **review**, **tests**, **design** or **whiteboard**. A `design` request from the app always means **whiteboard**: run the brief with `--type whiteboard`. Take the brief's suggestion unless the progress gives a reason not to, and say the reason. When the brief says the learner's AI handles tests, code review or reading code, pull a **tests** or **review** question forward to position 2 or 3; do not wait for position 4. Those skills fade fastest.

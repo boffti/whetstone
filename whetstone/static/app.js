@@ -468,8 +468,12 @@ function renderRequest(wrap) {
   } else if (r.status === "queued") {
     nodes = [el("span", { class: "req-state", text: state.agent.connected ? "Queued for your agent" : "Waiting for your agent" }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
+  } else if (r.status === "claimed" && r.stale && !state.agent.connected) {
+    nodes = [el("span", { class: "req-state failed", text: "Your agent stopped. Cancel or retry." }),
+      button("Cancel", "btn-text", () => cancelRequest(r.id)), button("Retry", "btn-text", () => retryRequest(r.id, kind, target))];
   } else if (r.status === "claimed") {
-    nodes = [el("span", { class: "req-state working", text: REVIEWING.has(kind) ? "Your agent is reviewing…" : "Your agent is preparing it…" })];
+    nodes = [el("span", { class: "req-state working", text: REVIEWING.has(kind) ? "Your agent is reviewing…" : "Your agent is preparing it…" }),
+      button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "done" && REVIEWING.has(kind)) {
     nodes = [el("span", { class: "req-state done", text: "Reviewed" }), button("Ask again", "btn-text", () => sendRequest(kind, target))];
   } else if (r.status === "done") {
@@ -508,6 +512,16 @@ async function prepareAll(pathId) {
 async function cancelRequest(id) {
   await api(`/api/requests/${id}/cancel`, { method: "POST", body: {} });
   await pollRequests();
+}
+
+/** A claim the agent walked away from: drop it and queue the same job again. */
+async function retryRequest(id, kind, target) {
+  try {
+    await api(`/api/requests/${id}/cancel`, { method: "POST", body: {} });
+  } catch (_) {
+    return pollRequests();  // it finished or was cancelled meanwhile; show that instead
+  }
+  await sendRequest(kind, target);
 }
 
 /** The latest request per kind and target. Finished ones count only while they are fresh. */
@@ -900,6 +914,23 @@ function explainBox(r) {
   return box;
 }
 
+/** After a Submit, until rated: how the question felt. The curator and the author read it, so a
+    question that took eleven runs can be told apart from one that was badly written. */
+function rateBox() {
+  const c = state.challenge;
+  const box = el("div", { class: "explain rate" },
+    el("p", { class: "predict-q", text: "How was this question?" }),
+    el("span", { class: "guess-pick" }, [["too-easy", "Too easy"], ["right", "About right"], ["too-hard", "Too hard"], ["artificial", "Felt artificial"]].map(([v, label]) =>
+      el("button", { type: "button", class: "chip", "aria-pressed": "false", onclick: async (e) => {
+        e.target.parentElement.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", String(b === e.target)));
+        await api(`/api/challenges/${c.track}/${c.id}/rating`, { method: "POST", body: { rating: v } });
+        c.rating = v;
+        box.replaceChildren(el("p", { class: "home-sub", text: "Noted. Your agent reads it when it picks and writes your next question." }));
+      } }, label))),
+    el("div", { class: "predict-actions" }, el("button", { type: "button", class: "btn btn-text", onclick: () => box.remove() }, "Skip")));
+  return box;
+}
+
 async function run(mode, guess) {
   if (!state.challenge || state.running) return;
   if (state.board && state.board.timer) await saveBoard();
@@ -972,6 +1003,7 @@ function renderReport(r, mode) {
     ? "Solved with help. A variant of this question comes back for review in 2 days."
     : "Solved on your own. A variant comes back for review in 3 days, to make it stick." }));
   if (r.first_solve) nodes.push(explainBox(r) || "");
+  if (mode === "submit" && !state.challenge.rating) nodes.push(rateBox());
   nodes.push(el("div", { class: "verdict", "data-status": r.status },
     el("span", { class: "verdict-word", text: VERDICT[r.status] || r.status }),
     el("span", { class: "verdict-sum", text: isBoard() ? r.summary : `${r.summary} (${r.duration.toFixed(1)} s)` })));

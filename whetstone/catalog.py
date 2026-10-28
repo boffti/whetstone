@@ -128,9 +128,11 @@ def make_brief(
     difficulty: str = "medium",
     notes: str = "",
     kind: str | None = None,
+    ratings: dict[str, str] | None = None,
 ) -> str:
     """Instructions for an AI agent to write a module's next question, for a catalog problem or a free topic.
-    kind asks for one question type instead of the recipe's suggestion; "whiteboard" is a system design question."""
+    kind asks for one question type instead of the recipe's suggestion; "whiteboard" is a system design question.
+    ratings maps the module's question keys to how the learner rated them."""
     whiteboard = kind == "whiteboard"
     if problem:
         track_id, track_title = slugify(problem["id"]), problem["title"]
@@ -147,8 +149,11 @@ def make_brief(
     tracks = load_tracks(settings.tracks_dir)
     existing_track = next((t for t in tracks if t.id == track_id), None)
     challenges = existing_track.challenges if existing_track else []
+    rated = {k: v.replace("-", " ") for k, v in (ratings or {}).items()}
     existing = [
-        f"- {c.dir_name}: {c.title} ({c.kind}, {c.difficulty}{f', variant of {c.variant_of}' if c.variant_of else ''})" for c in challenges
+        f"- {c.dir_name}: {c.title} ({c.kind}, {c.difficulty}"
+        f"{f', variant of {c.variant_of}' if c.variant_of else ''}{f', rated {rated[c.key]}' if c.key in rated else ''})"
+        for c in challenges
     ]
     position = sum(not c.variant_of for c in challenges) + 1  # a variant re-tests an earlier slot; it does not advance the recipe
     ai_handles = load_profile(settings.profile_path).get("ai_handles", [])
@@ -185,6 +190,11 @@ def make_brief(
             else "Already in this module (write the next step up, do not repeat these):",
             *existing,
         ]
+        if rated:
+            lines.append(
+                "The ratings are the learner's own, one tap after Submit: after 'too hard' stay on the concept with "
+                "more scaffolding; after 'too easy' skip a step; after 'artificial' put the next one in their real work."
+            )
     else:
         lines.append("This module is empty: write its first question.")
     lines += ["", "## Question type"]

@@ -106,11 +106,21 @@ def test_requests_say_whether_they_finished_recently(tmp_path):
     settings = Settings(content, mine, "redis://localhost:1/0", None, "", 10)
     client = TestClient(create_app(settings), base_url="http://localhost")
     r = client.post("/api/requests", json={"kind": "build", "target": "rate-limiter"}).json()
-    assert client.get("/api/requests").json()["requests"][0]["recent"] is True
-    with sqlite3.connect(settings.db_path) as conn:
-        stale = (datetime.now() - timedelta(minutes=11)).isoformat(timespec="seconds")
-        conn.execute("UPDATE requests SET updated_at = ? WHERE id = ?", (stale, r["id"]))
-    assert client.get("/api/requests").json()["requests"][0]["recent"] is False
+
+    def flags():
+        row = client.get("/api/requests").json()["requests"][0]
+        return row["recent"], row["stale"]
+
+    def age(minutes):
+        with sqlite3.connect(settings.db_path) as conn:
+            then = (datetime.now() - timedelta(minutes=minutes)).isoformat(timespec="seconds")
+            conn.execute("UPDATE requests SET updated_at = ? WHERE id = ?", (then, r["id"]))
+
+    assert flags() == (True, False)
+    age(11)
+    assert flags() == (False, False)
+    age(16)
+    assert flags() == (False, True), "a claim untouched for 15 minutes is an agent that stopped"
 
 
 def test_hints_and_solution_open_in_order(tmp_path):
@@ -205,10 +215,36 @@ def test_agent_inbox_round_trip(tmp_path, monkeypatch, capsys):
     assert client.get("/api/requests").json()["agent"]["connected"] is True, "watching counts as connected"
 
     assert main(["request", "claim", str(first["id"])]) == 0
-    assert main(["request", "claim", str(first["id"])]) == 1, "a claimed request cannot be claimed twice"
+    assert main(["request", "claim", str(first["id"])]) == 0, "an agent that died mid-build replays its claim"
+    assert "orphaned" in capsys.readouterr().out
+    assert main(["request", "done", str(first["id"]), "--result", "rate-limiter/01-nope"]) == 1, "a bad key would be a dead Start link"
+    (mine / "tracks/rate-limiter/01-token-bucket").mkdir(parents=True)
+    (mine / "tracks/rate-limiter/01-token-bucket/challenge.yaml").write_text("title: Token bucket\n")
     assert main(["request", "done", str(first["id"]), "--result", "rate-limiter/01-token-bucket"]) == 0
     done = client.get("/api/requests").json()["requests"][0]
     assert (done["status"], done["result"]) == ("done", "rate-limiter/01-token-bucket")
+
+
+def test_claim_checks_the_status_inside_the_update(tmp_path):
+    """The guard is in the UPDATE itself: a cancel that commits while the claim waits for the
+    write lock wins, so a claim can never land on a request that just stopped being queued."""
+    import sqlite3
+    import threading
+    import time
+
+    store = Store(tmp_path / "w.db")
+    r = store.add_request("build", "rate-limiter")
+    hold = sqlite3.connect(store.path, timeout=10)
+    hold.execute("UPDATE requests SET status = 'cancelled' WHERE id = ?", (r["id"],))  # takes the write lock
+    got = {}
+    t = threading.Thread(target=lambda: got.update(row=store.update_request(r["id"], "claimed", only_from=("queued",))))
+    t.start()
+    time.sleep(0.5)  # the claim has read 'queued' and waits for the lock
+    hold.commit()
+    t.join()
+    hold.close()
+    assert got["row"] is None
+    assert store.requests()[0]["status"] == "cancelled"
 
 
 def test_learner_edits_interests_and_keeps_their_profile_text(tmp_path):
@@ -259,3 +295,29 @@ def test_a_predict_lesson_keeps_its_misconceptions_until_the_first_submit(tmp_pa
     r = client.post("/api/challenges/m/01-q/run", json={"code": starter, "mode": "submit"}).json()
     assert r["status"] == "failed" and "a missing key has tokens" in r["lesson_html"], "the first Submit opens them, right or wrong"
     assert "a missing key has tokens" in client.get("/api/challenges/m/01-q").json()["lesson_html"]
+
+
+def test_learner_rates_a_question_after_submit(tmp_path):
+    """One tap after Submit: too easy, right, too hard or artificial. The last rating wins, and the
+    agent sees it in progress and in the next brief."""
+    import shutil
+
+    from fastapi.testclient import TestClient
+
+    from whetstone.config import EXAMPLE
+    from whetstone.content import load_tracks
+    from whetstone.store import progress_rows
+
+    shutil.copytree(EXAMPLE, tmp_path / "my/tracks/m/01-memo")
+    (tmp_path / "content").mkdir()
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 60)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+    assert client.get("/api/challenges/m/01-memo").json()["rating"] is None
+    assert client.post("/api/challenges/m/01-memo/rating", json={"rating": "too-hard"}).json() == {"saved": True}
+    assert client.post("/api/challenges/m/01-memo/rating", json={"rating": "meh"}).status_code == 422
+    assert client.get("/api/challenges/m/01-memo").json()["rating"] == "too-hard"
+    store = Store(settings.db_path)
+    assert store.rating("m/01-memo") == "too-hard"
+    assert progress_rows(store, load_tracks(settings.tracks_dir))[0]["rating"] == "too-hard"
+    client.post("/api/challenges/m/01-memo/rating", json={"rating": "right"})
+    assert store.rating("m/01-memo") == "right"

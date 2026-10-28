@@ -24,6 +24,7 @@ from .store import PAIR_MODES, REQUEST_KINDS, Store, progress_rows
 STATIC = Path(__file__).parent / "static"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 RECENT = timedelta(minutes=10)  # a request that finished this recently is still shown as news
+STALE = timedelta(minutes=15)  # a claim untouched for this long is an agent that stopped
 
 
 def allowed_hosts() -> set[str]:
@@ -74,6 +75,10 @@ class RenderBody(BaseModel):
 class ExplainBody(BaseModel):
     test: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1, max_length=2000)
+
+
+class RatingBody(BaseModel):
+    rating: str = Field(pattern="^(too-easy|right|too-hard|artificial)$")
 
 
 class InterestsBody(BaseModel):
@@ -262,6 +267,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             + [{"name": f"tests/{f.name}", "content": f.read_text(encoding="utf-8")} for f in c.visible_test_files()],
             "solved": solved,
             "runs": store.run_count(c.key),
+            "rating": store.rating(c.key),
         }
 
     @app.get("/api/challenges/{track}/{cid}/review")
@@ -364,7 +370,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/requests")
     def list_requests():
         now = datetime.now()  # the server's clock, like the rows' stamps; the browser's may be in another zone
-        rows = [{**r, "recent": now - datetime.fromisoformat(r["updated_at"]) < RECENT} for r in store.requests()]
+        rows = []
+        for r in store.requests():
+            age = now - datetime.fromisoformat(r["updated_at"])
+            rows.append({**r, "recent": age < RECENT, "stale": age > STALE})
         return {"requests": rows, "agent": agent_status(store)}
 
     @app.post("/api/requests/{request_id}/cancel")
@@ -437,6 +446,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c = get_challenge(track, cid)
         store.add_explanation(c.key, body.test, body.text.strip())
         store.record_event(c.key, "explained", {"test": body.test, "text": body.text.strip()[:300]})
+        return {"saved": True}
+
+    @app.post("/api/challenges/{track}/{cid}/rating")
+    def rate(track: str, cid: str, body: RatingBody, request: Request):
+        """How the question felt, one tap after Submit. The curator and the author read it."""
+        require_json(request)
+        c = get_challenge(track, cid)
+        store.record_rating(c.key, body.rating)
+        store.record_event(c.key, "rated", {"rating": body.rating})
         return {"saved": True}
 
     @app.get("/api/challenges/{track}/{cid}/drawing")

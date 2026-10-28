@@ -20,6 +20,7 @@ In the app, the learner presses **Prepare**, **Prepare review variant** or **Pre
 Each event has `id`, `kind`, `target` and `ask`. `ask` is the job in plain words. Handle one request at a time, oldest first.
 
 1. `bin/whetstone request claim <id>`. The app now shows *Your agent is building*.
+   If the request is already `claimed`, an earlier run of you stopped mid-job and left the claim orphaned: `request claim` takes it over and says so, and you do the job from the start.
 2. Do the job with the matching skill:
 
    | `kind` | `target` | Do |

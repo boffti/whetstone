@@ -609,13 +609,17 @@ def cmd_question_brief(args) -> int:
     module = slugify(args.module)
     problem = find_problem(settings, args.module)
     track = next((t for t in load_tracks(settings.tracks_dir) if t.id == module), None)
+    store, _ = _state(settings)
+    ratings = {c.key: r for c in (track.challenges if track else []) if (r := store.rating(c.key))}
     if problem and not args.topic:
-        text = make_brief(settings, problem, difficulty=args.difficulty, notes=args.notes or "", kind=args.type)
+        text = make_brief(settings, problem, difficulty=args.difficulty, notes=args.notes or "", kind=args.type, ratings=ratings)
     else:
         topic = args.topic or (f"{track.title}: {track.description}" if track else None)
         if not topic:
             return fail(f'{module} is not a module or a catalog problem yet. Pass --topic "..." to say what it teaches.', 2)
-        text = make_brief(settings, topic=topic, track=module, difficulty=args.difficulty, notes=args.notes or "", kind=args.type)
+        text = make_brief(
+            settings, topic=topic, track=module, difficulty=args.difficulty, notes=args.notes or "", kind=args.type, ratings=ratings
+        )
     print(text)
     return 0
 
@@ -791,6 +795,8 @@ def cmd_progress(args) -> int:
             notes.append("mastered" if r["mastered"] else f"{r['solve']} solve")
         if r["review_due"]:
             notes.append(f"review due {r['review_due']}")
+        if r.get("rating"):
+            notes.append(f"rated {r['rating']}")
         if last:
             notes.append(f"last {last['mode']}: {last['status']} {last['passed']}/{last['total']}")
         print(f"{r['status']:<9} {r['key']:<46} {' '.join(notes)}")
@@ -1154,12 +1160,27 @@ def cmd_request(args) -> int:
     """Claim a queued request, then mark it done or failed, so the app shows its progress."""
     from .store import Store
 
-    store = Store(load_settings().db_path)
+    settings = load_settings()
+    store = Store(settings.db_path)
     moves = {"claim": ("claimed", ("queued",)), "done": ("done", ("queued", "claimed")), "fail": ("failed", ("queued", "claimed"))}
     status, allowed = moves[args.action]
+    if args.action == "done" and args.result:  # the app turns the result into a Start link
+        track_id, _, cid = args.result.partition("/")
+        try:
+            find_challenge(settings.tracks_dir, track_id, cid)
+        except ContentError:
+            return fail(
+                f"--result must be a question that exists, like rate-limiter/01-token-bucket; there is no {args.result}. Did `question add` succeed?"
+            )
     r = store.update_request(args.id, status, args.result, only_from=allowed)
+    if not r and args.action == "claim":
+        r = store.update_request(args.id, "claimed", only_from=("claimed",))  # a replay: the agent that claimed it stopped mid-job
+        if r:
+            print(
+                f"Request #{r['id']} was already claimed: an earlier agent run left it orphaned. It is yours now; do the job from the start."
+            )
     if not r:
-        return fail(f"Request #{args.id} is not open (already done, failed, cancelled or claimed).")
+        return fail(f"Request #{args.id} is not open (already done, failed or cancelled).")
     store.record_event(None, f"request-{status}", {"id": r["id"], "kind": r["kind"], "target": r["target"], "result": r.get("result")})
     print(f"Request #{r['id']} {status}." + (f" {r['result']}" if r.get("result") else ""))
     return 0

@@ -11,6 +11,7 @@ from pathlib import Path
 WEEK_TARGET = 3  # practice days per week that keep the weekly streak
 EVENTS_KEPT = 5000
 PAIR_MODES = ("off", "quiet", "coach", "interviewer")
+RATINGS = ("too-easy", "right", "too-hard", "artificial")  # how a question felt, one tap after Submit
 # What the app can ask the learner's agent to do, and what each target is.
 REQUEST_KINDS = {
     "build": "module",  # build the next question of a module
@@ -131,6 +132,17 @@ CREATE TABLE IF NOT EXISTS drawings (
     elements TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+""",
+    # 8: how the learner found a question (one tap after Submit). The curator and the author read
+    # it: a question can take 11 runs because it was hard or because it was badly written.
+    """
+CREATE TABLE IF NOT EXISTS ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    challenge TEXT NOT NULL,
+    rating TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ratings_by_challenge ON ratings (challenge, id);
 """,
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
@@ -362,6 +374,21 @@ class Store:
             ).fetchone()
             return dict(row) if row else None
 
+    def record_rating(self, key: str, rating: str) -> None:
+        if rating not in RATINGS:
+            raise ValueError(f"rating must be one of {', '.join(RATINGS)}")
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO ratings (challenge, rating, created_at) VALUES (?, ?, ?)",
+                (key, rating, datetime.now().isoformat(timespec="seconds")),
+            )
+
+    def rating(self, key: str) -> str | None:
+        """The learner's latest rating of a question, or None."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT rating FROM ratings WHERE challenge = ? ORDER BY id DESC LIMIT 1", (key,)).fetchone()
+            return row[0] if row else None
+
     # ---------- System design reviews ----------
     def add_review(self, key: str, points: list[dict], summary: str) -> int:
         with self._conn() as conn:
@@ -400,16 +427,17 @@ class Store:
             return [dict(r) for r in conn.execute(f"SELECT * FROM requests {where} ORDER BY id DESC LIMIT ?", (limit,))]
 
     def update_request(self, request_id: int, status: str, result: str | None = None, only_from: tuple[str, ...] = ()) -> dict | None:
-        """Move a request to `status`. With `only_from`, only when it is currently in one of those."""
+        """Move a request to `status`. With `only_from`, only when it is currently in one of those.
+        The check is in the UPDATE itself, so two agents cannot both claim one request."""
         now = datetime.now().isoformat(timespec="seconds")
+        guard = f" AND status IN ({', '.join('?' * len(only_from))})" if only_from else ""
         with self._conn() as conn:
-            row = conn.execute("SELECT status FROM requests WHERE id = ?", (request_id,)).fetchone()
-            if not row or (only_from and row["status"] not in only_from):
-                return None
-            conn.execute(
-                "UPDATE requests SET status = ?, result = COALESCE(?, result), updated_at = ? WHERE id = ?",
-                (status, result, now, request_id),
+            cur = conn.execute(
+                f"UPDATE requests SET status = ?, result = COALESCE(?, result), updated_at = ? WHERE id = ?{guard}",
+                (status, result, now, request_id, *only_from),
             )
+            if cur.rowcount != 1:
+                return None
             return dict(conn.execute("SELECT * FROM requests WHERE id = ?", (request_id,)).fetchone())
 
     def agent_seen(self) -> str | None:
@@ -507,6 +535,7 @@ def progress_rows(store: Store, tracks) -> list[dict]:
                     "solution_viewed": "solution" in opened,
                     "last_run": last,
                     "explanation": store.explanation(c.key),
+                    "rating": store.rating(c.key),
                 }
             )
     add_reviews(rows)
