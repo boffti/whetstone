@@ -208,3 +208,53 @@ def targets(profile: dict, catalog: list[dict], built: set[str]) -> list[dict]:
         ready = [p for p in asked if slugify(p["id"]) in built or (p.get("track") or "").split("/")[0] in built]
         out.append({"company": company, "problems": len(asked), "ready": len(ready)})
     return out
+
+
+def today_steps(rows: list[dict], paths: list[dict], followed: set[str], today: date) -> dict:
+    """What the Today page leads with, for `whetstone today` and a session-start nudge: every
+    review due today or earlier (with the unsolved variant that re-tests it, if one is built),
+    the question worked on most recently, and the next step in each path the learner follows,
+    created or started. `paths` carry `modules` as catalog.path_rows gives them."""
+    day = today.isoformat()
+    reviews = []
+    for r in rows:
+        if r["review_due"] and r["review_due"] <= day:
+            variant = next((v for v in rows if v["variant_of"] == r["key"] and v["status"] != "solved"), None)
+            reviews.append(
+                {
+                    "key": r["key"],
+                    "title": r["title"],
+                    "due": r["review_due"],
+                    "solved_at": r["solved_at"][:10],
+                    "variant": variant["key"] if variant else None,
+                }
+            )
+    open_ = max((r for r in rows if r["status"] == "attempted"), key=lambda r: r["last_run"]["created_at"], default=None)
+    in_progress = (
+        {
+            "key": open_["key"],
+            "title": open_["title"],
+            "last_run": open_["last_run"]["created_at"][:10],
+            "passed": open_["last_run"]["passed"],
+            "total": open_["last_run"]["total"],
+        }
+        if open_
+        else None
+    )
+    steps = []
+    for p in paths:
+        if not (p["id"] in followed or p["mine"] or any(m["solved"] for m in p["modules"])):
+            continue
+        m = next((m for m in p["modules"] if not m["built"] or m["solved"] < m["questions"]), None)
+        if m:
+            steps.append(
+                {
+                    "path": p["id"],
+                    "path_title": p["title"],
+                    "module": m["module"],
+                    "title": m["title"],
+                    "built": m["built"],
+                    "key": f"{m['module']}/{m['next']}" if m["built"] else None,
+                }
+            )
+    return {"reviews": reviews, "in_progress": in_progress, "paths": steps}

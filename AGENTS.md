@@ -32,6 +32,7 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone doctor` | Checks the setup (Python, data folder, database, Redis, web app, git ignoring `my/`) and says how to fix each problem. Run it first when something fails. |
 | `bin/whetstone catalog [--company X] [--round R] [--search W]` | Lists catalog problems, most asked first. `catalog <id>` shows one in full. |
 | `bin/whetstone progress` | Shows each question's runs, hints opened and solution views, whether a solve was clean or assisted, mastery, and when its spaced review is due. |
+| `bin/whetstone today` | The start of a session: reviews due today or earlier (and whether a variant for each is already built), the question in progress with its last run, and the next step in each path the learner follows. Prints nothing and exits 0 when nothing is due and nothing is in progress. |
 | `bin/whetstone path list [--domain D]` | Lists paths grouped by domain, for example "Payments & fintech" or "Trading & markets". |
 | `bin/whetstone path create <id> --goal "..." [--domain D] [--company C]...` | Creates a learning path. |
 | `bin/whetstone path add <path> <module>...` | Appends modules in order. A catalog problem that is not built yet is allowed. |
@@ -50,7 +51,9 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone requests [--json]` | Lists the work the learner queued in the app: build a module, a review variant, a whole path, a review, a profile refresh. |
 | `bin/whetstone request claim\|done\|fail <id> [--result ...]` | Claims a request, then marks it done (with the question key) or failed (with the reason). The app shows each step. |
 
-`catalog`, `progress`, `path show`, `path list` and `module list` also take `--json`.
+`catalog`, `progress`, `path show`, `path list`, `module list` and `today` also take `--json`.
+
+Run `bin/whetstone today` at the start of every session, before anything else. Claude Code can run it for you: README's "How to use it" has a `.claude/settings.json` SessionStart hook that shows its output. Other agents run the same command when a session starts.
 
 ## Jobs: use the skill for each one
 

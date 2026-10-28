@@ -726,6 +726,8 @@ def cmd_catalog(args) -> int:
         return 0
 
     q = (args.search or "").lower()
+    by_reports = bool(args.company or args.round)  # those filters are about reports; otherwise placeholders show too
+    paths = load_all_paths(settings.shared_paths_dir, settings.paths_dir)
     rows = []
     for p in load_catalog(settings):
         hits = [
@@ -733,8 +735,8 @@ def cmd_catalog(args) -> int:
             for r in p["reports"]
             if (not args.company or r["company"].lower() == args.company.lower()) and (not args.round or r["round"] == args.round)
         ]
-        text = " ".join([p["title"], p.get("summary", ""), *p.get("tags", []), *(r["question"] for r in p["reports"])]).lower()
-        if hits and (not q or q in text):
+        text = " ".join([p["id"], p["title"], p.get("summary", ""), *p.get("tags", []), *(r["question"] for r in p["reports"])]).lower()
+        if (hits or not by_reports) and (not q or q in text):
             rows.append((p, hits, catalog_links(p, tracks, solved)))
     rows.sort(key=lambda row: (-len(row[1]), row[0]["id"]))
     if args.json:
@@ -748,6 +750,8 @@ def cmd_catalog(args) -> int:
                         "format": p.get("format"),
                         "reports": len(hits),
                         "companies": sorted({r["company"] for r in hits}),
+                        "tags": p.get("tags", []),
+                        "paths": [lp.id for lp in paths if p["id"] in lp.modules],
                         "links": links,
                     }
                     for p, hits, links in rows
@@ -761,11 +765,14 @@ def cmd_catalog(args) -> int:
             status = "discussion"
         elif links:
             status = f"{sum(lk['solved'] for lk in links)}/{sum(lk['total'] for lk in links)} solved"
-        else:
+        elif hits:
             status = "not built"
+        else:
+            status = "placeholder, not built"
         companies = list(dict.fromkeys(r["company"] for r in hits))
         more = f" +{len(companies) - 4}" if len(companies) > 4 else ""
-        print(f"{len(hits):3}  {p['id']:<26} {status:<11} {p['title']}  [{', '.join(companies[:4])}{more}]")
+        where = f"  [{', '.join(companies[:4])}{more}]" if companies else ""
+        print(f"{len(hits):3}  {p['id']:<26} {status:<22} {p['title']}{where}")
     print(f"\n{len(rows)} problem{'' if len(rows) == 1 else 's'}. Details: {CLI} catalog <id>")
     return 0
 
@@ -800,6 +807,45 @@ def cmd_progress(args) -> int:
         if last:
             notes.append(f"last {last['mode']}: {last['status']} {last['passed']}/{last['total']}")
         print(f"{r['status']:<9} {r['key']:<46} {' '.join(notes)}")
+    return 0
+
+
+def cmd_today(args) -> int:
+    """The next steps, for the start of a session: silent when there is nothing due or open."""
+    from datetime import date
+
+    from . import dashboard as dash
+    from .catalog import path_rows
+    from .store import progress_rows
+
+    settings = load_settings()
+    store, tracks = _state(settings)
+    rows = progress_rows(store, tracks.values())
+    solved = store.solved_keys()
+    paths = [
+        {"id": lp.id, "title": lp.title, "mine": lp.mine, "modules": path_rows(settings, lp, tracks, solved)}
+        for lp in load_all_paths(settings.shared_paths_dir, settings.paths_dir)
+    ]
+    followed = set(load_profile(settings.user_dir / "profile.md").get("paths", []))
+    steps = dash.today_steps(rows, paths, followed, date.today())
+    if args.json:
+        print(json.dumps(steps, indent=2))
+        return 0
+    if not steps["reviews"] and not steps["in_progress"]:
+        return 0
+    if steps["reviews"]:
+        print(f"Reviews due ({len(steps['reviews'])}): offer a variant of each before anything new.")
+        for r in steps["reviews"]:
+            variant = f"variant ready: {r['variant']}" if r["variant"] else f"no variant yet: {CLI} question brief {r['key'].split('/')[0]}"
+            print(f"  {r['key']:<46} {r['title']}  due {r['due']}, solved {r['solved_at']}  {variant}")
+    if steps["in_progress"]:
+        q = steps["in_progress"]
+        print(f"In progress:\n  {q['key']:<46} {q['title']}  last run {q['last_run']}: {q['passed']} of {q['total']} tests passed")
+    if steps["paths"]:
+        print("Next in each path:")
+        for s in steps["paths"]:
+            where = s["key"] if s["built"] else f"{s['module']} not built yet: {CLI} question brief {s['module']}"
+            print(f"  {s['path_title']}: {s['title']}  {where}")
     return 0
 
 
@@ -1267,6 +1313,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--search")
     p.add_argument("--json", action="store_true")
     p = cmd(sub, "progress", cmd_progress, "what the learner solved, attempted and struggled with")
+    p.add_argument("--json", action="store_true")
+    p = cmd(sub, "today", cmd_today, "reviews due, the open question and each path's next step; silent when nothing is due")
     p.add_argument("--json", action="store_true")
     p = cmd(sub, "draft", cmd_draft, "the learner's current code for a question")
     p.add_argument("key", help="module/question, e.g. rate-limiter/01-token-bucket")

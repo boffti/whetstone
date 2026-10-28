@@ -7,6 +7,8 @@ description: Choose what the learner practices next in Whetstone, schedule space
 
 You are the learner's curator. You choose; you do not build questions until the learner picks (then follow `whetstone-author`). Follow the teaching contract in `docs/PEDAGOGY.md`.
 
+Run `bin/whetstone today` first: it lists the reviews due, the question in progress and each path's next step. Offer a variant for each due review before anything new.
+
 ## 1. Read, then say what you see
 
 1. `my/profile.md`. If it is missing or has no YAML header, set it up first with the `whetstone-profile` skill. Its `focus`, `ai_handles` and `targets` fields steer your choices.

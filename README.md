@@ -80,6 +80,8 @@ claude                              # or codex, or open the folder in Cursor
 
 Open `http://localhost:8000` in a browser pane next to your agent, such as the built-in browser in Claude's desktop app, or in any browser tab. Then tell your agent: *"Set up my Whetstone profile."* If something doesn't work, run `bin/whetstone doctor`: it checks your setup and says how to fix each problem.
 
+The exercises are Python 3.12 today. Building a question takes your agent a few minutes. To update Whetstone, run `git pull && docker compose up -d --build`.
+
 ## How it works
 
 ```mermaid
@@ -123,6 +125,20 @@ While your agent watches, you can work from the app instead:
 - **Prepare** on a module, a path or a system design question asks your agent to build it. The button turns into **Start** when the question is ready.
 - **Ask for review** on a design has your agent grade it against the rubric.
 - **Follow this path** and **+ Focus** tell your agent what you want to keep sharp.
+
+### A nudge when a session starts
+
+`bin/whetstone today` prints the reviews that are due, the question you have open and the next step in each path you follow. It prints nothing when there is nothing to do. To see it every time you start Claude Code in this folder, put this in `.claude/settings.json`, or in `.claude/settings.local.json`, which git ignores (the repo ships neither, so each learner opts in):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bin/whetstone today" }] }]
+  }
+}
+```
+
+Other agents can run the same command at the start of a session.
 
 ## Screenshots
 
@@ -198,7 +214,7 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 <td width="50%" valign="top"><img src="docs/brand/icons/design.svg" width="44" height="44" align="left" alt=""><b>System design on a whiteboard</b><br>Write the design, draw it in Excalidraw, and get it graded point by point against a rubric.</td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/brand/icons/local.svg" width="44" height="44" align="left" alt=""><b>Private by design</b><br>Runs on your machine. No account, no telemetry, no API keys. Your work stays in a git-ignored folder.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/local.svg" width="44" height="44" align="left" alt=""><b>Private by design</b><br>Runs on your machine. No account, no telemetry. The only thing that uses an API key is the optional in-app generator. Your work stays in a git-ignored folder.</td>
 <td width="50%" valign="top"><img src="docs/brand/icons/mastery.svg" width="44" height="44" align="left" alt=""><b>Ready for interviews, too</b><br>Filter by the companies you're aiming for, practice their real questions, and ask your agent for a mock interview.</td>
 </tr>
 </table>
@@ -274,13 +290,14 @@ bin/whetstone path add <path> <module> [<module> ...]
 bin/whetstone module create <id> [--from-catalog <problem>] [--title "..."] [--description "..."]
 bin/whetstone module list [--json]
 
-bin/whetstone question brief <module> [--topic "..."] [--type whiteboard] [--difficulty medium] [--notes "..."]
-bin/whetstone question new <module> <slug> [--title "..."] [--type whiteboard]
+bin/whetstone question brief <module> [--topic "..."] [--type T] [--difficulty medium] [--notes "..."]
+bin/whetstone question new <module> <slug> [--title "..."] [--type T]        # T: build, predict, fix, review, tests, design or whiteboard
 bin/whetstone question add <folder> --module <module>
 bin/whetstone question check [module | module/question ...]      # also: bin/whetstone validate
 
 bin/whetstone catalog [<problem-id>] [--company X] [--round R] [--search W] [--json]
 bin/whetstone progress [--json]
+bin/whetstone today [--json]                             # reviews due, the open question, each path's next step; silent when nothing is due
 bin/whetstone draft <module/question>
 bin/whetstone test <module/question> [--all]
 bin/whetstone watch [--key K] [--for SECONDS]           # stream app activity for a pairing agent

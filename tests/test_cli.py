@@ -318,3 +318,169 @@ def test_question_new_scaffolds_every_type(tmp_path, monkeypatch, capsys):
         assert main(["question", "add", str(stage), "--module", "m"]) == 0, capsys.readouterr().out
     out = capsys.readouterr().out
     assert "Added m/05-design." in out
+
+
+def _today_home(tmp_path, monkeypatch):
+    """Two built questions in module m, one path through m and an unbuilt module; nothing solved yet."""
+    content, mine = tmp_path / "content", tmp_path / "my"
+    (content / "paths").mkdir(parents=True)
+    (content / "catalog.yaml").write_text(yaml.safe_dump(CATALOG))
+    (content / "paths" / "staff.yaml").write_text(yaml.safe_dump({"title": "Staff path", "modules": ["m", "idempotent-api"]}))
+    for n, title in (("01-a", "First"), ("02-b", "Second")):
+        q = mine / "tracks/m" / n
+        q.mkdir(parents=True)
+        (q / "challenge.yaml").write_text(f"title: {title}\n")
+        (q / "hints.md").write_text("")
+    (mine / "tracks/m/track.yaml").write_text("title: Module M\n")
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+    return mine
+
+
+def test_today_is_silent_when_nothing_is_due_or_in_progress(tmp_path, monkeypatch, capsys):
+    _today_home(tmp_path, monkeypatch)
+    assert main(["today"]) == 0
+    assert capsys.readouterr().out == "", "a session-start hook must print nothing when there is nothing to do"
+    assert main(["today", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"reviews": [], "in_progress": None, "paths": []}, "no path is followed yet"
+
+
+def test_today_lists_due_reviews_the_open_question_and_the_next_path_step(tmp_path, monkeypatch, capsys):
+    from whetstone.store import Store
+
+    mine = _today_home(tmp_path, monkeypatch)
+    (mine / "profile.md").write_text("---\nname: Sam\npaths: [staff]\n---\n")
+    (mine / "paths").mkdir()
+    (mine / "paths/payments.yaml").write_text(yaml.safe_dump({"title": "Payments", "modules": ["idempotent-api"]}))  # mine: followed
+    store = Store(mine / "whetstone.db")
+    store.record_run("m/01-a", "submit", "passed", 3, 3, 0.1, "x")
+    store.record_run("m/02-b", "run", "failed", 1, 4, 0.1, "x")
+    with store._conn() as conn:  # solved weeks ago, so the 3-day review is overdue
+        conn.execute("UPDATE solved SET solved_at = '2026-10-01T10:00:00' WHERE challenge = 'm/01-a'")
+
+    assert main(["today"]) == 0
+    out = capsys.readouterr().out
+    assert "m/01-a" in out and "First" in out and "due 2026-10-04" in out and "no variant yet" in out
+    assert "m/02-b" in out and "1 of 4 tests passed" in out
+    assert "Staff path: Module M  m/02-b" in out, "m is still open, so the staff path's next step is its second question"
+    assert "Payments: Idempotent payments API  idempotent-api not built yet" in out
+
+    assert main(["today", "--json"]) == 0
+    t = json.loads(capsys.readouterr().out)
+    assert t["reviews"] == [{"key": "m/01-a", "title": "First", "due": "2026-10-04", "solved_at": "2026-10-01", "variant": None}]
+    assert t["in_progress"] == {"key": "m/02-b", "title": "Second", "last_run": t["in_progress"]["last_run"], "passed": 1, "total": 4}
+    unbuilt = {"path": "payments", "path_title": "Payments", "module": "idempotent-api", "title": "Idempotent payments API"}
+    assert t["paths"] == [
+        {**unbuilt, "built": False, "key": None},
+        {"path": "staff", "path_title": "Staff path", "module": "m", "title": "Module M", "built": True, "key": "m/02-b"},
+    ]
+
+    q = mine / "tracks/m/03-a-again"
+    q.mkdir()
+    (q / "challenge.yaml").write_text("title: First again\nvariant_of: m/01-a\n")
+    (q / "hints.md").write_text("")
+    assert main(["today"]) == 0
+    assert "variant ready: m/03-a-again" in capsys.readouterr().out
+
+
+def test_catalog_lists_placeholders_and_finds_them_by_tag(tmp_path, monkeypatch, capsys):
+    """Most path modules have no interview reports yet. The catalog still lists them, so an agent
+    the curate skill sends to one can find it."""
+    content = tmp_path / "content"
+    (content / "paths").mkdir(parents=True)
+    placeholder = {
+        "id": "cqrs-read-model",
+        "title": "CQRS read model",
+        "summary": "Split commands from queries.",
+        "tags": ["cqrs", "projections"],
+        "reports": [],
+    }
+    (content / "catalog.yaml").write_text(yaml.safe_dump({"problems": [*CATALOG["problems"], placeholder]}))
+    (content / "paths" / "event-sourcing.yaml").write_text(yaml.safe_dump({"title": "Event sourcing", "modules": ["cqrs-read-model"]}))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(tmp_path / "my"))
+
+    def run(*args):
+        code = main(list(args))
+        out = capsys.readouterr()
+        return code, out.out + out.err
+
+    code, out = run("catalog")
+    assert code == 0 and "cqrs-read-model" in out and "placeholder, not built" in out
+    assert out.index("rate-limiter") < out.index("cqrs-read-model"), "problems with reports come first"
+    code, out = run("catalog", "--search", "cqrs")
+    assert code == 0 and "cqrs-read-model" in out and "rate-limiter" not in out, "a tag is searchable"
+    assert "cqrs-read-model" not in run("catalog", "--company", "Stripe")[1], "a company filter is about reports"
+    code, out = run("catalog", "--search", "cqrs", "--json")
+    (row,) = json.loads(out)
+    assert (row["reports"], row["tags"], row["paths"]) == (0, ["cqrs", "projections"], ["event-sourcing"])
+
+
+def test_brief_orders_reports_by_confidence_and_cites_sources(tmp_path, monkeypatch, capsys):
+    """A low-confidence report is a title seen once on an aggregator. The brief lists it after the
+    others, says so, gives each report's source, and asks for grounded_in in challenge.yaml."""
+    catalog = {
+        "problems": [
+            {
+                "id": "ledger",
+                "title": "Ledger",
+                "summary": "Balances over time.",
+                "reports": [
+                    {
+                        "company": "Bloomberg",
+                        "round": "practical-coding",
+                        "year": 2026,
+                        "confidence": "low",
+                        "question": "Build a credit ledger.",
+                        "sources": ["https://www.fastprep.io/problems/x", "https://github.com/perixtar/Tech-OA-Interview-Questions"],
+                    },
+                    {
+                        "company": "Stripe",
+                        "round": "practical-coding",
+                        "year": 2024,
+                        "confidence": "high",
+                        "question": "Build a double-entry ledger.",
+                        "sources": ["https://example.com/report"],
+                    },
+                ],
+            }
+        ]
+    }
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    (content / "catalog.yaml").write_text(yaml.safe_dump(catalog))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+
+    assert main(["question", "brief", "ledger"]) == 0
+    out = capsys.readouterr().out
+    high, low = (
+        "- Stripe (practical-coding, 2024): Build a double-entry ledger.",
+        "- Bloomberg (practical-coding, 2026, title only): Build a credit ledger.",
+    )
+    assert high in out and low in out and out.index(high) < out.index(low), out
+    assert "Source: https://example.com/report" in out and "Source: https://www.fastprep.io/problems/x" in out
+    assert "title only" in out[out.index(low) :], "the brief explains what a title-only report is"
+    assert "grounded_in" in out, "the brief asks the author to cite the reports they used"
+
+
+def test_brief_shows_how_the_learner_rated_earlier_questions(tmp_path, monkeypatch, capsys):
+    from whetstone.config import load_settings
+    from whetstone.store import Store
+
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    (content / "catalog.yaml").write_text(yaml.safe_dump(CATALOG))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+    assert main(["question", "new", "rate-limiter", "first"]) == 0
+    assert main(["question", "add", str(mine / ".staging/first"), "--module", "rate-limiter"]) == 0
+    out = capsys.readouterr().out
+    assert "grounded_in is empty" in out, "a module with reports asks for provenance"
+    Store(load_settings().db_path).record_rating("rate-limiter/01-first", "too-hard")
+
+    assert main(["question", "brief", "rate-limiter"]) == 0
+    out = capsys.readouterr().out
+    assert "01-first" in out and "rated too hard" in out, out
+    assert main(["progress"]) == 0
+    assert "rated too-hard" in capsys.readouterr().out

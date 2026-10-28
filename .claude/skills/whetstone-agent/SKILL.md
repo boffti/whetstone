@@ -9,11 +9,12 @@ In the app, the learner presses **Prepare**, **Prepare review variant** or **Pre
 
 ## Start
 
-1. Run `bin/whetstone requests` to see work that is already queued.
-2. Run `bin/whetstone watch` as a **background** process whose output wakes you. In Claude Code, use the Monitor tool. Without a background monitor, run `bin/whetstone watch --for 120` whenever the learner says "check".
+1. Run `bin/whetstone today`: reviews due, the question in progress and each path's next step. It prints nothing when nothing is due. Offer a variant for each due review before new work.
+2. Run `bin/whetstone requests` to see work that is already queued.
+3. Run `bin/whetstone watch` as a **background** process whose output wakes you. In Claude Code, use the Monitor tool. Without a background monitor, run `bin/whetstone watch --for 120` whenever the learner says "check".
    - While the watch runs, the app shows **Agent connected** in its top bar.
    - The watch first replays queued requests as `requested` events, then streams new events as they happen.
-3. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practicing."
+4. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practicing."
 
 ## On a `requested` event
 
