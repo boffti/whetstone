@@ -35,9 +35,9 @@ Skills need three kinds of care, and Whetstone gives all three:
 - **Relearn what you know.** The things you learned years ago, or now hand to your AI, fade quietly. Whetstone brings them back as fresh problems, so you find out what is still there.
 - **Keep your skills sharp.** Every idea you solve returns on a new surface after 3 days, 3 weeks and 3 months. Each skill shows how sharp it is today, and your agent suggests what to practice next.
 
-**Built around you.** You tell your agent about your work once: what you build, your stack, your experience and your goals, plus what your AI already does for you. Every question is then written for you. It's a scenario from your world, at the step you're ready for, explained the way you learn.
+**Built around you.** Your agent already knows you from the work you've done together: what you build, your stack and experience, where you're headed, and what it now writes for you. It drafts your profile from that, and from your GitHub activity if you agree, so there's nothing to fill in. You only check the draft. Every question is then written for you: a scenario from your world, at the step you're ready for, explained the way you learn.
 
-**Real problems from real interviews.** The question bank is grounded in 621 interview reports from 93 companies, organised into 256 modules and 78 systems to build. The problems are practical: ledgers that must balance, retries that must not charge twice, rate limiters, caches and schedulers. There are no throwaway puzzles. That makes Whetstone good interview preparation too: filter by the companies you're aiming for, practice system design on a whiteboard, and ask your agent for a mock interview.
+**Real problems from real interviews.** The question bank is grounded in 2,771 interview reports from 397 companies, organised into 271 modules and 78 systems to build. The problems are practical: ledgers that must balance, retries that must not charge twice, rate limiters, caches and schedulers. There are no throwaway puzzles. That makes Whetstone good interview preparation too: filter by the companies you're aiming for, practice system design on a whiteboard, and ask your agent for a mock interview.
 
 **Your AI as reviewer and interviewer.** The same agent that writes your questions also reviews your solutions like a staff engineer, nudges you one step at a time when you're stuck without giving the answer away, pairs with you in the editor's margin, and runs mock interviews.
 
@@ -106,7 +106,7 @@ Talk to your agent in plain words. It follows the skill files in `.claude/skills
 
 | You say | What happens |
 |---|---|
-| *"Set up my Whetstone profile."* | It drafts `my/profile.md` from what it knows about you and asks a few questions. With your consent it also reads your GitHub activity, including which code your AI co-wrote, because those skills fade first. |
+| *"Set up my Whetstone profile."* | It drafts `my/profile.md` from what it already knows about you and shows you the draft to check. With your consent it also reads your GitHub activity, including which code your AI co-wrote, because those skills fade first. |
 | *"Watch Whetstone."* | It waits in the background for the buttons you press in the app, and does the work while you keep practicing. |
 | *"What should I practice next?"* | It reads your progress and offers two choices. Reviews that are due come first. |
 | *"Make me a learning path to build a checkout system."* | It proposes an ordered list of modules, or finds a shipped path that fits, and creates it when you agree. |
@@ -186,8 +186,8 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 
 <table>
 <tr>
-<td width="50%" valign="top"><img src="docs/brand/icons/for-you.svg" width="44" height="44" align="left" alt=""><b>Built around you</b><br>Your agent reads your profile (your work, stack, experience and goals) and writes every question for you.</td>
-<td width="50%" valign="top"><img src="docs/brand/icons/systems.svg" width="44" height="44" align="left" alt=""><b>Real problems from real interviews</b><br>621 interview reports from 93 companies, organised into 256 modules and 78 systems to build.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/for-you.svg" width="44" height="44" align="left" alt=""><b>Built around you</b><br>Your agent already knows your work, stack, experience and goals, and writes every question for you.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/systems.svg" width="44" height="44" align="left" alt=""><b>Real problems from real interviews</b><br>2,771 interview reports from 397 companies, organised into 271 modules and 78 systems to build.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/brand/icons/spaced.svg" width="44" height="44" align="left" alt=""><b>Learn, relearn, keep sharp</b><br>New ideas step by step, faded ones brought back, and every solved idea returning after 3 days, 3 weeks and 3 months.</td>
