@@ -1609,7 +1609,7 @@ async function buildProblem(p) {
 /* ---------- Paths ---------- */
 // A path is a system to build (a payment processor, a taxi service, an LLM gateway), made of
 // modules in order. Modules that are not built yet are placeholders the learner's agent fills in.
-// The filters live in the URL (#/paths?company=Stripe&module=ledger), so reload and Back keep them.
+// The filters live in the URL (#/paths?company=Netflix&module=ledger), so reload and Back keep them.
 const PATH_FILTERS = ["q", "foryou", "ready", "domain", "company", "module", "sort"];
 const PATH_SORTS = { match: "best match first", asked: "most asked first", ready: "readiest first", az: "A to Z" };
 const STOP_TEXT = { done: "solved", built: "ready to practice", none: "your agent prepares it" };
@@ -2121,7 +2121,7 @@ function focusSection(d) {
     await saveInterests({ focus: [...(profile.focus || []), p.id] });
   }));
   box.append(chipList("Companies", profile.targets || [], (c) => saveInterests({ targets: profile.targets.filter((x) => x !== c) }), null, companyMark));
-  box.append(addRow("Add a company", "company-options", "Stripe, Netflix…", async (value) => {
+  box.append(addRow("Add a company", "company-options", "Netflix, Datadog…", async (value) => {
     await saveInterests({ targets: [...(profile.targets || []), value] });
   }));
   const followed = (profile.paths || []).map((id) => state.paths.find((p) => p.id === id)).filter(Boolean);

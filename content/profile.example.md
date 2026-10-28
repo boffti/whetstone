@@ -6,7 +6,7 @@ goal:                      # one line, e.g. Staff-level depth in distributed sys
 stack: []                  # languages and tools you use most, e.g. [Python, Postgres, Kafka]
 focus: []                  # module ids to keep sharp, e.g. [rate-limiter, idempotent-api]
 ai_handles: []             # what your AI writes for you at work, e.g. [tests, concurrency code]
-targets: []                # companies whose interviews you care about, e.g. [Stripe]
+targets: []                # companies whose interviews you care about, e.g. [Databricks, Shopify]
 github:                    # your GitHub username, if your agent used it to build this profile
 ---
 

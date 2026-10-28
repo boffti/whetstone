@@ -32,11 +32,11 @@ uv run python scripts/check_content.py    # catalog, paths and privacy rules
 A path is a system to build, made of 5 to 8 modules ordered from building blocks to the whole system. Add `content/paths/<id>.yaml`:
 
 ```yaml
-title: Build a payment processor          # starts with "Build a" or "Build an"
-goal: Accept card payments safely, retry without double charges, settle merchants daily.
-domain: Payments & fintech                # reuse an existing domain where one fits
-companies: [Stripe, Adyen]                # whose systems it is modelled on
-modules: [idempotent-api, payment-lifecycle, ledger, webhook-delivery, payout-settlement]
+title: Build a taxi booking service       # starts with "Build a" or "Build an"
+goal: Find nearby drivers, estimate arrival times, dispatch in batches, track each trip, raise prices when demand outruns supply.
+domain: Marketplaces & mobility           # reuse an existing domain where one fits
+companies: [Uber, Lyft]                   # whose systems it is modelled on
+modules: [geo-matching, order-state-machine, eta-estimation, assignment-matching, surge-pricing]
 ```
 
 - The file name is the id, in kebab-case and named after the system, not a company.
@@ -68,7 +68,7 @@ Reports are what real candidates say they were asked. They ground each module in
 1. Write a JSON array in `data/research/<topic>.json`. The `data/` folder is git-ignored.
 
    ```json
-   [{"company": "Stripe", "round": "practical-coding", "level": null, "year": 2025,
+   [{"company": "Cloudflare", "round": "practical-coding", "level": null, "year": 2026,
      "question": "Build a rate limiter that allows N requests per user per minute, then make it work across servers.",
      "follow_ups": ["Make it thread-safe", "Share state through Redis"],
      "tags": ["rate-limiting"], "archetype": "rate-limiter",
