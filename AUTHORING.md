@@ -1,6 +1,6 @@
 # Authoring guide
 
-This file is the contract for every question in Whetstone. AI agents follow it when they build questions for a learner (see AGENTS.md and the `whetstone-author` skill). The optional in-app generator sends it to Claude word for word. `examples/memoize/` (a build question) and `examples/retry-tests/` (a tests question) are finished questions that follow every rule here. [docs/PEDAGOGY.md](docs/PEDAGOGY.md) explains why the rules are what they are.
+This file is the contract for every question in Whetstone. AI agents follow it when they build questions for a learner (see AGENTS.md and the `whetstone-author` skill). The optional in-app generator sends it to Claude word for word. `examples/` holds one finished question per type that follows every rule here: `memoize/` (build), `limiter-predict/` (predict), `payments-fix/` (fix), `payout-review/` (review), `retry-tests/` (tests) and `short-links-whiteboard/` (whiteboard). Copy the one for the type you are writing. [docs/PEDAGOGY.md](docs/PEDAGOGY.md) explains why the rules are what they are.
 
 ## What a good question does
 
@@ -32,7 +32,7 @@ my/
         tests/
           test_visible.py          # shown to the learner; run by "Run tests"
           test_hidden.py           # not shown; run by "Submit"
-          conftest.py              # optional shared fixtures (for example, Redis)
+          conftest.py              # optional shared fixtures (for example, Redis); predict: the guard against importing the subject
 ```
 
 The learner's code is saved as `solution.py` in a temporary folder, next to the support files and the `tests/` folder. Tests import from it: `from solution import Thing`.
@@ -49,13 +49,18 @@ tags: [concurrency, cache-stampede]
 requires: []                        # [redis] if the tests need Redis
 support: []                         # read-only files shown to the learner, e.g. [subject.py]
 variant_of: caching/02-ttl          # optional: this re-tests an earlier question on a new surface
+grounded_in: [https://example.com/report]   # the Source links of the interview reports it is based on
+framing: company:Uber                       # optional: work, company:<Name> or domain:<Domain>
 timeout: 60                         # optional; seconds before the run is stopped
 summary: One sentence about what the learner does.
 ```
 
 - **Titles name the scenario** ("Throttle a webhook sender"), not the technique ("Token bucket"). A technique in the title gives away the approach.
+- **Tags name the domain** (`payments`, `ledger`, `concurrency`), not the technique: `question add` warns about `token-bucket`, `lru`, `ring-buffer` and the like.
 - **`lesson: after-run`** is the default for `build` and `fix`. Use `lesson: first` for `predict` questions, and for a first contact with truly unfamiliar ideas.
 - **`variant_of`** marks a question that re-tests the same idea as an earlier one, with a new surface (different domain, names, data). Always point at the original question, even for a variant of a variant. Variants are how spaced review works: `bin/whetstone progress` shows when each review is due.
+- **`framing`** is what the question was prepared for: `work` (the learner's own job), `company:<Name>` or `domain:<Domain>`. It comes from the request and the brief's Framing section; the app shows it in the question's header. The rubric stays the same across framings: it is the skill. The scenario, scale and follow-ups change.
+- **`grounded_in`** lists the Source links of the interview reports the question is based on; `question brief` prints them. It makes "a real problem" auditable. `question add` notes when it is empty in a module that has reports. Leave it empty for a free topic.
 
 ## Question types
 
@@ -75,6 +80,7 @@ summary: One sentence about what the learner does.
 The core type. The starter is often a naive version that "works for one thread", so the learner sees exactly why it breaks.
 
 ### predict
+See `examples/limiter-predict/`.
 - Put the code under study in `subject.py` and list it in `support`. It must be correct, realistic and short (under 60 lines).
 - `problem.md` gives the scripted input or interleaving and names each prediction, for example "tokens left after the burst". It does not explain what the code does.
 - `starter.py`:
@@ -86,10 +92,12 @@ The core type. The starter is often a naive version that "works for one thread",
   ```
 - `solution.py` holds the right values. The **hidden tests compute the expected values by running `subject.py`**, so the answers are never written into the tests.
 - The visible test checks only the format: every key is present, and no value is `...`.
-- Forbid the shortcut: a hidden test checks that `solution.py` does not import `subject`.
+- The scaffold's `tests/conftest.py` forbids the shortcut: it imports `solution.py` with every support module blocked, so `import subject` fails on Run and on Submit; keep it as it is. Hidden tests compare with `ok = ANSWERS[k] == RESULT[k]` and then `assert ok, msg`, so a failure shows the message and never the values, and one hidden test checks that every value is a plain `int`, `float`, `str`, `bool` or `Decimal` by `type()`.
+- `mutants/` holds 2 to 4 wrong versions of the first support file (`subject.py`), one per misconception. `question add` runs the reference `ANSWERS` against each one and refuses the question when a mutant changes no prediction.
 - Use 3 to 6 predictions. At least one targets a misconception, for example "read-then-write is atomic".
 
 ### fix
+See `examples/payments-fix/`.
 - `starter.py` is a complete implementation with **one** realistic bug, for example:
   - an atomicity or ordering violation;
   - a lost acknowledgement;
@@ -101,6 +109,7 @@ The core type. The starter is often a naive version that "works for one thread",
 - Keep the bug small: the reference fix changes a few lines. `question add` reports the size.
 
 ### review
+See `examples/payout-review/`.
 - Put plausible AI-written code in `subject.py`: clean style and good names, with 2 or 3 seeded defects of different categories.
 - `problem.md` gives the categories to use, for example `race`, `not-idempotent`, `missing-timeout`, `wrong-boundary`, `resource-leak`, `unvalidated-input`. It asks for:
   ```python
@@ -155,7 +164,7 @@ A system design interview, answered on a scratchpad the learner's agent can watc
 
 ## mutants/
 
-Every `build`, `fix`, `design` and `tests` question has 2 to 5 mutants. A `whiteboard` question has a rubric instead. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. Its docstring's first line names it:
+Every `build`, `fix`, `design`, `tests` and `predict` question has 2 to 5 mutants. A `whiteboard` question has a rubric instead. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. For `predict` it is a wrong copy of `subject.py` instead, and the gate passes when the reference `ANSWERS` come out wrong on it. Its docstring's first line names it:
 
 ```python
 """Misconception: a dict in the class body belongs to each object."""
@@ -194,7 +203,7 @@ Write in Simplified Technical English most of the time: short sentences, active 
 
 Add an `## Analogy` section after "The idea" only if the learner's profile asks for analogies.
 
-Length: 250 to 500 words.
+Length: 250 to 500 words. `question add` warns above 500.
 
 ## problem.md
 
@@ -276,4 +285,4 @@ A question passes when:
 - the reference solution passes all tests;
 - the starter fails at least one.
 
-`question add` also enforces the current format: exactly four hints, and 2 or more mutants that the tests all catch. `question check` only reports these gaps in older questions. Run `question check` three times to catch flaky timing.
+`question add` also enforces the current format: exactly four hints, and 2 or more mutants that the tests all catch. `question check` only reports these gaps in older questions. Both warn, without refusing, about a lesson over 500 words and a tag that names a technique. Run `question check` three times to catch flaky timing.

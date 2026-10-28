@@ -1,0 +1,9 @@
+title: Which webhooks get through
+type: predict
+lesson: first
+difficulty: medium
+minutes: 15
+tags: [webhooks, rate-limiting]
+requires: []
+support: [subject.py]
+summary: Read the limiter in front of a webhook sender and predict which deliveries it lets through, and how many count, on three scripted runs.

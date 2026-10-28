@@ -28,12 +28,12 @@ from whetstone.store import Store  # noqa: E402
 
 PROFILE = """---
 name: Sam
-role: Senior backend engineer, payments
+role: Senior backend engineer, logistics
 goal: Staff-level depth in distributed systems
 stack: [Python, Django, Postgres, Redis, Kafka]
 focus: [thread-safe-memo-cache, retry-backoff, rate-limiter, idempotent-api]
 ai_handles: [tests, concurrency code]
-targets: [Stripe]
+targets: [DoorDash]
 ---
 
 # Learner profile

@@ -362,37 +362,35 @@ function renderRail() {
         el("span", { class: "notch", "aria-hidden": "true" }, ["solved", "assisted", "mastered"].includes(c.status) ? "✓" : String(c.number)),
         el("span", {},
           el("span", { class: "rail-title", text: c.title }),
-          el("span", { class: "rail-sub", text: `${capital(c.difficulty)}, ${c.minutes} min${c.requires.length ? `, needs ${c.requires.join(", ")}` : ""}` }))));
+          el("span", { class: "rail-sub", text: `${capital(c.difficulty)}, ${c.minutes} min${c.requires.length ? `, needs ${c.requires.join(", ")}` : ""}${c.framing ? `, ${framingLabel(c.framing).replace(/^For your/, "for your").replace(/^For /, "for ").replace(/^Set /, "set ")}` : ""}` }))));
   }));
+}
+
+/** The other versions of this question (the original and its variants, each framed for something
+    else) and a way to prepare one more. Every version keeps its own progress. */
+function renderVersions(c) {
+  const track = state.tracks.find((t) => t.id === c.track);
+  const key = `${c.track}/${c.id}`;
+  const root = c.variant_of || key;
+  const others = (track ? track.challenges : []).filter((q) => {
+    const k = `${c.track}/${q.id}`;
+    return k !== key && (k === root || q.variant_of === root);
+  });
+  $("#challenge-versions").replaceChildren(
+    ...(others.length ? [el("span", { class: "versions-label", text: "Also prepared:" })] : []),
+    ...others.map((q) => el("a", { class: "chip version", href: `#/${c.track}/${q.id}`, title: q.title }, framingLabel(q.framing))),
+    requestButton("variant", root, "Prepare again for…"));  // every version hangs off the original
 }
 
 function capital(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 /** The rail's "Last 4 weeks" calendar. */
-async function loadStats() {
-  const s = await api("/api/stats");
-  fillDays($("#days"), s.active_days);
-}
-
 function isoDay(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function shortDate(iso) {
   return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-/** The last 28 days, one square per day, lit when you practiced. */
-function fillDays(box, activeDays) {
-  const active = new Set(activeDays);
-  const today = new Date();
-  const days = [];
-  for (let i = 27; i >= 0; i--) {
-    const iso = isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i));
-    days.push(el("span", { class: `day${active.has(iso) ? " on" : ""}${i === 0 ? " today" : ""}`, title: iso }));
-  }
-  box.replaceChildren(...days);
-  box.setAttribute("aria-label", `Practiced on ${active.size} of the last 28 days`);
 }
 
 /* ---------- Challenge ---------- */
@@ -414,12 +412,18 @@ async function openChallenge(trackId, cid) {
   $("#challenge-title").textContent = c.title;
   const meta = [el("span", { class: "diff", "data-d": c.difficulty, text: capital(c.difficulty) }), el("span", { text: `About ${c.minutes} min` })];
   if (TYPE_LABEL[c.type]) meta.unshift(el("span", { class: "qtype" }, icon(TYPE_ICON[c.type]), TYPE_LABEL[c.type]));
+  if (c.framing) {
+    const [fk, fname] = framingParts(c.framing);
+    meta.push(el("span", { class: "framing", title: "What this question was prepared for" },
+      fk === "company" ? companyMark(fname) : fk === "domain" ? domainTile(fname, true) : icon("target"), framingLabel(c.framing)));
+  }
   if (c.requires.includes("redis")) {
     const ok = state.config && state.config.redis_ok;
     meta.push(el("span", { class: `needs${ok ? " ok" : ""}`, text: ok ? "Redis connected" : "Needs Redis: not reachable" }));
   }
   meta.push(...c.tags.map((t) => el("span", { class: "tag", text: t })));
   $("#challenge-meta").replaceChildren(...meta);
+  renderVersions(c);
 
   renderLesson();
   $("#panel-problem").innerHTML = c.problem_html;
@@ -479,30 +483,36 @@ function renderRequest(wrap) {
     const p = state.paths.find((x) => x.id === target);
     const missing = p ? p.modules.filter((m) => !m.built) : [];
     const left = missing.filter((m) => !state.requests[`build:${m.module}`] && !olderFill(m.module)).length;
-    nodes = left ? [button(left < missing.length ? `Prepare the other ${plural(left, "module")}` : wrap.dataset.label, "btn-secondary", () => prepareAll(target))]
+    nodes = left ? [button(left < missing.length ? `Prepare the other ${plural(left, "module")}` : wrap.dataset.label, "btn-secondary",
+      (e) => openPrepare(e.currentTarget, null, (f) => prepareAll(target, f)))]
       : [el("span", { class: "req-state working", text: "Your agent prepares them in order. Each one shows Start as soon as it is ready." })];
   } else if (!r) {
-    nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", () => sendRequest(kind, target))];
+    nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", (e) => (FRAMED.has(kind)
+      ? openPrepare(e.currentTarget, target, (f) => sendRequest(kind, target, f)) : sendRequest(kind, target)))];
   } else if (r.status === "queued") {
-    nodes = [el("span", { class: "req-state", text: state.agent.connected ? "Queued for your agent" : "Waiting for your agent" }),
+    nodes = [el("span", { class: "req-state", text: `${state.agent.connected ? "Queued for your agent" : "Waiting for your agent"}${framedFor(r)}` }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
+  } else if (r.status === "claimed" && r.stale && !state.agent.connected) {
+    nodes = [el("span", { class: "req-state failed", text: "Your agent stopped. Cancel or retry." }),
+      button("Cancel", "btn-text", () => cancelRequest(r.id)), button("Retry", "btn-text", () => retryRequest(r.id, kind, target))];
   } else if (r.status === "claimed") {
-    nodes = [el("span", { class: "req-state working", text: REVIEWING.has(kind) ? "Your agent is reviewing…" : "Your agent is preparing it…" })];
+    nodes = [el("span", { class: "req-state working", text: REVIEWING.has(kind) ? "Your agent is reviewing…" : `Your agent is preparing it${framedFor(r)}…` }),
+      button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "done" && REVIEWING.has(kind)) {
     nodes = [el("span", { class: "req-state done", text: "Reviewed" }), button("Ask again", "btn-text", () => sendRequest(kind, target))];
   } else if (r.status === "done") {
     nodes = r.result && r.result.includes("/") ? [el("a", { class: "btn btn-primary", href: `#/${r.result}` }, "Start")] : [el("span", { class: "req-state done", text: "Done" })];
   } else {
     nodes = [el("span", { class: "req-state failed", text: `${REVIEWING.has(kind) ? "Not reviewed" : "Not prepared"}: ${r.result || "your agent could not do it."}` }),
-      button("Try again", "btn-text", () => sendRequest(kind, target))];
+      button("Try again", "btn-text", () => sendRequest(kind, target, r.framing))];
   }
   wrap.replaceChildren(...nodes);
 }
 
-async function sendRequest(kind, target) {
+async function sendRequest(kind, target, framing) {
   try {
     if (kind === "grade") await Promise.all([saveDraft(), state.board && saveBoard()]);  // the agent grades what is saved
-    const r = await api("/api/requests", { method: "POST", body: { kind, target } });
+    const r = await api("/api/requests", { method: "POST", body: { kind, target, ...(framing ? { framing } : {}) } });
     state.requests[`${kind}:${r.target}`] = r;
     $$(".req").forEach(renderRequest);
     if (!state.agent.connected) showAgentHint();
@@ -518,14 +528,81 @@ function olderFill(module) {
 }
 
 /** Queue a build for each module that is not ready, in path order: the agent takes the oldest first. */
-async function prepareAll(pathId) {
+async function prepareAll(pathId, framing) {
   const p = state.paths.find((x) => x.id === pathId);
-  for (const m of p ? p.modules : []) if (!m.built && !state.requests[`build:${m.module}`]) await sendRequest("build", m.module);
+  for (const m of p ? p.modules : []) if (!m.built && !state.requests[`build:${m.module}`]) await sendRequest("build", m.module, framing);
+}
+
+/* ---------- Prepare for…: your work, a company, or a domain ---------- */
+// The rubric is the skill; the framing is the world it is set in. Pressing Prepare asks which one,
+// and the agent writes the question for it (the brief's Framing section).
+const FRAMED = new Set(["build", "variant", "design"]);
+
+/** "company:Uber" -> ["company", "Uber"]; nothing -> ["work", ""]. */
+function framingParts(f) {
+  const [kind, ...rest] = (f || "work").split(":");
+  return [kind, rest.join(":")];
+}
+
+function framingLabel(f) {
+  const [kind, name] = framingParts(f);
+  return kind === "company" ? `For ${name}` : kind === "domain" ? `Set in ${name}` : "For your work";
+}
+
+/** ", for Uber" on a queued request; nothing for your own work. */
+function framedFor(r) {
+  return r.framing && r.framing !== "work" ? `, ${framingLabel(r.framing).replace(/^For/, "for").replace(/^Set/, "set")}` : "";
+}
+
+/** The chooser, under the button pressed. `target` is a module or question key, or null for a whole path. */
+async function openPrepare(anchor, target, onPick) {
+  const pop = $("#prep-pop");
+  const pick = (f) => { pop.hidePopover(); onPick(f); };
+  const chip = (label, f, mark) => el("button", { type: "button", class: "chip prep-chip", onclick: () => pick(f) }, mark || null, label);
+  const targets = (state.profile && state.profile.targets) || [];
+  const companies = el("div", { class: "prep-chips" }, targets.map((c) => chip(c, `company:${c}`, companyMark(c))));
+  const other = el("input", { type: "text", list: "company-options", placeholder: "Another company", "aria-label": "Another company",
+    onkeydown: (e) => { if (e.key === "Enter" && e.target.value.trim()) pick(`company:${e.target.value.trim().slice(0, 60)}`); } });
+  const otherRow = el("div", { class: "prep-other" }, icon("search"), other,
+    el("button", { type: "button", class: "btn btn-secondary btn-small", onclick: () => other.value.trim() && pick(`company:${other.value.trim().slice(0, 60)}`) }, "Prepare"));
+  pop.replaceChildren(
+    el("p", { class: "prep-title", text: "Prepare this for…" }),
+    el("button", { type: "button", class: "btn btn-primary prep-work", onclick: () => pick("work") }, icon("target"), "My work",
+      el("span", { class: "prep-sub", text: "from your profile" })),
+    el("p", { class: "prep-label", text: "A company you're preparing for" }), companies, otherRow,
+    el("p", { class: "prep-label", text: "A domain" }),
+    el("div", { class: "prep-chips" }, Object.keys(DOMAINS).map((d) => chip(d, `domain:${d}`, domainTile(d, true)))));
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(innerWidth - 348, r.left))}px`;
+  pop.style.top = `${r.bottom + 6}px`;
+  pop.showPopover();
+  if (pop.getBoundingClientRect().bottom > innerHeight - 8) pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 6)}px`;
+  pop.querySelector(".prep-work").focus();
+  fillOptions();
+  // After your targets: the companies that asked this module most.
+  const module = target && target.split("/")[0];
+  const problem = module && (await catalogList()).find((p) => p.id === module);
+  if (!problem) return;
+  const asked = new Map();
+  for (const rep of problem.reports) if (rep.company !== "Unknown") asked.set(rep.company, (asked.get(rep.company) || 0) + 1);
+  const shown = new Set(targets.map((c) => c.toLowerCase()));
+  [...asked].filter(([c]) => !shown.has(c.toLowerCase())).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .forEach(([c, n]) => companies.append(chip(`${c} (${n})`, `company:${c}`, companyMark(c))));
 }
 
 async function cancelRequest(id) {
   await api(`/api/requests/${id}/cancel`, { method: "POST", body: {} });
   await pollRequests();
+}
+
+/** A claim the agent walked away from: drop it and queue the same job again. */
+async function retryRequest(id, kind, target) {
+  try {
+    await api(`/api/requests/${id}/cancel`, { method: "POST", body: {} });
+  } catch (_) {
+    return pollRequests();  // it finished or was cancelled meanwhile; show that instead
+  }
+  await sendRequest(kind, target);
 }
 
 /** The latest request per kind and target. Finished ones count only while they are fresh. */
@@ -795,6 +872,7 @@ async function revealSolution() {
   const s = await api(`/api/challenges/${track}/${id}/solution`, { method: "POST", body: { give_up: !open } });
   state.challenge.solution_open = true;
   $("#solution-gate").hidden = true;
+  if (s.lesson_html) { state.challenge.lesson_html = s.lesson_html; renderLesson(); }  // predict: the misconceptions open
   if (s.html) {
     const doc = $("#solution-doc");
     doc.innerHTML = s.html;
@@ -917,6 +995,23 @@ function explainBox(r) {
   return box;
 }
 
+/** After a Submit, until rated: how the question felt. The curator and the author read it, so a
+    question that took eleven runs can be told apart from one that was badly written. */
+function rateBox() {
+  const c = state.challenge;
+  const box = el("div", { class: "explain rate" },
+    el("p", { class: "predict-q", text: "How was this question?" }),
+    el("span", { class: "guess-pick" }, [["too-easy", "Too easy"], ["right", "About right"], ["too-hard", "Too hard"], ["artificial", "Felt artificial"]].map(([v, label]) =>
+      el("button", { type: "button", class: "chip", "aria-pressed": "false", onclick: async (e) => {
+        e.target.parentElement.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", String(b === e.target)));
+        await api(`/api/challenges/${c.track}/${c.id}/rating`, { method: "POST", body: { rating: v } });
+        c.rating = v;
+        box.replaceChildren(el("p", { class: "home-sub", text: "Noted. Your agent reads it when it picks and writes your next question." }));
+      } }, label))),
+    el("div", { class: "predict-actions" }, el("button", { type: "button", class: "btn btn-text", onclick: () => box.remove() }, "Skip")));
+  return box;
+}
+
 async function run(mode, guess) {
   if (!state.challenge || state.running) return;
   if (state.board && state.board.timer) await saveBoard();
@@ -946,8 +1041,9 @@ async function run(mode, guess) {
     state.hintReady = true;
     updateHintButton();
     if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
+    if (report.lesson_html) { state.challenge.lesson_html = report.lesson_html; renderLesson(); }  // predict: the misconceptions open
     if (report.first_solve) { state.challenge.solution_open = true; updateSolutionGate(); }
-    await Promise.all([loadTracks().then(renderRail), loadStats()]);
+    await loadTracks().then(renderRail);
   } catch (err) {
     $("#results").replaceChildren(el("p", { class: "results-empty", text: `The run failed: ${err.message}` }));
     showResults("error", "Could not run");
@@ -988,6 +1084,7 @@ function renderReport(r, mode) {
     ? "Solved with help. A variant of this question comes back for review in 2 days."
     : "Solved on your own. A variant comes back for review in 3 days, to make it stick." }));
   if (r.first_solve) nodes.push(explainBox(r) || "");
+  if (mode === "submit" && !state.challenge.rating) nodes.push(rateBox());
   nodes.push(el("div", { class: "verdict", "data-status": r.status },
     el("span", { class: "verdict-word", text: VERDICT[r.status] || r.status }),
     el("span", { class: "verdict-sum", text: isBoard() ? r.summary : `${r.summary} (${r.duration.toFixed(1)} s)` })));
@@ -1241,7 +1338,7 @@ async function refreshReview() {
   }
   if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
   renderReview(r.review, firstSolve);
-  await Promise.all([loadTracks().then(renderRail), loadStats()]);
+  await loadTracks().then(renderRail);
 }
 
 const POINT_DOT = { covered: "passed", partial: "partial", missing: "failed" };
@@ -1580,7 +1677,7 @@ async function buildProblem(p) {
     log.textContent = res.log.join("\n") + (res.ok ? "" : `\n\n${res.error}`);
     log.hidden = false;
     if (!res.ok) return retry();
-    await Promise.all([loadTracks(), loadStats()]);
+    await loadTracks();
     $("#problem-dialog").close();
     location.hash = `#/${res.track}/${res.id}`;
   } catch (err) {
@@ -1593,7 +1690,7 @@ async function buildProblem(p) {
 /* ---------- Paths ---------- */
 // A path is a system to build (a payment processor, a taxi service, an LLM gateway), made of
 // modules in order. Modules that are not built yet are placeholders the learner's agent fills in.
-// The filters live in the URL (#/paths?company=Stripe&module=ledger), so reload and Back keep them.
+// The filters live in the URL (#/paths?company=Netflix&module=ledger), so reload and Back keep them.
 const PATH_FILTERS = ["q", "foryou", "ready", "domain", "company", "module", "sort"];
 const PATH_SORTS = { match: "best match first", asked: "most asked first", ready: "readiest first", az: "A to Z" };
 const STOP_TEXT = { done: "solved", built: "ready to practice", none: "your agent prepares it" };
@@ -2105,7 +2202,7 @@ function focusSection(d) {
     await saveInterests({ focus: [...(profile.focus || []), p.id] });
   }));
   box.append(chipList("Companies", profile.targets || [], (c) => saveInterests({ targets: profile.targets.filter((x) => x !== c) }), null, companyMark));
-  box.append(addRow("Add a company", "company-options", "Stripe, Netflix…", async (value) => {
+  box.append(addRow("Add a company", "company-options", "Netflix, Datadog…", async (value) => {
     await saveInterests({ targets: [...(profile.targets || []), value] });
   }));
   const followed = (profile.paths || []).map((id) => state.paths.find((p) => p.id === id)).filter(Boolean);
@@ -2497,7 +2594,6 @@ async function boot() {
   if (first !== "practice") { showView(first); showSkeleton(first); }
   const [config] = await Promise.all([api("/api/config"), initEditor(), loadTracks()]);
   state.config = config;
-  await loadStats();
   window.addEventListener("hashchange", route);
   await route();
 }

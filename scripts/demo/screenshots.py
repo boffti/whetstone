@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import shutil
 from pathlib import Path
 
 from demo_home import ROOT, install, running_app
@@ -218,6 +219,20 @@ async def take(base: str, store, home: Path, theme: str) -> None:
         await page.wait_for_timeout(600)
         await shot(page, "question-solved", 1000)
 
+        # The same idea, prepared again for a company: the header links the versions.
+        original = home / "tracks" / MODULE / "01-memoize"
+        (original / "challenge.yaml").write_text((original / "challenge.yaml").read_text() + "framing: work\n")
+        again = original.parent / "02-memoize-doordash"
+        shutil.copytree(original, again)
+        yaml_text = (again / "challenge.yaml").read_text().replace("framing: work\n", "")
+        (again / "challenge.yaml").write_text(yaml_text + f"variant_of: {KEY}\nframing: company:DoorDash\n")
+        await page.goto(f"{base}/#/{KEY}")
+        await page.reload()
+        await page.wait_for_selector("#challenge-versions .version", timeout=20_000)
+        await page.click(".tab[data-tab='problem']")
+        await page.wait_for_timeout(600)
+        await shot(page, "question-versions", 1000)
+
         # Paths: filtered by one module, then one path's route.
         await page.goto(f"{base}/#/paths")
         await page.wait_for_selector("#paths-list .path-tile", timeout=20_000)
@@ -246,6 +261,12 @@ async def take(base: str, store, home: Path, theme: str) -> None:
         await page.wait_for_selector("#catalog-grid .row", timeout=20_000)
         await page.wait_for_timeout(500)
         await shot(page, "catalog", 1000)
+        # Prepare asks what the question is for.
+        await page.locator(".req").get_by_role("button", name="Prepare").first.click()
+        await page.wait_for_selector("#prep-pop:popover-open")
+        await page.wait_for_timeout(900)  # the module's companies load in
+        await shot(page, "prepare-for", 1000)
+        await page.keyboard.press("Escape")
         await page.goto(f"{base}/#/design")
         await page.wait_for_selector("#design-list .row", timeout=20_000)
         await page.wait_for_timeout(500)

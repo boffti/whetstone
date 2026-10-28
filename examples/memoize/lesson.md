@@ -36,7 +36,7 @@ A `dict` is the simplest cache: the key is the input and the value is the output
 
 ## Interview angle
 
-The first question in the Stripe round is: "How do you make this API faster?" The answer is a cache. Expect follow-up questions:
+The first question in a practical round is often: "How do you make this API faster?" The answer is a cache. Expect follow-up questions:
 
 - How much memory does the cache use? Can it grow forever? (A later question in the module.)
 - Is the function really pure? If the answer can change, you need expiry (TTL).

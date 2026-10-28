@@ -34,12 +34,12 @@ Show the learner a draft header and three short paragraphs of free text. Wait fo
 ```yaml
 ---
 name: Sam
-role: Senior backend engineer, payments
+role: Senior backend engineer, marketplaces
 goal: Staff-level depth in distributed systems
 stack: [Python, Django, Celery, Postgres, Redis]
 focus: [idempotent-api, retry-backoff, rate-limiter, task-queue-workers]
 ai_handles: [tests, SQL migrations, concurrency code]
-targets: [Stripe]
+targets: [Shopify]
 github: sam-dev
 ---
 ```

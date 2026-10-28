@@ -1,0 +1,9 @@
+title: Payment run charged a customer twice
+type: fix
+lesson: after-run
+difficulty: medium
+minutes: 25
+tags: [payments, retries]
+requires: []
+support: [gateway.py]
+summary: Find out why the scheduled payment run charged one customer twice, and fix it without losing any payment.

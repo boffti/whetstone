@@ -4,33 +4,40 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
-### Added
-- Web app: catalog of interview problems, learning paths by domain, and a practice view with an editor and pytest grading. It also works in a narrow pane next to your AI agent.
-- CLI (`bin/whetstone`) for AI agents: `path`, `module`, `question`, `catalog`, `progress`, `draft` and `test` commands, with `AGENTS.md`.
-- Shared content: about 260 modules with about 620 paraphrased interview reports, and 78 learning paths modelled on big-tech systems.
-- Catalog research from r/InterviewCoderHQ: 188 reports added with thin-source confidence, 8 new modules (incident triage, live data migration, joins under a memory limit, profiler events, a data-source gateway, a REST take-home, longest-prefix routing, a Conv2D forward pass) and 6 new paths (production operations, a Temporal-style workflow engine, Ramp-style spend management, a Retool-style tools builder, a Cursor-style editor backend, a feature-flag service).
-- Personal content in a git-ignored `my/` folder: profile, built questions, own paths and progress.
-- Interface: IBM Plex type, slate and wet-stone colors in dark and light, keyboard hints on Run tests and Submit, and a per-test edge meter after each run.
-- Teaching: five agent skills (curate, author, tutor, review, interview) built on `docs/PEDAGOGY.md`. Questions now have a type (build, predict, fix, review), problem-first lessons, a four-rung hint ladder and spaced variants. `progress` reports clean or assisted solves, mastery and review dates.
-- App: a Practice home page, which is now the landing page. Problem-first lessons, hints that unlock one test run at a time, a solution that opens after a solve or a confirmed give-up, clean, assisted and mastered statuses, and a weekly streak with one forgiven week. The UI says question and module instead of challenge and track.
-- `whetstone doctor` checks the setup and explains each fix. The progress database is versioned: upgrades run automatically, after a backup to `whetstone.db.v<N>.bak`.
-- Shared content: the "Six pressures of system design" foundations path, with `realtime-push` and `cqrs-read-model` modules.
-- Test output is plain text even when the app's environment sets FORCE_COLOR (no escape codes in the results panel).
-- Practice home is a personal dashboard: profile header, skill edges that dull over time, up next, a 26-week calendar, a numbers ledger, milestones, personal records, target companies and recent runs. Grit ranks and milestones reward mastery, never volume, and can be hidden.
-- `whetstone-profile` skill: builds the profile header from what the agent knows, plus GitHub activity and AI co-author trailers, with consent.
-- Live pair: the app records what you do (migration 3). `whetstone watch` streams it for your agent, `whetstone note` shows its remarks over your editor with a margin marker, and a Pair switch (off, quiet, coach, interviewer) sets how often it speaks. New `whetstone-pair` skill.
-- Catalog as compact rows with an All / Ready / Not built filter, keyboard navigation (`/`, `j`, `k`, Enter) and grouped sources. Paths show each path as a strip of modules, list your started paths first, and offer one "Fill in my path" request.
-- Code blocks in lessons, problems, hints and solutions are syntax highlighted.
-- Predict then explain: guess which tests pass before your first run and before Submit, explain one hidden case after a solve, and see prediction accuracy on the dashboard (migration 4). Skippable, with an off switch.
-- Pages that cannot load now say why instead of staying blank.
-- Mutation-check gate: every new build, fix and design question ships 2 to 5 mutants (wrong versions of the reference, one per misconception), and `question add` refuses it if any mutant passes the tests.
-- New question types: `tests` (write the tests for working code; Submit runs them against hidden mutants, see `examples/retry-tests/`) and `design` (a design note naming options, trade-off, choice and accepted failure mode, then code for the declared guarantee).
-- Colours follow Claude Desktop: warm cream and charcoal surfaces, clay for the main action, neutral selected states, so the app reads as part of Claude in its side pane.
-- Agent inbox: Build buttons queue requests (migration 5) that the learner's own agent picks up while it watches (`whetstone requests`, `whetstone request claim|done|fail`, the `whetstone-agent` skill). Buttons show waiting, building and ready; the top bar shows when an agent is connected. Copy-a-prompt buttons are gone.
-- Practice opens on Today (one next step and one alternative) and an editable focus: skills, companies and followed paths, saved to the profile header. Stats move to a Progress page. The Catalog opens on For you, with + Focus and Build on every row.
-- Security: localhost-only requests (blocks DNS rebinding and cross-site requests), hash-pinned dependencies, digest-pinned images, and SHA-pinned CI actions.
-- Paths page: search plus For you, Ready now, domain and company filters, a sort (best match, most asked, readiest, A to Z) and filters kept in the URL. Each card shows the path as a route of modules; pick a stop to see every path that uses that module. The path drawer marks your focus modules and links to the other paths that share each module.
-- Wording: "build" now means what you do (build a system); your agent's buttons say Prepare (Prepare, Prepare review variant, Prepare all missing modules), and modules without questions are "not ready yet".
-- System design: a Design page lists the design questions companies ask (from about 220 system design reports), most asked first, with For you, company and status filters. A new question type, `whiteboard`, is answered in Markdown with Mermaid diagrams: sections to fill in, a Preview tab that draws the diagrams, an interview clock, and live notes from your agent. Your agent grades the design against the question's rubric with `whetstone grade` (migration 6); a point the design misses shows only the agent's question until you solve it. `question brief` and `question new` take `--type whiteboard`; the app's Prepare and Ask for review buttons queue `design` and `grade` requests. Catalog problems that were discussion-only can now be practiced this way. See `examples/short-links-whiteboard/`.
-- System design whiteboard: design questions get a Whiteboard tab (Excalidraw, loaded from esm.sh only when it opens) for drawing the diagram instead of writing Mermaid. Drawings are saved per question (migration 7) and turned into a Mermaid flowchart for the agent: labelled shapes become nodes, arrows become edges, frames become groups, and loose text and stray arrows are listed. `whetstone draft` prints it, the Preview tab shows it, and a drawn diagram satisfies Check sections.
-- Top bar: removed the week and solved counts, which showed as bare numbers in a side pane (Today and Progress show both), and the New question button and its dialog. Your agent builds questions from Prepare buttons; with an API key set, the in-app generator is still in the catalog drawer.
+## [0.1.0] - 2026-10-28
+
+The first public release. Whetstone is a private practice space that runs on your machine. Your own AI agent writes the questions for you; real tests grade them.
+
+### Practice
+- A question page with a lesson, the problem, a four-rung hint ladder, a Monaco editor and pytest grading. Hints open one test run at a time; the reference opens after a solve or a confirmed give-up.
+- Question types: build, predict, fix, review, tests (write the tests; Submit runs them against hidden buggy versions), design (a design note, then code for the guarantee it declares) and whiteboard system design. `examples/` has a finished question of each type.
+- Predict then explain: guess which tests pass before a run and before Submit, then explain one hidden case in a sentence after a solve.
+- Spaced review: a solved idea comes back as a variant on a new surface after 3 days, 3 weeks, 3 months, 6 months and a year. Mastery is a clean solve plus one passed review.
+- Today: your next step, one alternative and the next review, then your focus, each skill with an edge that dulls with time. A Progress page has the calendar, honest numbers, milestones and records; the game layer rewards mastery, never volume, and can be hidden.
+- Built for a side pane next to your agent: in the Code view, the problem's sections open as popovers over the editor. It also works full screen and on a phone, in light and dark.
+- One tap after Submit says how a question felt (too easy, about right, too hard, felt artificial); your agent reads it when it writes the next one.
+
+### Your agent
+- Whetstone has no AI of its own. Your agent (Claude Code, Codex, Cursor or another) drives the `bin/whetstone` CLI on your own subscription, guided by `AGENTS.md` and eight skills: profile, curate, author, agent, tutor, pair, review and interview.
+- Prepare buttons queue requests that your agent picks up while it watches (`whetstone watch`, `whetstone request claim|done|fail`). Buttons show queued, preparing and Start; a stopped agent's claim can be cancelled or retried. Prepare all queues one module at a time, in path order, so the first is ready while the rest are built.
+- Prepare asks what a question is for: your own work (from your profile), a company you are preparing for (its own interview reports lead the brief), or a domain. Prepare again for… reframes a question you already have as a linked variant; the original keeps its progress.
+- Live pair: your agent watches your session and replies in the editor's margin, at the line that matters, as a quiet reviewer, a coach or an interviewer.
+- `whetstone today` starts a session with the reviews due, the question in progress and each path's next step; it can run from a Claude Code SessionStart hook.
+- `whetstone-profile` drafts your profile from what your agent already knows and, with consent, your GitHub activity, including what your AI co-writes.
+
+### System design
+- A Design page of the design questions companies ask, most asked first. Draw on an Excalidraw whiteboard; your agent reads the drawing as a Mermaid diagram and grades the design against a rubric, quoting it.
+
+### Catalog and paths
+- 2,771 paraphrased interview reports from 397 companies, organised into 271 modules, each with links to its sources. Questions record which reports they are grounded in.
+- 78 learning paths: systems to build, modelled on big-tech systems, across 11 domains. Filters, a sort, and a route map per path: point at a stop for its module, pick it to see every path that uses it.
+- Company logos (Simple Icons, CC0) and domain icons, served from your machine.
+
+### Privacy and security
+- Everything stays on your machine: your profile, questions and progress live in the git-ignored `my/` folder. No account, no telemetry.
+- The server answers only your own machine (local Host and Origin checks against DNS rebinding and cross-site requests).
+- Test runs get an allowlisted environment (no `ANTHROPIC_API_KEY`), their own process group, and in Docker a memory cap, a process cap and a read-only `content/`. A failed hidden test shows only its message, never the expected values.
+- Dependencies are pinned by hash (`uv.lock`), images by digest, and CI actions by commit SHA; CI runs tests on Python 3.11 to 3.13, CodeQL, zizmor and Scorecard.
+
+[Unreleased]: https://github.com/boffti/whetstone/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/boffti/whetstone/releases/tag/v0.1.0

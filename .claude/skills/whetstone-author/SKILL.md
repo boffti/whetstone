@@ -9,7 +9,7 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
 
 ## Steps
 
-1. Run `bin/whetstone question brief <module>`. It gives:
+1. Run `bin/whetstone question brief <module>`, adding `--for <framing>` when the request has one. It gives:
    - the topic;
    - what already exists, with types;
    - real interview reports;
@@ -17,18 +17,22 @@ You write one question at a time. `bin/whetstone` checks it and files it. **AUTH
 2. Read `my/profile.md` and `bin/whetstone progress --json`. Adjust the plan to the learner:
    - **Clean solves** (no hints, 3 runs or fewer): skip a scaffold step or go harder.
    - **Assisted solves or many runs:** stay on the concept, and target the misconception they hit.
+   - **Their ratings** (`rating`, one tap after Submit; the brief shows them too): after `too-hard` add scaffolding and stay on the concept; after `too-easy` skip a step; after `artificial` set the next scenario in their real work from the profile.
    - **A variant for review** (the curator chose one): same idea, new surface. Use a new domain, new names and new data. Set `variant_of` to the *original* question's key.
+   - **Prepare again for…** (a `variant` request with a `framing`): the learner wants a question they already have, set in another world. Keep the skill and the rubric's must-haves; reframe the scenario, scale and follow-ups per the brief's Framing. Set `variant_of` to the original and `framing:` to the new one. The original stays, with its progress.
    - **Their stack and what they hand off to AI at work:** use these for the scenario and the tie-in.
 3. Choose the type: **build**, **predict**, **fix**, **review**, **tests**, **design** or **whiteboard**. A `design` request from the app always means **whiteboard**: run the brief with `--type whiteboard`. Take the brief's suggestion unless the progress gives a reason not to, and say the reason. When the brief says the learner's AI handles tests, code review or reading code, pull a **tests** or **review** question forward to position 2 or 3; do not wait for position 4. Those skills fade fastest.
 4. Run `bin/whetstone question new <module> <slug> --type <type>`. It scaffolds a toy of that type that already passes `question add`: **predict** and **review** get `subject.py` and an `ANSWERS` dict or `FINDINGS` list; **tests** gets `subject.py`, one weak test and no `tests/` folder. Replace every file in `my/.staging/<slug>/`, keeping that shape.
    - Copy the quality of `examples/memoize/` (build) or `examples/retry-tests/` (tests).
-5. Go through the checklist below. Then run `bin/whetstone question add my/.staging/<slug> --module <module>`. Fix every problem it prints and run it again until it says "Added".
+5. Go through the checklist below. Then ask for a second read before you file: start a fresh subagent that has not seen your draft, give it AUTHORING.md, `my/profile.md` and the folder `my/.staging/<slug>/`, and ask only four things: is the scenario a real problem from the reports in `grounded_in`, is it set in this learner's world, does the problem or a test name give the technique away, and could a strong engineer finish in the stated minutes. Take at most three findings, fix them, and only then run `bin/whetstone question add my/.staging/<slug> --module <module>`. Fix every problem it prints and run it again until it says "Added".
 6. Run `bin/whetstone question check <key>` twice more to catch flaky timing.
 7. Give the learner the link it printed, and one line on what the question practices. Never describe the solution.
 
 ## Checklist before `question add`
 
 - [ ] The title names a scenario, not the technique.
+- [ ] The scenario follows the brief's **Framing**: the learner's own work, the company they are preparing for (their product, scale and follow-ups; never the learner's employer), or the domain. `framing:` in challenge.yaml says which. For a review variant with no framing given, pick a different world from the original: same idea, new surface.
+- [ ] `grounded_in` lists the Source links of the reports the scenario comes from. Reports marked "title only" in the brief give breadth, not the anchor.
 - [ ] `type` and `lesson` are set (`after-run` for build and fix). `variant_of` is set for a variant.
 - [ ] The problem does not restate the lesson. The lesson lists named subgoals, and the hints reuse those names.
 - [ ] Exactly 4 hints: a question, the concept, a next step tied to a named test, a skeleton with `...`. No full solution.

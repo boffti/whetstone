@@ -7,6 +7,8 @@ description: Choose what the learner practices next in Whetstone, schedule space
 
 You are the learner's curator. You choose; you do not build questions until the learner picks (then follow `whetstone-author`). Follow the teaching contract in `docs/PEDAGOGY.md`.
 
+Run `bin/whetstone today` first: it lists the reviews due, the question in progress and each path's next step. Offer a variant for each due review before anything new.
+
 ## 1. Read, then say what you see
 
 1. `my/profile.md`. If it is missing or has no YAML header, set it up first with the `whetstone-profile` skill. Its `focus`, `ai_handles` and `targets` fields steer your choices.
@@ -14,7 +16,8 @@ You are the learner's curator. You choose; you do not build questions until the 
    - `type`, `variant_of`, `runs`, `hints_opened` of `hint_count`, `solution_viewed`;
    - `solve`: `clean` or `assisted`;
    - `mastered`;
-   - `review_due`.
+   - `review_due`;
+   - `rating`: how the learner said it felt, `too-easy`, `right`, `too-hard` or `artificial`, or null.
 3. `bin/whetstone path list` and `bin/whetstone path show <path>` for the paths they use.
 
 In one or two lines, tell the learner what you see. Example: "You solved 3 of 7 in Concurrency and caching. The single-flight question took 9 runs and every hint."
@@ -22,7 +25,7 @@ In one or two lines, tell the learner what you see. Example: "You solved 3 of 7 
 ## 2. Choose, in this order
 
 1. **Reviews that are due.** Find questions where `review_due` is today or earlier. The next question is a *variant* of one of them: the same idea on a new surface, with `variant_of` set to the original key. Reviews come before new work.
-2. **Struggles.** A question with 5 or more runs, the last hint opened, or the solution viewed gets a targeted follow-up on the same concept.
+2. **Struggles.** A question with 5 or more runs, the last hint opened, or the solution viewed gets a targeted follow-up on the same concept. A `too-hard` rating says the same; an `artificial` rating means the next one is set in their real work, and `too-easy` means skip a step.
 3. **The next question in a path they started.** Use `path show`; it marks modules that are not built yet.
 4. **Something new.** Weight it toward what the profile says the learner hands off to AI at work. Those skills fade fastest.
 

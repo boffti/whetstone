@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import dashboard as dash
-from .catalog import build_notes, catalog_links, find_problem, load_catalog, path_rows
+from .catalog import FRAMING, build_notes, catalog_links, find_problem, framing_ask, load_catalog, path_rows
 from .config import Settings, load_settings
 from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, save_profile_header, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
@@ -24,6 +24,7 @@ from .store import PAIR_MODES, REQUEST_KINDS, Store, progress_rows
 STATIC = Path(__file__).parent / "static"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 RECENT = timedelta(minutes=10)  # a request that finished this recently is still shown as news
+STALE = timedelta(minutes=15)  # a claim untouched for this long is an agent that stopped
 
 
 def allowed_hosts() -> set[str]:
@@ -76,6 +77,10 @@ class ExplainBody(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
 
 
+class RatingBody(BaseModel):
+    rating: str = Field(pattern="^(too-easy|right|too-hard|artificial)$")
+
+
 class InterestsBody(BaseModel):
     focus: list[str] | None = Field(default=None, max_length=20)
     targets: list[str] | None = Field(default=None, max_length=20)
@@ -85,6 +90,7 @@ class InterestsBody(BaseModel):
 class RequestBody(BaseModel):
     kind: str = Field(pattern="^(" + "|".join(REQUEST_KINDS) + ")$")
     target: str = Field(default="", max_length=200)
+    framing: str | None = Field(default=None, pattern=FRAMING.pattern)  # work, company:<name> or domain:<name>
 
 
 class PairBody(BaseModel):
@@ -181,6 +187,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             "tags": c.tags,
                             "requires": c.requires,
                             "status": _status(rows[c.key]),
+                            "framing": c.framing,
+                            "variant_of": c.variant_of,
                         }
                         for c in t.challenges
                     ],
@@ -246,7 +254,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "minutes": c.minutes,
             "tags": c.tags,
             "requires": c.requires,
-            "lesson_html": render_md(c.read("lesson.md")),
+            "lesson_html": lesson_html(c, store),
             "problem_html": render_md(c.read("problem.md")),
             "hint_count": len(c.hints()),
             "visible_tests": visible_test_names(c),
@@ -262,6 +270,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             + [{"name": f"tests/{f.name}", "content": f.read_text(encoding="utf-8")} for f in c.visible_test_files()],
             "solved": solved,
             "runs": store.run_count(c.key),
+            "rating": store.rating(c.key),
+            "framing": c.framing,
+            "variant_of": c.variant_of,
         }
 
     @app.get("/api/challenges/{track}/{cid}/review")
@@ -293,7 +304,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             store.record_event(c.key, "solution", {"gave_up": body.give_up})
         store.record_reveal(c.key, "solution")
         code = c.read(c.solution_file)
-        return {"code": code, "html": render_md(code)} if c.is_whiteboard else {"code": code}
+        if c.is_whiteboard:
+            return {"code": code, "html": render_md(code)}
+        return {"code": code, "lesson_html": lesson_html(c, store)} if c.kind == "predict" else {"code": code}
 
     @app.get("/api/challenges/{track}/{cid}/notes")
     def notes(track: str, cid: str, after: int = 0):
@@ -355,14 +368,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def add_request(body: RequestBody, request: Request):
         require_json(request)
         target = check_target(body.kind, body.target)
-        r = store.add_request(body.kind, target)
-        store.record_event(None, "requested", {"id": r["id"], "kind": r["kind"], "target": r["target"], "ask": request_ask(r)})
+        framing = body.framing if body.kind in ("build", "variant", "design") else None
+        r = store.add_request(body.kind, target, framing)
+        store.record_event(
+            None, "requested", {"id": r["id"], "kind": r["kind"], "target": r["target"], "framing": r["framing"], "ask": request_ask(r)}
+        )
         return r
 
     @app.get("/api/requests")
     def list_requests():
         now = datetime.now()  # the server's clock, like the rows' stamps; the browser's may be in another zone
-        rows = [{**r, "recent": now - datetime.fromisoformat(r["updated_at"]) < RECENT} for r in store.requests()]
+        rows = []
+        for r in store.requests():
+            age = now - datetime.fromisoformat(r["updated_at"])
+            rows.append({**r, "recent": age < RECENT, "stale": age > STALE})
         return {"requests": rows, "agent": agent_status(store)}
 
     @app.post("/api/requests/{request_id}/cancel")
@@ -424,7 +443,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "predicted": {k: prediction[k] for k in ("correct", "total")} if prediction else None,
             },
         )
-        return {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None, "prediction": prediction}
+        out = {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None, "prediction": prediction}
+        if c.kind == "predict" and mode == "submit":
+            out["lesson_html"] = lesson_html(c, store)  # the first Submit opens the misconceptions
+        return out
 
     @app.post("/api/challenges/{track}/{cid}/explanation")
     def explain(track: str, cid: str, body: ExplainBody, request: Request):
@@ -432,6 +454,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         c = get_challenge(track, cid)
         store.add_explanation(c.key, body.test, body.text.strip())
         store.record_event(c.key, "explained", {"test": body.test, "text": body.text.strip()[:300]})
+        return {"saved": True}
+
+    @app.post("/api/challenges/{track}/{cid}/rating")
+    def rate(track: str, cid: str, body: RatingBody, request: Request):
+        """How the question felt, one tap after Submit. The curator and the author read it."""
+        require_json(request)
+        c = get_challenge(track, cid)
+        store.record_rating(c.key, body.rating)
+        store.record_event(c.key, "rated", {"rating": body.rating})
         return {"saved": True}
 
     @app.get("/api/challenges/{track}/{cid}/drawing")
@@ -566,6 +597,18 @@ def _status(row: dict) -> str:
     return row["status"]
 
 
+def lesson_html(c, store: Store) -> str:
+    """The lesson. A predict lesson's misconceptions name what the hidden predictions test, so
+    that section waits for the first Submit or a reveal; the rest reads before the attempt."""
+    text = c.read("lesson.md")
+    opened = c.key in store.solved_keys() or "solution" in store.reveals(c.key) or "first_submit" in store.facts().get(c.key, {})
+    if c.kind == "predict" and not opened:
+        text = re.sub(
+            r"(^##[ \t]+Misconceptions[ \t]*\n).*?(?=^##[ \t]|\Z)", r"\1\n*Opens after your first Submit.*\n\n", text, flags=re.M | re.S
+        )
+    return render_md(text)
+
+
 def visible_test_names(c) -> list[dict]:
     """The visible tests, in file order, for the learner to predict before their first run."""
     names = [m for f in c.visible_test_files() for m in re.findall(r"^\s*def (test_\w+)", f.read_text(encoding="utf-8"), flags=re.M)]
@@ -619,9 +662,13 @@ def review_view(review: dict | None, reveal: bool) -> dict | None:
 
 def request_ask(r: dict) -> str:
     """The plain-words job, as the learner would say it to their agent."""
+    return framed(r) + framing_ask(r.get("framing")) if r["kind"] in ("build", "variant", "design") else framed(r)
+
+
+def framed(r: dict) -> str:
     return {
         "build": f"Build the next Whetstone question for the {r['target']} module.",
-        "variant": f"Build a Whetstone variant of {r['target']} for review.",
+        "variant": f"Build a Whetstone variant of {r['target']}: the same idea on a new surface.",
         "fill-path": f"Fill in my {r['target']} Whetstone path.",  # older requests; the app now queues one build per module
         "review": f"Review my solution to {r['target']}.",
         "design": f"Build a Whetstone system design question (whiteboard) for the {r['target']} module.",

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=35">
+  <link rel="stylesheet" href="/static/app.css?v=39">
   <!-- React for the design whiteboard (Excalidraw), loaded only when a whiteboard opens. -->
   <script type="importmap">
   { "imports": {
@@ -115,6 +115,7 @@
     <ul class="grid" id="paths-list"></ul>
   </main>
   <div class="stop-tip" id="stop-tip" popover="manual" aria-hidden="true"></div>
+  <div class="prep-pop" id="prep-pop" popover role="dialog" aria-label="Prepare this for"></div>
 
   <main class="catalog design" id="design" hidden aria-labelledby="design-title">
     <div class="catalog-head">
@@ -143,7 +144,7 @@
   </main>
 
   <main class="workspace" id="workspace" hidden>
-    <nav class="rail" aria-label="Questions in this module">
+    <nav class="rail" aria-label="Module and question">
       <div class="rail-head">
         <label class="track-picker">
           <span class="visually-hidden">Module</span>
@@ -159,18 +160,13 @@
           </button>
         </div>
       </div>
-      <p class="rail-desc" id="track-desc"></p>
-      <ol class="rail-list" id="rail-list"></ol>
-      <div class="rail-foot">
-        <p class="rail-foot-label">Last 4 weeks</p>
-        <div class="days" id="days" role="img"></div>
-      </div>
     </nav>
 
     <section class="reader" aria-labelledby="challenge-title">
       <div class="reader-head">
         <h1 id="challenge-title">Loading…</h1>
         <div class="meta" id="challenge-meta"></div>
+        <div class="versions" id="challenge-versions"></div>
         <div class="tabs" role="tablist" aria-label="Question sections">
           <button role="tab" class="tab" data-tab="lesson" aria-selected="true">Lesson</button>
           <button role="tab" class="tab" data-tab="problem" aria-selected="false">Problem</button>
@@ -181,7 +177,14 @@
       </div>
       <div class="reader-body">
         <article class="prose" role="tabpanel" data-panel="lesson" id="panel-lesson"></article>
-        <article class="prose" role="tabpanel" data-panel="problem" id="panel-problem" hidden></article>
+        <article role="tabpanel" data-panel="problem" hidden>
+          <div class="prose" id="panel-problem"></div>
+          <section class="module-list" aria-labelledby="module-list-title">
+            <h2 id="module-list-title">In this module</h2>
+            <p class="rail-desc" id="track-desc"></p>
+            <ol class="rail-list" id="rail-list"></ol>
+          </section>
+        </article>
         <div class="prose" role="tabpanel" data-panel="hints" id="panel-hints" hidden>
           <p class="panel-intro" id="hints-intro">Hints are a ladder: each one opens after a test run, so try something between hints.</p>
           <ol class="hint-list" id="hint-list"></ol>
@@ -266,6 +269,6 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
   <script src="/static/marks.js?v=1"></script>
-  <script src="/static/app.js?v=42"></script>
+  <script src="/static/app.js?v=47"></script>
 </body>
 </html>

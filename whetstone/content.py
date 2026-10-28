@@ -41,6 +41,8 @@ class Challenge:
     kind: str = "build"
     lesson: str = "first"
     variant_of: str | None = None
+    grounded_in: list[str] = field(default_factory=list)  # source links of the interview reports it is based on
+    framing: str | None = None  # what it was prepared for: work, company:<name> or domain:<name>
 
     @property
     def number(self) -> int:
@@ -188,6 +190,8 @@ def load_challenge(path: Path, track_id: str) -> Challenge:
         kind=str(meta.get("type", "build")),
         lesson=str(meta.get("lesson", "first")),
         variant_of=meta.get("variant_of") or None,
+        grounded_in=[str(u) for u in (meta.get("grounded_in") or [])],
+        framing=str(meta["framing"]) if meta.get("framing") else None,
     )
 
 

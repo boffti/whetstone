@@ -9,23 +9,27 @@ In the app, the learner presses **Prepare**, **Prepare review variant** or **Pre
 
 ## Start
 
-1. Run `bin/whetstone requests` to see work that is already queued.
-2. Run `bin/whetstone watch` as a **background** process whose output wakes you. In Claude Code, use the Monitor tool. Without a background monitor, run `bin/whetstone watch --for 120` whenever the learner says "check".
+1. Run `bin/whetstone today`: reviews due, the question in progress and each path's next step. It prints nothing when nothing is due. Offer a variant for each due review before new work.
+2. Run `bin/whetstone requests` to see work that is already queued.
+3. Run `bin/whetstone watch` as a **background** process whose output wakes you. In Claude Code, use the Monitor tool. Without a background monitor, run `bin/whetstone watch --for 120` whenever the learner says "check".
    - While the watch runs, the app shows **Agent connected** in its top bar.
    - The watch first replays queued requests as `requested` events, then streams new events as they happen.
-3. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practicing."
+4. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practicing."
 
 ## On a `requested` event
 
-Each event has `id`, `kind`, `target` and `ask`. `ask` is the job in plain words. Handle one request at a time, oldest first.
+Each event has `id`, `kind`, `target`, `framing` and `ask`. `ask` is the job in plain words. Handle one request at a time, oldest first.
+
+`framing` is what the learner chose when they pressed Prepare: `work` (their own job), `company:<Name>` (they are preparing for that company's interviews) or `domain:<Domain>`. Pass it on: `bin/whetstone question brief <module> --for <framing>`. It may be empty on older requests; that means their own work.
 
 1. `bin/whetstone request claim <id>`. The app now shows *Your agent is building*.
+   If the request is already `claimed`, an earlier run of you stopped mid-job and left the claim orphaned: `request claim` takes it over and says so, and you do the job from the start.
 2. Do the job with the matching skill:
 
    | `kind` | `target` | Do |
    |---|---|---|
    | `build` | a module id | `whetstone-author`: the module's next question |
-   | `variant` | a question key | `whetstone-author`: a variant for spaced review, with `variant_of` set |
+   | `variant` | a question key | `whetstone-author`: a variant for spaced review, with `variant_of` set. With a `framing`, the learner pressed **Prepare again for…**: the same idea, reframed for that work, company or domain |
    | `fill-path` | a path id | Older requests only: build the first question of each unbuilt module, filing and reporting each one before the next |
    | `review` | a question key | `whetstone-review`, then put the main points in the app with `bin/whetstone note` |
    | `design` | a module id | `whetstone-author`: a system design question (`--type whiteboard`) for the module |

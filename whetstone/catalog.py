@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
 
 from .config import EXAMPLE, ROOT, Settings
-from .content import LearningPath, Track, load_profile, load_tracks, slugify
+from .content import LearningPath, Track, load_all_paths, load_profile, load_tracks, slugify
 
 CLI = "bin/whetstone"
 
@@ -83,9 +84,34 @@ def path_rows(settings: Settings, lp: LearningPath, tracks: dict[str, Track], so
     return rows
 
 
+RANK = {"high": 0, "medium": 1, "low": 2}
+# One finished question per type, for "copy the quality of".
+EXAMPLES_BY_TYPE = {
+    "build": "examples/memoize/",
+    "tests": "examples/retry-tests/",
+    "predict": "examples/limiter-predict/",
+    "fix": "examples/payments-fix/",
+    "review": "examples/payout-review/",
+    "whiteboard": "examples/short-links-whiteboard/",
+}
+
+
 def report_line(r: dict) -> str:
+    """One report for the brief. A low-confidence report is a title seen once on an aggregator,
+    paraphrased, so it is labelled; the first source link is what grounded_in should cite."""
+    meta = [r["round"], r.get("year"), "title only" if r.get("confidence") == "low" else None]
     follow = f" Follow-ups: {'; '.join(r['follow_ups'][:3])}" if r.get("follow_ups") else ""
-    return f"- {r['company']} ({r['round']}): {r['question']}{follow}"
+    source = f" Source: {r['sources'][0]}" if r.get("sources") else ""
+    return f"- {r['company']} ({', '.join(str(m) for m in meta if m)}): {r['question']}{follow}{source}"
+
+
+def pick_reports(reports: list[dict], limit: int = 8) -> list[dict]:
+    """The reports a brief shows: high and medium confidence first, newest first, then title-only
+    ones fill the rest so new companies still appear."""
+    ordered = sorted(reports, key=lambda r: (RANK.get(r.get("confidence"), 2), -(r.get("year") or 0)))
+    solid = [r for r in ordered if r.get("confidence") != "low"][: limit - 2] if len(ordered) > limit else ordered
+    rest = [r for r in ordered if r not in solid]
+    return (solid + rest)[:limit]
 
 
 def _rel(path: Path) -> str:
@@ -103,9 +129,13 @@ def make_brief(
     difficulty: str = "medium",
     notes: str = "",
     kind: str | None = None,
+    ratings: dict[str, str] | None = None,
+    framing: str | None = None,
 ) -> str:
     """Instructions for an AI agent to write a module's next question, for a catalog problem or a free topic.
-    kind asks for one question type instead of the recipe's suggestion; "whiteboard" is a system design question."""
+    kind asks for one question type instead of the recipe's suggestion; "whiteboard" is a system design question.
+    ratings maps the module's question keys to how the learner rated them. framing is what the learner
+    chose to prepare it for: "work", "company:<name>" or "domain:<name>" (see framing_lines)."""
     whiteboard = kind == "whiteboard"
     if problem:
         track_id, track_title = slugify(problem["id"]), problem["title"]
@@ -113,7 +143,7 @@ def make_brief(
         reports = problem.get("reports", [])
         if whiteboard:
             reports = [r for r in reports if r.get("round") == "system-design"] or reports
-        reports = reports[:8]
+        reports = pick_reports(reports)
     elif topic and track:
         track_id, track_title, reports = slugify(track), track, []
     else:
@@ -122,8 +152,11 @@ def make_brief(
     tracks = load_tracks(settings.tracks_dir)
     existing_track = next((t for t in tracks if t.id == track_id), None)
     challenges = existing_track.challenges if existing_track else []
+    rated = {k: v.replace("-", " ") for k, v in (ratings or {}).items()}
     existing = [
-        f"- {c.dir_name}: {c.title} ({c.kind}, {c.difficulty}{f', variant of {c.variant_of}' if c.variant_of else ''})" for c in challenges
+        f"- {c.dir_name}: {c.title} ({c.kind}, {c.difficulty}"
+        f"{f', variant of {c.variant_of}' if c.variant_of else ''}{f', rated {rated[c.key]}' if c.key in rated else ''})"
+        for c in challenges
     ]
     position = sum(not c.variant_of for c in challenges) + 1  # a variant re-tests an earlier slot; it does not advance the recipe
     ai_handles = load_profile(settings.profile_path).get("ai_handles", [])
@@ -142,9 +175,11 @@ def make_brief(
         "- AUTHORING.md: the file format, the question types, the test-writing rules and mutants/. Follow it exactly.",
         "- docs/PEDAGOGY.md: why the format works this way. Skim it once.",
         f"- {_rel(settings.profile_path)}: who the learner is, their goals, and how to write for them.",
-        "- examples/short-links-whiteboard/: a finished system design question to match for quality."
-        if whiteboard
-        else f"- {_rel(EXAMPLE)}/ and examples/retry-tests/: finished questions to match for quality.",
+        f"- {EXAMPLES_BY_TYPE[kind]}: a finished {kind} question to match for quality."
+        if kind in EXAMPLES_BY_TYPE
+        else f"- {_rel(EXAMPLE)}/ and examples/retry-tests/, plus the example for the type you choose "
+        f"({', '.join(f'{k}: {v}' for k, v in EXAMPLES_BY_TYPE.items() if k not in ('build', 'tests', 'whiteboard'))}): "
+        "finished questions to match for quality.",
     ]
     if settings.profile_path.name == "profile.example.md":
         lines.append("- The learner has no profile yet. First create my/profile.md from that template (see AGENTS.md, 'First run').")
@@ -158,6 +193,11 @@ def make_brief(
             else "Already in this module (write the next step up, do not repeat these):",
             *existing,
         ]
+        if rated:
+            lines.append(
+                "The ratings are the learner's own, one tap after Submit: after 'too hard' stay on the concept with "
+                "more scaffolding; after 'too easy' skip a step; after 'artificial' put the next one in their real work."
+            )
     else:
         lines.append("This module is empty: write its first question.")
     lines += ["", "## Question type"]
@@ -173,9 +213,16 @@ def make_brief(
             "That names tests, code review or reading code: the skills that fade fastest. Pull a tests or review question "
             "forward to position 2 or 3; do not wait for position 4. This outranks the suggestion above."
         )
+    lines += ["", "## Framing", *framing_lines(settings, framing, problem)]
     if reports:
         lines += ["", "## Real interview reports to ground it in", *[report_line(r) for r in reports]]
         lines.append("Use the reports for realism. Paraphrase them; do not name the source sites in the lesson.")
+        if any(r.get("confidence") == "low" for r in reports):
+            lines.append(
+                "A report marked 'title only' is one aggregator's title, paraphrased, with no candidate account behind it: "
+                "use it for breadth; anchor the scenario in the reports above it."
+            )
+        lines.append("Put the Source links of the reports you used in grounded_in in challenge.yaml.")
     lines += [
         "",
         "## Steps",
@@ -187,6 +234,52 @@ def make_brief(
         f"3. Run {CLI} question check <key> twice more to catch flaky timing.",
     ]
     return "\n".join(lines)
+
+
+FRAMING = re.compile(r"^(work|company:[^\n]{1,60}|domain:[^\n]{1,60})$")
+
+
+def framing_lines(settings: Settings, framing: str | None, problem: dict | None) -> list[str]:
+    """What the scenario is set in. The learner picks it when they press Prepare: their own work,
+    a company whose interviews they are preparing for, or a domain. The rubric is the skill and stays;
+    the framing changes the world, the scale and the follow-ups around it."""
+    kind, _, name = (framing or "work").partition(":")
+    record = f"Write `framing: {framing or 'work'}` in challenge.yaml."
+    if kind == "company":
+        theirs = [r for r in (problem or {}).get("reports", []) if r["company"].lower() == name.lower()]
+        lines = [
+            f"Frame it for {name}: the learner is preparing for their interviews. Set the scenario in {name}'s product, "
+            "users and scale, as a candidate there would meet it. Use the profile for level and language, not for the "
+            "setting, and leave the learner's own employer out of it.",
+        ]
+        if theirs:
+            lines += [
+                f"{name}'s own reports for this module; their follow-ups are the follow-ups:",
+                *[report_line(r) for r in pick_reports(theirs)],
+            ]
+        else:
+            lines.append(
+                f"The catalog has no {name} reports for this module: build on what is public about {name}'s product, around the reports below."
+            )
+        return [*lines, record]
+    if kind == "domain":
+        paths = [p for p in load_all_paths(settings.shared_paths_dir, settings.paths_dir) if p.domain.lower() == name.lower()]
+        lines = [
+            f"Set it in {name}: a company of that kind, with its users, scale and the cost of getting it wrong. Not the learner's own employer."
+        ]
+        lines += [f"- {p.title}: {p.goal}" for p in paths[:5]]
+        return [*lines, record]
+    return ["Frame it in the learner's own work: the role, stack and domain in their profile.", record]
+
+
+def framing_ask(framing: str | None) -> str:
+    """The framing in the learner's words, for a request's `ask`."""
+    kind, _, name = (framing or "").partition(":")
+    return {
+        "work": " Frame it in my own work.",
+        "company": f" Frame it for {name}: I'm preparing for their interviews.",
+        "domain": f" Set it in {name}.",
+    }.get(kind, "")
 
 
 def build_notes(problem: dict, limit: int = 6) -> str:

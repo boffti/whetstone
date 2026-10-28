@@ -28,6 +28,14 @@ from .content import (
 )
 
 
+def _framing(value: str) -> str:
+    from .catalog import FRAMING
+
+    if not FRAMING.match(value):
+        raise argparse.ArgumentTypeError("use work, company:<Name> or domain:<Domain>")
+    return value
+
+
 def _challenge_yaml(kind: str, lesson: str, support: str = "[]", minutes: int = 20) -> str:
     return (
         "title: {title}  # name the scenario, not the technique\n"
@@ -36,6 +44,8 @@ def _challenge_yaml(kind: str, lesson: str, support: str = "[]", minutes: int = 
         f"difficulty: medium\nminutes: {minutes}\ntags: []\nrequires: []\n"
         f"support: {support}  # read-only files the learner sees; predict, review and tests: the code to read\n"
         "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
+        "grounded_in: []  # Source links of the interview reports this question is based on (the brief lists them)\n"
+        "framing: work  # what it was prepared for: work, company:<Name> or domain:<Domain> (from the request; the brief says)\n"
         "summary: One sentence about what the learner does.\n"
     )
 
@@ -90,19 +100,73 @@ _PREDICT = {
         "    missing = [k for k in KEYS if k not in ANSWERS or ANSWERS[k] is ...]\n"
         '    assert not missing, "Fill in every prediction: " + ", ".join(missing) + "."\n'
     ),
-    "tests/test_hidden.py": (
+    "tests/conftest.py": (
+        '"""Predict by reading: solution.py may not import the code it predicts, on Run or on Submit."""\n\n'
+        "import sys\n"
         "from pathlib import Path\n\n"
-        "import solution\n"
+        "import pytest\n\n"
+        "# Every module next to solution.py is code under study (the question's support files).\n"
+        'SUBJECTS = [p.stem for p in Path(__file__).resolve().parent.parent.glob("*.py") if p.stem != "solution"]\n\n\n'
+        '@pytest.fixture(autouse=True, scope="session")\n'
+        "def predictions_come_from_reading():\n"
+        '    """Import solution.py again with the subjects blocked: None in sys.modules makes `import subject` fail."""\n'
+        "    kept = {name: sys.modules.get(name) for name in SUBJECTS}\n"
+        "    sys.modules.update(dict.fromkeys(SUBJECTS))\n"
+        '    sys.modules.pop("solution", None)\n'
+        "    try:\n"
+        "        import solution\n\n"
+        '        getattr(solution, "ANSWERS", None)  # a module __getattr__ that runs the code counts too\n'
+        "    except ImportError:\n"
+        '        pytest.fail("solution.py runs the code it should predict. Read it, write the value, and leave the import out.", pytrace=False)\n'
+        "    finally:\n"
+        "        for name, module in kept.items():\n"
+        "            if module is None:\n"
+        "                sys.modules.pop(name, None)\n"
+        "            else:\n"
+        "                sys.modules[name] = module\n"
+    ),
+    "tests/test_hidden.py": (
+        '"""The expected values come from running subject.py here, never from a copy of the answers."""\n\n'
+        "from decimal import Decimal\n\n"
         "from solution import ANSWERS\n"
-        "from subject import take\n\n\n"
-        "def test_solution_does_not_import_subject():\n"
-        '    assert "subject" not in Path(solution.__file__).read_text(), "Predict it by reading the code, not by running it."\n\n\n'
-        "def test_second_take_from_one_token():\n"
+        "from subject import take\n\n"
+        "PLAIN = (int, float, str, bool, Decimal)\n\n\n"
+        "def _result() -> dict:\n"
         '    bucket = {"k": 1}\n'
         '    take(bucket, "k")\n'
-        '    assert ANSWERS["second_take_from_one_token"] == take(bucket, "k"), "What is left after the first take spends the only token?"\n\n\n'
+        '    return {"second_take_from_one_token": take(bucket, "k"), "take_from_a_missing_key": take({}, "k")}\n\n\n'
+        "RESULT = _result()\n\n\n"
+        "def test_predictions_are_plain_values():\n"
+        "    # Exact types: a value with its own __eq__ would agree with anything.\n"
+        '    assert type(ANSWERS) is dict, "Keep ANSWERS a plain dict."\n'
+        "    odd = [k for k, v in ANSWERS.items() if type(v) not in PLAIN]\n"
+        '    assert not odd, "Each prediction is a plain int, float, str, bool or Decimal: " + ", ".join(odd) + "."\n\n\n'
+        "# `ok = a == b; assert ok` so a failure shows the message and never the values.\n"
+        "def test_second_take_from_one_token():\n"
+        '    ok = ANSWERS["second_take_from_one_token"] == RESULT["second_take_from_one_token"]\n'
+        '    assert ok, "What is left after the first take spends the only token?"\n\n\n'
         "def test_take_from_a_missing_key():\n"
-        '    assert ANSWERS["take_from_a_missing_key"] == take({}, "k"), "What does .get(key, 0) give for a key that was never added?"\n'
+        '    ok = ANSWERS["take_from_a_missing_key"] == RESULT["take_from_a_missing_key"]\n'
+        '    assert ok, "What does .get(key, 0) give for a key that was never added?"\n'
+    ),
+    # A predict mutant is a wrong subject.py; the reference ANSWERS must come out wrong on it.
+    "mutants/01-a-missing-key-is-full.py": (
+        '"""Misconception: a key that was never added starts with enough tokens."""\n\n\n'
+        "def take(bucket: dict, key: str, n: int = 1) -> bool:\n"
+        "    left = bucket.get(key, n)\n"
+        "    if left < n:\n"
+        "        return False\n"
+        "    bucket[key] = left - n\n"
+        "    return True\n"
+    ),
+    "mutants/02-a-take-spends-nothing.py": (
+        '"""Misconception: take only checks the balance; nothing spends it."""\n\n\n'
+        "def take(bucket: dict, key: str, n: int = 1) -> bool:\n"
+        "    left = bucket.get(key, 0)\n"
+        "    if left < n:\n"
+        "        return False\n"
+        "    bucket[key] = left\n"
+        "    return True\n"
     ),
 }
 
@@ -182,7 +246,7 @@ _REVIEW = {
         "    return any(abs(found_line - line) <= 2 and found_cat == category for found_line, found_cat in FINDINGS)\n\n\n"
         "def test_every_seeded_defect_is_found():\n"
         "    missed = [cat for line, cat in SEEDED.items() if not _found(line, cat)]\n"
-        '    assert not missed, "A reviewer would still flag: " + ", ".join(missed) + ". Read the function once more, line by line."\n\n\n'
+        '    assert not missed, f"{len(missed)} defect(s) would still block this pull request. Take each promise in the docstrings and find the line that breaks it."\n\n\n'
         "def test_at_most_one_false_positive():\n"
         "    extra = [f for f in FINDINGS if not any(abs(f[0] - line) <= 2 and f[1] == cat for line, cat in SEEDED.items())]\n"
         '    assert len(extra) <= 1, f"{len(extra)} findings point at code that is fine. Which ones would you defend in a real review?"\n'
@@ -554,13 +618,26 @@ def cmd_question_brief(args) -> int:
     module = slugify(args.module)
     problem = find_problem(settings, args.module)
     track = next((t for t in load_tracks(settings.tracks_dir) if t.id == module), None)
+    store, _ = _state(settings)
+    ratings = {c.key: r for c in (track.challenges if track else []) if (r := store.rating(c.key))}
     if problem and not args.topic:
-        text = make_brief(settings, problem, difficulty=args.difficulty, notes=args.notes or "", kind=args.type)
+        text = make_brief(
+            settings, problem, difficulty=args.difficulty, notes=args.notes or "", kind=args.type, ratings=ratings, framing=args.framing
+        )
     else:
         topic = args.topic or (f"{track.title}: {track.description}" if track else None)
         if not topic:
             return fail(f'{module} is not a module or a catalog problem yet. Pass --topic "..." to say what it teaches.', 2)
-        text = make_brief(settings, topic=topic, track=module, difficulty=args.difficulty, notes=args.notes or "", kind=args.type)
+        text = make_brief(
+            settings,
+            topic=topic,
+            track=module,
+            difficulty=args.difficulty,
+            notes=args.notes or "",
+            kind=args.type,
+            ratings=ratings,
+            framing=args.framing,
+        )
     print(text)
     return 0
 
@@ -667,6 +744,8 @@ def cmd_catalog(args) -> int:
         return 0
 
     q = (args.search or "").lower()
+    by_reports = bool(args.company or args.round)  # those filters are about reports; otherwise placeholders show too
+    paths = load_all_paths(settings.shared_paths_dir, settings.paths_dir)
     rows = []
     for p in load_catalog(settings):
         hits = [
@@ -674,8 +753,8 @@ def cmd_catalog(args) -> int:
             for r in p["reports"]
             if (not args.company or r["company"].lower() == args.company.lower()) and (not args.round or r["round"] == args.round)
         ]
-        text = " ".join([p["title"], p.get("summary", ""), *p.get("tags", []), *(r["question"] for r in p["reports"])]).lower()
-        if hits and (not q or q in text):
+        text = " ".join([p["id"], p["title"], p.get("summary", ""), *p.get("tags", []), *(r["question"] for r in p["reports"])]).lower()
+        if (hits or not by_reports) and (not q or q in text):
             rows.append((p, hits, catalog_links(p, tracks, solved)))
     rows.sort(key=lambda row: (-len(row[1]), row[0]["id"]))
     if args.json:
@@ -689,6 +768,8 @@ def cmd_catalog(args) -> int:
                         "format": p.get("format"),
                         "reports": len(hits),
                         "companies": sorted({r["company"] for r in hits}),
+                        "tags": p.get("tags", []),
+                        "paths": [lp.id for lp in paths if p["id"] in lp.modules],
                         "links": links,
                     }
                     for p, hits, links in rows
@@ -702,11 +783,14 @@ def cmd_catalog(args) -> int:
             status = "discussion"
         elif links:
             status = f"{sum(lk['solved'] for lk in links)}/{sum(lk['total'] for lk in links)} solved"
-        else:
+        elif hits:
             status = "not built"
+        else:
+            status = "placeholder, not built"
         companies = list(dict.fromkeys(r["company"] for r in hits))
         more = f" +{len(companies) - 4}" if len(companies) > 4 else ""
-        print(f"{len(hits):3}  {p['id']:<26} {status:<11} {p['title']}  [{', '.join(companies[:4])}{more}]")
+        where = f"  [{', '.join(companies[:4])}{more}]" if companies else ""
+        print(f"{len(hits):3}  {p['id']:<26} {status:<22} {p['title']}{where}")
     print(f"\n{len(rows)} problem{'' if len(rows) == 1 else 's'}. Details: {CLI} catalog <id>")
     return 0
 
@@ -736,9 +820,50 @@ def cmd_progress(args) -> int:
             notes.append("mastered" if r["mastered"] else f"{r['solve']} solve")
         if r["review_due"]:
             notes.append(f"review due {r['review_due']}")
+        if r.get("rating"):
+            notes.append(f"rated {r['rating']}")
         if last:
             notes.append(f"last {last['mode']}: {last['status']} {last['passed']}/{last['total']}")
         print(f"{r['status']:<9} {r['key']:<46} {' '.join(notes)}")
+    return 0
+
+
+def cmd_today(args) -> int:
+    """The next steps, for the start of a session: silent when there is nothing due or open."""
+    from datetime import date
+
+    from . import dashboard as dash
+    from .catalog import path_rows
+    from .store import progress_rows
+
+    settings = load_settings()
+    store, tracks = _state(settings)
+    rows = progress_rows(store, tracks.values())
+    solved = store.solved_keys()
+    paths = [
+        {"id": lp.id, "title": lp.title, "mine": lp.mine, "modules": path_rows(settings, lp, tracks, solved)}
+        for lp in load_all_paths(settings.shared_paths_dir, settings.paths_dir)
+    ]
+    followed = set(load_profile(settings.user_dir / "profile.md").get("paths", []))
+    steps = dash.today_steps(rows, paths, followed, date.today())
+    if args.json:
+        print(json.dumps(steps, indent=2))
+        return 0
+    if not steps["reviews"] and not steps["in_progress"]:
+        return 0
+    if steps["reviews"]:
+        print(f"Reviews due ({len(steps['reviews'])}): offer a variant of each before anything new.")
+        for r in steps["reviews"]:
+            variant = f"variant ready: {r['variant']}" if r["variant"] else f"no variant yet: {CLI} question brief {r['key'].split('/')[0]}"
+            print(f"  {r['key']:<46} {r['title']}  due {r['due']}, solved {r['solved_at']}  {variant}")
+    if steps["in_progress"]:
+        q = steps["in_progress"]
+        print(f"In progress:\n  {q['key']:<46} {q['title']}  last run {q['last_run']}: {q['passed']} of {q['total']} tests passed")
+    if steps["paths"]:
+        print("Next in each path:")
+        for s in steps["paths"]:
+            where = s["key"] if s["built"] else f"{s['module']} not built yet: {CLI} question brief {s['module']}"
+            print(f"  {s['path_title']}: {s['title']}  {where}")
     return 0
 
 
@@ -1023,7 +1148,16 @@ def cmd_watch(args) -> int:
 
     # Work the learner queued before the watch started comes first.
     for r in reversed(store.requests(open_only=True)):
-        emit("requested", None, id=r["id"], kind=r["kind"], target=r["target"], status=r["status"], ask=request_ask(r))
+        emit(
+            "requested",
+            None,
+            id=r["id"],
+            kind=r["kind"],
+            target=r["target"],
+            framing=r.get("framing"),
+            status=r["status"],
+            ask=request_ask(r),
+        )
     store.mark_agent_seen()
     last_seen = time.monotonic()
     try:
@@ -1099,12 +1233,27 @@ def cmd_request(args) -> int:
     """Claim a queued request, then mark it done or failed, so the app shows its progress."""
     from .store import Store
 
-    store = Store(load_settings().db_path)
+    settings = load_settings()
+    store = Store(settings.db_path)
     moves = {"claim": ("claimed", ("queued",)), "done": ("done", ("queued", "claimed")), "fail": ("failed", ("queued", "claimed"))}
     status, allowed = moves[args.action]
+    if args.action == "done" and args.result:  # the app turns the result into a Start link
+        track_id, _, cid = args.result.partition("/")
+        try:
+            find_challenge(settings.tracks_dir, track_id, cid)
+        except ContentError:
+            return fail(
+                f"--result must be a question that exists, like rate-limiter/01-token-bucket; there is no {args.result}. Did `question add` succeed?"
+            )
     r = store.update_request(args.id, status, args.result, only_from=allowed)
+    if not r and args.action == "claim":
+        r = store.update_request(args.id, "claimed", only_from=("claimed",))  # a replay: the agent that claimed it stopped mid-job
+        if r:
+            print(
+                f"Request #{r['id']} was already claimed: an earlier agent run left it orphaned. It is yours now; do the job from the start."
+            )
     if not r:
-        return fail(f"Request #{args.id} is not open (already done, failed, cancelled or claimed).")
+        return fail(f"Request #{args.id} is not open (already done, failed or cancelled).")
     store.record_event(None, f"request-{status}", {"id": r["id"], "kind": r["kind"], "target": r["target"], "result": r.get("result")})
     print(f"Request #{r['id']} {status}." + (f" {r['result']}" if r.get("result") else ""))
     return 0
@@ -1167,6 +1316,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--topic", help="what the question teaches, for a module that is not in the catalog")
     p.add_argument("--difficulty", default="medium", choices=["easy", "medium", "hard"])
     p.add_argument("--notes", help="what the learner asked for")
+    p.add_argument(
+        "--for",
+        dest="framing",
+        type=_framing,
+        help="what to frame it for, from the request: work, company:<Name> (interview prep) or domain:<Domain>",
+    )
     p = cmd(questions, "new", cmd_question_new, "scaffold a question's files in my/.staging/<slug>/")
     p.add_argument("module")
     p.add_argument("slug")
@@ -1191,6 +1346,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--search")
     p.add_argument("--json", action="store_true")
     p = cmd(sub, "progress", cmd_progress, "what the learner solved, attempted and struggled with")
+    p.add_argument("--json", action="store_true")
+    p = cmd(sub, "today", cmd_today, "reviews due, the open question and each path's next step; silent when nothing is due")
     p.add_argument("--json", action="store_true")
     p = cmd(sub, "draft", cmd_draft, "the learner's current code for a question")
     p.add_argument("key", help="module/question, e.g. rate-limiter/01-token-bucket")
