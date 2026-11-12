@@ -13,11 +13,17 @@ class CachedAPI:
 
 ## Rules
 
+### Core
+
 - `get(n)` returns `compute(n)`. It calls `compute` at most once for each `n`.
 - `stats()` returns the number of cache hits and misses since the object was created.
+
+### Edge cases
+
 - Each `CachedAPI` object has its own cache.
 - If `compute` raises an exception, `get` raises the same exception and saves nothing.
-- You do not need thread safety yet. That comes in the next question.
+
+You do not need thread safety yet. That comes in the next question.
 
 ## Example
 
@@ -27,3 +33,7 @@ api.get(4)   # 16, miss
 api.get(4)   # 16, hit
 api.stats()  # {"hits": 1, "misses": 1}
 ```
+
+## Start here
+
+Make `test_computes_each_input_once` pass first. It needs a place to keep each value that `get` has computed.

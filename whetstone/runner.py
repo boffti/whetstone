@@ -868,6 +868,7 @@ def _mutation_gate(challenge: Challenge, settings: Settings, strict: bool) -> tu
 # Tags that name the technique give away the approach; a tag names the domain (AUTHORING.md).
 TECHNIQUE_TAGS = frozenset({"ring-buffer", "numerical-drift", "state-machines", "token-bucket", "lru", "bisect", "double-check", "fencing"})
 LESSON_WORDS = 500
+RULES, RULE_WORDS = 7, 30
 
 
 def _lint(challenge: Challenge) -> list[str]:
@@ -887,6 +888,18 @@ def _lint(challenge: Challenge) -> list[str]:
         notes.append(f"the title names the technique ({', '.join(named)}); name the scenario instead, the technique is the answer")
     if (challenge.path / "problem.md").exists() and not re.search(r"\d", challenge.read("problem.md")):
         notes.append("problem.md has no numbers: a real problem has a scale, a limit, a timeout or a sum of money")
+    if (challenge.path / "problem.md").exists():
+        section = re.search(r"^## Rules\n(.*?)(?=^## |\Z)", challenge.read("problem.md"), re.M | re.S)
+        rules = re.findall(r"^- (.+)", section.group(1), re.M) if section else []
+        if len(rules) > RULES:
+            notes.append(
+                f"problem.md has {len(rules)} rules; keep it to {RULES} (3 core, the rest edge cases) or split the question in two"
+            )
+        long = [r for r in rules if len(r.split()) > RULE_WORDS]
+        if long:
+            notes.append(
+                f"{len(long)} rule(s) in problem.md run over {RULE_WORDS} words; one idea per rule, the first is: {long[0][:60]}..."
+            )
     return notes
 
 

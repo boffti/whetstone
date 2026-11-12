@@ -1558,7 +1558,7 @@ def main(argv: list[str] | None = None) -> int:
         "--type", choices=QUESTION_TYPES, help="ask for this type instead of the recipe's suggestion; whiteboard: a system design"
     )
     p.add_argument("--topic", help="what the question teaches, for a module that is not in the catalog")
-    p.add_argument("--difficulty", default="medium", choices=["easy", "medium", "hard"])
+    p.add_argument("--difficulty", choices=["easy", "medium", "hard"], help="default: easy for a module's first question, then medium")
     p.add_argument("--notes", help="what the learner asked for")
     p.add_argument(
         "--for",

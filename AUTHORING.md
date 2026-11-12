@@ -44,7 +44,7 @@ title: Stop the cache stampede      # sentence case, under 40 characters; name t
 type: build                         # build | predict | fix | review | tests | design (see "Question types")
 lesson: after-run                   # after-run: problem first, lesson opens after the first run; first: lesson first
 difficulty: medium                  # easy | medium | hard
-minutes: 30                         # honest estimate for a strong engineer
+minutes: 30                         # for an engineer out of practice: about twice your own time
 tags: [concurrency, cache-stampede]
 requires: []                        # [redis] if the tests need Redis
 support: []                         # read-only files shown to the learner, e.g. [subject.py]
@@ -239,7 +239,7 @@ Every `build`, `fix`, `design`, `tests`, `predict`, `project` and `terminal` que
 
 A module has about 5 questions. `question brief` suggests the type for each position:
 
-1. **predict**: read working code first.
+1. **predict**: read working code first. A module's first question is `easy` and has one idea: at most 5 rules (or 3 predictions on under 30 lines), and a reference solution of about 25 lines. Validation, threads and failure wait for later questions.
 2. **build**: the core version, problem first.
 3. **build**: the next step up: concurrency, scale or failure. From here on, **mix in ideas from earlier modules without naming them**.
 4. **fix**, **review** or **tests**: a realistic bug to fix, AI-written code to judge, or the missing tests to write.
@@ -249,6 +249,19 @@ After the core recipe, write variants (`variant_of`), and **one question that us
 - a clean solve (no hints, 3 runs or fewer) means skip ahead;
 - an assisted solve (the last hint or the solution) means a variant of the same idea next;
 - when the profile's `ai_handles` names tests, code review or reading code, a `tests` or `review` question comes at position 2 or 3, not 4. Those skills fade fastest.
+
+## Language
+
+Write everything the learner reads (`problem.md`, `lesson.md`, `hints.md`, test messages) about 80% of the way to Simplified Technical English (ASD-STE100):
+
+- One idea per sentence. About 20 words for an instruction and 25 for a description.
+- Put the condition first: "If `fetch` raises, `get` raises the same exception."
+- Use active voice and simple tenses. Name who acts: "`get` returns", not "is returned".
+- Use one term per thing. If it is a "bucket" in the task, it is a "bucket" in every rule.
+- Use common words, and domain terms only where the learner's profile shows they use them. Explain any other term in the Task, in one sentence.
+- Do not use semicolons or dashes to join two ideas. Write two sentences.
+
+Clear sentences do not make a long specification easy to take in. The limits in "problem.md" below do that.
 
 ## lesson.md
 
@@ -270,8 +283,13 @@ Length: 250 to 500 words. `question add` warns above 500.
 Sections:
 - `## Task`: the scenario.
 - `## API`: a code block with exact signatures.
-- `## Rules`: bullets; each rule must be testable.
+- `## Rules`: bullets; each rule must be testable. At most 7, each one idea of about 25 words. `question add` warns above 7 rules or 30 words. Split them under two headings:
+  - `### Core`: at most 3 rules that are the idea itself. The visible tests check these and nothing else, so a learner who builds only the core sees Run pass.
+  - `### Edge cases`: validation, clock skew, threads, failure. The hidden tests check these.
 - `## Example`.
+- `## Start here`: one line that names the first visible test to pass and what it needs. The learner must not need a hint to know where to begin.
+
+If a question needs more than 7 rules, it is two questions. Keep test plumbing out of the rules: a hook or an attribute that exists for the tests is a comment in `starter.py`, not a rule to interpret.
 
 For `predict`, `## Predict` replaces `## Rules`. For `review`, `## Categories` replaces it.
 

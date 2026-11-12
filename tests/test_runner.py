@@ -141,6 +141,14 @@ def test_lint_warns_about_a_long_lesson_and_a_technique_tag(tmp_path):
     assert any("token-bucket" in n and "technique" in n for n in result.notes), result.notes
 
 
+def test_lint_warns_about_too_many_rules_and_a_long_rule(tmp_path):
+    rules = "".join(f"- Rule {i} is short.\n" for i in range(8)) + "- " + "word " * 31 + "\n"
+    q = question(tmp_path / "q", {"problem.md": f"## Task\n\nPay 3 invoices.\n\n## Rules\n\n{rules}\n## Example\n\n- not a rule\n"})
+    notes = validate_challenge(q, settings(tmp_path)).notes
+    assert any("has 9 rules" in n for n in notes), notes
+    assert any("1 rule(s)" in n and "over 30 words" in n for n in notes), notes
+
+
 def test_a_file_that_cannot_load_is_an_error_that_names_the_file(tmp_path):
     """pytest 9 reports a collection error as a bare module name; the app must still say the tests could not start."""
     q = question(tmp_path / "q", {"tests/test_hidden.py": "from solution import NOPE\n"})

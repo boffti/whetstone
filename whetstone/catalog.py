@@ -142,7 +142,7 @@ def make_brief(
     problem: dict | None = None,
     topic: str | None = None,
     track: str | None = None,
-    difficulty: str = "medium",
+    difficulty: str | None = None,
     notes: str = "",
     kind: str | None = None,
     ratings: dict[str, str] | None = None,
@@ -177,6 +177,7 @@ def make_brief(
         f"{f', variant of {c.variant_of}' if c.variant_of else ''}{f', rated {rated[c.key]}' if c.key in rated else ''})"
         for c in challenges
     ]
+    difficulty = difficulty or ("medium" if existing else "easy")  # a module starts easy, so there is a way in
     position = sum(not c.variant_of for c in challenges) + 1  # a variant re-tests an earlier slot; it does not advance the recipe
     ai_handles = load_profile(settings.profile_path).get("ai_handles", [])
 
@@ -226,7 +227,10 @@ def make_brief(
                 "more scaffolding; after 'too easy' skip a step; after 'artificial' put the next one in their real work."
             )
     else:
-        lines.append("This module is empty: write its first question.")
+        lines.append(
+            "This module is empty: write its first question. It is the way in: one idea, at most 5 rules, and a reference "
+            "solution of about 25 lines. Edge cases, threads and failure wait for the next questions."
+        )
     lines += ["", "## Question type"]
     if whiteboard:
         lines.append("whiteboard: follow the whiteboard section of AUTHORING.md. Copy the quality of examples/short-links-whiteboard/.")
