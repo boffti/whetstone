@@ -99,8 +99,11 @@ AI-assisted contributions are welcome. You are responsible for what you submit: 
 
 ## Pull requests
 
+- Every change to `main` goes through a pull request, the maintainer's own changes included. Nobody pushes to `main`.
+- Work on a branch named for the change, such as `fix-hint-ladder` or `add-ledger-path`.
 - Keep each pull request focused, and describe what changed and why.
-- CI must pass. A maintainer reviews every change; changes to `examples/`, `scripts/`, and `.github/` get extra scrutiny because they hold code that runs.
+- CI must pass, and the branch must be up to date with `main`. Pull requests are squash-merged, so the pull request title becomes the commit on `main`: write it as a short sentence that says what changed.
+- A maintainer reviews every change. Changes to `examples/`, `scripts/`, `bin/`, `.github/`, `.claude/` and `mods/` get extra scrutiny because they hold code that runs.
 - For security problems, follow [SECURITY.md](SECURITY.md) instead of opening an issue.
 
 By contributing, you agree that your contribution is licensed under the [MIT License](LICENSE), and you agree to follow the [code of conduct](CODE_OF_CONDUCT.md).

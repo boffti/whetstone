@@ -1,0 +1,25 @@
+name: Feature request
+description: An idea for the app, the CLI or the agent skills.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Do not paste anything from your `my/` folder that describes your job or private work.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like
+      description: The smallest change that would solve it. A sketch or an example helps.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
