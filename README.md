@@ -131,16 +131,19 @@ While your agent watches, you can work from the app instead:
 - **Ask for review** on a design has your agent grade it against the rubric.
 - **Follow this path** and **+ Focus** tell your agent what you want to keep sharp.
 
-### A nudge when a session starts
+### What Claude Code does by itself in this folder
 
 The repo ships two Claude Code hooks in `.claude/settings.json`. Claude Code asks you to approve them the first time.
 
-```json
-{
-  "hooks": {
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bin/whetstone today" }] }]
-  }
-}
+- **At the start of a session** it runs `bin/whetstone today`: the reviews that are due, the question you have open and the next step in each path you follow. It prints nothing when there is nothing to do. It also runs `bin/whetstone doctor`, and shows the result only when something is broken.
+- **The tutor guard** (`.claude/hooks/tutor_guard.py`) stops your agent before it writes to your progress database or to the folder of a solo terminal question. Your agent tutors; it does not do your work. An AI-allowed round is not blocked, because there the AI is meant to write.
+
+### The Whetstone mod (optional)
+
+`mods/whetstone/` is a small Claude Code mod. Start Claude Code with it from this folder:
+
+```bash
+claude --plugin-dir mods/whetstone
 ```
 
 In the desktop app, set `CLAUDE_CODE_PLUGIN_DIRS` to the full path of `mods/whetstone` instead.

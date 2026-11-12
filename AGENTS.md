@@ -56,7 +56,7 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 
 `catalog`, `progress`, `path show`, `path list`, `module list` and `today` also take `--json`.
 
-Run `bin/whetstone today` at the start of every session, before anything else. Claude Code can run it for you: README's "How to use it" has a `.claude/settings.json` SessionStart hook that shows its output. Other agents run the same command when a session starts.
+Run `bin/whetstone today` at the start of every session, before anything else. Claude Code runs it for you: the repo's `.claude/settings.json` has a SessionStart hook that shows its output, and a tutor guard that blocks writes to the learner's database and solo terminal folders. Other agents run the same command when a session starts.
 
 ## Jobs: use the skill for each one
 
