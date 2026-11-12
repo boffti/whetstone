@@ -93,7 +93,23 @@ EXAMPLES_BY_TYPE = {
     "fix": "examples/payments-fix/",
     "review": "examples/payout-review/",
     "whiteboard": "examples/short-links-whiteboard/",
+    "project": "examples/late-refunds-round/",
+    "terminal": "examples/git-lost-commits/",
 }
+
+
+# A report says the candidate could use an AI assistant (an AI-allowed round): its tags, or its own
+# words. A design *of* an AI agent does not count. app.js's aiAllowed() is the same rule.
+AI_WORDING = re.compile(
+    r"\bAI[- ](assisted|enabled|only)\b|\b(with|using|use) (an |your own |your |the )?AI\b|AI-equipped|\bAI (tools|assistance) (were |was )?allowed",
+    re.I,
+)
+
+
+def ai_allowed(r: dict) -> bool:
+    return any(str(t).startswith(("ai-assisted", "ai-enabled")) for t in r.get("tags") or []) or bool(
+        AI_WORDING.search(str(r.get("question", "")))
+    )
 
 
 def report_line(r: dict) -> str:
@@ -126,7 +142,7 @@ def make_brief(
     problem: dict | None = None,
     topic: str | None = None,
     track: str | None = None,
-    difficulty: str = "medium",
+    difficulty: str | None = None,
     notes: str = "",
     kind: str | None = None,
     ratings: dict[str, str] | None = None,
@@ -136,6 +152,9 @@ def make_brief(
     kind asks for one question type instead of the recipe's suggestion; "whiteboard" is a system design question.
     ratings maps the module's question keys to how the learner rated them. framing is what the learner
     chose to prepare it for: "work", "company:<name>" or "domain:<name>" (see framing_lines)."""
+    command_line = not kind and bool(problem) and problem.get("format") == "terminal"
+    if command_line:
+        kind = "terminal"  # a command-line module: every question is a terminal question
     whiteboard = kind == "whiteboard"
     if problem:
         track_id, track_title = slugify(problem["id"]), problem["title"]
@@ -158,6 +177,7 @@ def make_brief(
         f"{f', variant of {c.variant_of}' if c.variant_of else ''}{f', rated {rated[c.key]}' if c.key in rated else ''})"
         for c in challenges
     ]
+    difficulty = difficulty or ("medium" if existing else "easy")  # a module starts easy, so there is a way in
     position = sum(not c.variant_of for c in challenges) + 1  # a variant re-tests an earlier slot; it does not advance the recipe
     ai_handles = load_profile(settings.profile_path).get("ai_handles", [])
 
@@ -168,6 +188,14 @@ def make_brief(
         "Markdown, with Mermaid diagrams, on a scratchpad you can watch. Whetstone checks every section is filled "
         "in; later you grade the design against the rubric you write now (bin/whetstone grade)."
         if whiteboard
+        else "You are writing one AI-allowed round for Whetstone: a small codebase the learner solves in a folder of "
+        "their own with the AI tool they use at work, one stage at a time, graded by your staged pytest tests. You do "
+        "the writing; Whetstone checks your work."
+        if kind == "project"
+        else "You are writing one terminal question for Whetstone: solo practice at the command line. The learner "
+        "explores a scenario in a shell, then writes the commands in solution.sh; your tests replay it on fresh "
+        "scenarios that your scenario.py builds, hidden variants included. You do the writing; Whetstone checks your work."
+        if kind == "terminal"
         else "You are writing one hands-on question for Whetstone. The learner reads a lesson, writes code in "
         "solution.py, and is graded by pytest. You do the writing; Whetstone checks your work.",
         "",
@@ -199,14 +227,23 @@ def make_brief(
                 "more scaffolding; after 'too easy' skip a step; after 'artificial' put the next one in their real work."
             )
     else:
-        lines.append("This module is empty: write its first question.")
+        lines.append(
+            "This module is empty: write its first question. It is the way in: one idea, at most 5 rules, and a reference "
+            "solution of about 25 lines. Edge cases, threads and failure wait for the next questions."
+        )
     lines += ["", "## Question type"]
     if whiteboard:
         lines.append("whiteboard: follow the whiteboard section of AUTHORING.md. Copy the quality of examples/short-links-whiteboard/.")
     elif kind:
-        lines.append(f"{kind}: requested. Follow the {kind} section of AUTHORING.md.")
+        why = "a command-line module, so every question is one" if command_line else "requested"
+        lines.append(f"{kind}: {why}. Follow the {kind} section of AUTHORING.md.")
     else:
         lines.append(_recipe_line(position))
+    if kind != "project" and any(ai_allowed(r) for r in reports):
+        lines.append(
+            "Some of these reports are AI-allowed rounds, where the candidate works with an AI assistant. If the learner "
+            "prepares for one, write a project question instead: --type project (AUTHORING.md, project)."
+        )
     lines.append(f"The learner's AI handles: {', '.join(ai_handles) or 'nothing listed in the profile'}.")
     if not kind and names_thesis_skill(ai_handles) and position <= 3 and not any(c.kind in THESIS_TYPES for c in challenges):
         lines.append(

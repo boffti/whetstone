@@ -27,3 +27,17 @@ def test_links_skip_missing_and_dedupe():
 def test_build_notes_lists_reports():
     notes = build_notes({"reports": [{"company": "Stripe", "round": "practical-coding", "question": "Q1", "follow_ups": ["F1"]}]})
     assert "Stripe (practical-coding): Q1 Follow-ups: F1" in notes
+
+
+def test_a_report_is_ai_allowed_by_its_tags_or_its_own_words():
+    """The Catalog's AI-allowed filter: the candidate could use an AI assistant. A design of an agent is not that."""
+    from whetstone.catalog import ai_allowed
+
+    assert ai_allowed({"tags": ["ai-assisted-coding"], "question": "Add a cache."})
+    assert ai_allowed({"question": "In a starter repo, build with an AI assistant a chat server."})
+    assert ai_allowed({"question": "AI-enabled round: fix a bug, then a feature."})
+    assert ai_allowed({"question": "With AI tools allowed, build a ledger."})
+    assert not ai_allowed({"question": "Design an AI agent that reads an issue and opens a pull request."})
+    assert not ai_allowed({"tags": ["ai-coding"], "question": "Repair nested record normalization."}), (
+        "a practice site's category is not a report"
+    )

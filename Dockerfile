@@ -10,6 +10,14 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
+# Command-line tools for terminal questions: the default packs in content/tools.yaml, plus the
+# ones WHETSTONE_TOOLS in .env names (space-separated). Before COPY . ., so code changes reuse it.
+ARG WHETSTONE_TOOLS=""
+COPY content/tools.yaml /tmp/tools.yaml
+RUN pkgs=$(python -c 'import sys, yaml; packs = yaml.safe_load(open(sys.argv[1])); want = sys.argv[2].split(); print(" ".join(p for name, spec in packs.items() if spec.get("default") or name in want for p in spec.get("apt", [])))' /tmp/tools.yaml "$WHETSTONE_TOOLS") \
+    && apt-get update && apt-get install -y --no-install-recommends $pkgs \
+    && rm -rf /var/lib/apt/lists/* /tmp/tools.yaml
+
 COPY . .
 
 # Run as a normal user: submitted code runs inside this container.

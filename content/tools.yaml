@@ -1,0 +1,25 @@
+# Tool packs: the command-line tools terminal questions use (type: terminal, tools: [git]).
+# apt: the Debian packages the image installs. check: a command that prints the tool's version.
+# default: in every image. Any other pack installs when WHETSTONE_TOOLS in .env names it
+# (space-separated), then `docker compose up -d --build`.
+# To add a CLI: an entry here, a helper in whetstone/terminal/ if tests need one, an example
+# question, and catalog modules. See AUTHORING.md ("terminal").
+shell:
+  summary: bash and the text tools (grep, sed, awk, sort, uniq, cut, find, xargs)
+  apt: [gawk]
+  check: bash --version
+  default: true
+git:
+  summary: git, for history, branches and rescues
+  apt: [git]
+  check: git --version
+  default: true
+jq:
+  summary: jq, for JSON on the command line
+  apt: [jq]
+  check: jq --version
+  default: true
+sqlite3:
+  summary: the SQLite shell
+  apt: [sqlite3]
+  check: sqlite3 --version

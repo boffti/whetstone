@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import yaml
 
 from whetstone.config import Settings
@@ -349,3 +351,119 @@ def test_a_request_carries_what_it_is_framed_for(tmp_path):
         "Build a Whetstone variant of job-scheduler/01-end-of-day-jobs: the same idea on a new surface. "
         "Frame it for Uber: I'm preparing for their interviews."
     ), "Prepare again for... is a variant with the new framing"
+    round_ = client.post("/api/requests", json={"kind": "round", "target": "job-scheduler", "framing": "company:Meta"}).json()
+    assert request_ask(round_) == (
+        "Build a Whetstone AI-allowed round (a project question) for the job-scheduler module. "
+        "Frame it for Meta: I'm preparing for their interviews."
+    )
+
+
+def test_a_terminal_question_replays_the_script_on_fresh_scenarios(tmp_path, monkeypatch, capsys):
+    """A terminal question is solo, in a folder: Start builds sandbox/ to explore, Run replays
+    solution.sh, and only the script runs, never the sandbox or the shell history."""
+    import shutil
+
+    from fastapi.testclient import TestClient
+
+    from whetstone.__main__ import main
+
+    example = Path(__file__).resolve().parent.parent / "examples/git-lost-commits"
+    shutil.copytree(example, tmp_path / "my/tracks/git-rescue/01-lost")
+    (tmp_path / "content").mkdir()
+    monkeypatch.delenv("WHETSTONE_HOST_ROOT", raising=False)
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 60)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+    url, ws = "/api/challenges/git-rescue/01-lost", tmp_path / "my/workspaces/git-rescue/01-lost"
+
+    c = client.get(url).json()
+    assert (c["type"], c["stage"], c["tools"], c["shell"]) == ("terminal", 1, ["git"], "bin/whetstone shell git-rescue/01-lost")
+    assert client.post(f"{url}/workspace", json={}).json()["created"] is True
+    assert (ws / "sandbox/.git").is_dir() and (ws / "solution.sh").exists()
+    assert "tutor" in (ws / "AGENTS.md").read_text() and not (ws / "tests").exists(), "solo: no assistant note, no tests"
+    assert not [p for p in ws.rglob("*") if p.name in ("scenario.py", "solution.sh") and "sandbox" in p.parts]
+
+    assert client.post(f"{url}/run", json={"code": "", "mode": "run"}).json()["status"] == "failed"
+    (ws / "sandbox/notes.txt").write_text("scratch")
+    (ws / ".history").write_text("git reflog\n")
+    shutil.copy(example / "solution/solution.sh", ws / "solution.sh")
+    r = client.post(f"{url}/run", json={"code": "", "mode": "submit"}).json()
+    assert (r["status"], r["stage"]) == ("passed", 2), r["summary"]
+    r = client.post(f"{url}/run", json={"code": "", "mode": "submit"}).json()
+    assert r["first_solve"] is True and r["ownership"] == []
+
+    shutil.rmtree(ws / "sandbox")
+    assert client.post(f"{url}/workspace", json={}).json()["created"] is False
+    assert (ws / "sandbox/.git").is_dir(), "a deleted sandbox is built again"
+
+    monkeypatch.setenv("WHETSTONE_HOME", str(settings.user_dir))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(settings.content_dir))
+    assert main(["draft", "git-rescue/01-lost"]) == 0
+    out = capsys.readouterr().out
+    assert "Terminal question (solo)" in out and "### .history" in out and "notes.txt" not in out
+    assert main(["shell", "git-rescue/01-lost"]) == 0
+    assert capsys.readouterr().out.strip().endswith("my/workspaces/git-rescue/01-lost")
+
+
+def test_an_ai_allowed_round_opens_stage_by_stage(tmp_path, monkeypatch, capsys):
+    """A project question runs in the learner's own folder: Submit opens the stages one at a time,
+    the last one solves it, then the ownership check runs their code (docs/PEDAGOGY.md, rule 13)."""
+    import shutil
+
+    from fastapi.testclient import TestClient
+
+    from whetstone import rounds
+    from whetstone.__main__ import main
+    from whetstone.content import find_challenge
+
+    example = Path(__file__).resolve().parent.parent / "examples/late-refunds-round"
+    shutil.copytree(example, tmp_path / "my/tracks/refunds/01-round")
+    (tmp_path / "content").mkdir()
+    monkeypatch.delenv("WHETSTONE_HOST_ROOT", raising=False)
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 30)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+    url, ws = "/api/challenges/refunds/01-round", tmp_path / "my/workspaces/refunds/01-round"
+
+    c = client.get(url).json()
+    assert (c["stage"], c["stages"], c["workspace"]) == (1, 3, None)
+    assert "Stage 1" in c["problem_html"] and "Stage 2" not in c["problem_html"], "later stages stay closed"
+    assert client.post(f"{url}/run", json={"code": "", "mode": "run"}).status_code == 409, "nothing to run before the round starts"
+
+    assert client.post(f"{url}/workspace", json={}).json()["created"] is True
+    assert {"TASK.md", "AGENTS.md", "CLAUDE.md", "README.md", "tests/test_visible_1.py", "tests/orders.py"} <= {
+        p.relative_to(ws).as_posix() for p in ws.rglob("*") if p.is_file()
+    }
+    assert not list(ws.rglob("*hidden*")), "hidden tests and helpers never reach the learner's folder"
+    assert client.post(f"{url}/workspace", json={}).json()["created"] is False
+
+    # Only the learner's code runs: not their own tests, caches, or links out of the folder.
+    (ws / "tests/test_mine.py").write_text("def test_mine():\n    assert False\n")
+    (ws / ".venv/lib").mkdir(parents=True)
+    (ws / ".venv/lib/x.py").write_text("")
+    (ws / "elsewhere.py").symlink_to(tmp_path / "content")
+    files = rounds.collect(settings, find_challenge(settings.tracks_dir, "refunds", "01-round"))
+    assert "refunds/flow.py" in files and not [f for f in files if f.startswith(("tests/", ".venv/")) or f in ("TASK.md", "elsewhere.py")]
+
+    assert client.post(f"{url}/run", json={"code": "", "mode": "submit"}).json()["status"] == "failed"
+    shutil.copy(example / "solution/refunds/clock.py", ws / "refunds/clock.py")
+    r = client.post(f"{url}/run", json={"code": "", "mode": "submit"}).json()
+    assert (r["status"], r["stage"], r["first_solve"]) == ("passed", 2, False), r["summary"]
+    assert "Stage 2" in r["problem_html"] and "## Stage 2" in (ws / "TASK.md").read_text()
+    assert (ws / "tests/test_visible_2.py").exists() and "test_mine" not in str(r["tests"])
+
+    shutil.copy(example / "solution/refunds/flow.py", ws / "refunds/flow.py")
+    assert client.post(f"{url}/run", json={"code": "", "mode": "submit"}).json()["stage"] == 3
+    r = client.post(f"{url}/run", json={"code": "", "mode": "submit"}).json()
+    assert r["first_solve"] is True and len(r["ownership"]) == 3
+
+    checked = client.post(f"{url}/ownership", json={"answers": ["600", "1200", "5"]}).json()
+    assert checked["right"] == 2 and checked["results"][2]["message"] == "Your code returns 0"
+    assert client.post(f"{url}/reset").status_code == 409, "a round's files are the learner's; Whetstone never resets them"
+    statuses = [row["status"] for row in Store(settings.db_path).run_rows("refunds/01-round")]
+    assert statuses == ["failed", "stage", "stage", "passed"], "a passed stage is not a solve"
+
+    monkeypatch.setenv("WHETSTONE_HOME", str(settings.user_dir))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(settings.content_dir))
+    assert main(["draft", "refunds/01-round"]) == 0
+    out = capsys.readouterr().out
+    assert "stage 3 of 3" in out and "stage 2 opened" in out and "changed refunds/clock.py" in out
+    assert "ownership check, AI closed: 2 of 3 right" in out and "### refunds/flow.py" in out

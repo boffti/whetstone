@@ -28,7 +28,7 @@ ICONS = [
     # path domains
     "bot", "users", "credit-card", "database", "messages-square", "car", "chart-candlestick", "building-2", "search", "cpu", "layers",
     # question types
-    "hammer", "eye", "wrench", "scan-search", "flask-conical", "pen-tool", "presentation",
+    "hammer", "eye", "wrench", "scan-search", "flask-conical", "pen-tool", "presentation", "terminal",
     # Today
     "rotate-ccw", "play", "crosshair", "compass",
 ]  # fmt: skip

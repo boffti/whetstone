@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=39">
+  <link rel="stylesheet" href="/static/app.css?v=44">
   <!-- React for the design whiteboard (Excalidraw), loaded only when a whiteboard opens. -->
   <script type="importmap">
   { "imports": {
@@ -70,6 +70,7 @@
       </div>
     </div>
     <p class="catalog-count"><span id="catalog-count" aria-live="polite"></span> <span class="keys-hint">Press <kbd>/</kbd> to search, <kbd>j</kbd> and <kbd>k</kbd> to move, <kbd>Enter</kbd> to open.</span></p>
+    <p class="round-help" id="catalog-help" hidden>In an AI-allowed round you may use an AI assistant, as some companies now allow. Open a module and press <b>Prepare an AI-allowed round</b>: your agent writes a small codebase that you solve stage by stage, in a folder of your own, with the AI tool you use at work.</p>
     <ol class="rows" id="catalog-grid"></ol>
   </main>
 
@@ -210,6 +211,7 @@
         <textarea id="fallback-editor" class="fallback-editor" spellcheck="false" wrap="off" hidden aria-label="Code editor"></textarea>
         <div class="preview prose" id="preview" aria-label="Preview of your design"></div>
         <div class="whiteboard" id="whiteboard" aria-label="Whiteboard"></div>
+        <div class="round" id="round" aria-label="Your AI-allowed round"></div>
         <ol class="pair-notes" id="pair-notes" aria-live="polite" aria-label="Notes from your agent"></ol>
       </div>
       <div class="actions">
@@ -268,7 +270,7 @@
     window.MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
-  <script src="/static/marks.js?v=1"></script>
-  <script src="/static/app.js?v=47"></script>
+  <script src="/static/marks.js?v=2"></script>
+  <script src="/static/app.js?v=55"></script>
 </body>
 </html>

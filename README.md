@@ -68,6 +68,8 @@ You pick the world, too. When you press Prepare, choose your own work, a company
 | Reviews its own pull request | **Review** questions: find the defects planted in plausible AI-written code |
 | Writes the tests | **Tests** questions: your tests must catch hidden bugs you never see |
 | Sketches the architecture | **Design** questions: draw it on a whiteboard, and your agent grades it against a rubric |
+| Works through a whole task with you | **AI-allowed rounds**: a small codebase, solved in stages with the AI tool you use at work, like the interview rounds that allow one. Then, with the AI closed, you say what your code returns |
+| Writes the one-liner | **Terminal** questions: text pipelines, jq and git rescues in a real shell, with no network and nothing else to break. Your script is replayed on copies of the scenario you never saw |
 
 ## Quick start
 
@@ -129,17 +131,28 @@ While your agent watches, you can work from the app instead:
 - **Ask for review** on a design has your agent grade it against the rubric.
 - **Follow this path** and **+ Focus** tell your agent what you want to keep sharp.
 
-### A nudge when a session starts
+### What Claude Code does by itself in this folder
 
-`bin/whetstone today` prints the reviews that are due, the question you have open and the next step in each path you follow. It prints nothing when there is nothing to do. To see it every time you start Claude Code in this folder, put this in `.claude/settings.json`, or in `.claude/settings.local.json`, which git ignores (the repo ships neither, so each learner opts in):
+The repo ships two Claude Code hooks in `.claude/settings.json`. Claude Code asks you to approve them the first time.
 
-```json
-{
-  "hooks": {
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bin/whetstone today" }] }]
-  }
-}
+- **At the start of a session** it runs `bin/whetstone today`: the reviews that are due, the question you have open and the next step in each path you follow. It prints nothing when there is nothing to do. It also runs `bin/whetstone doctor`, and shows the result only when something is broken.
+- **The tutor guard** (`.claude/hooks/tutor_guard.py`) stops your agent before it writes to your progress database or to the folder of a solo terminal question. Your agent tutors; it does not do your work. An AI-allowed round is not blocked, because there the AI is meant to write.
+
+### The Whetstone mod (optional)
+
+`mods/whetstone/` is a small Claude Code mod. Start Claude Code with it from this folder:
+
+```bash
+claude --plugin-dir mods/whetstone
 ```
+
+In the desktop app, set `CLAUDE_CODE_PLUGIN_DIRS` to the full path of `mods/whetstone` instead.
+
+- **It keeps the watch running.** You do not need to say "watch Whetstone", and it starts the watch again after the app restarts. The app shows **Agent connected** while it runs.
+- **It tells you when the app asks for work.** You get a short notice when you press Prepare, and another when the question is ready. Your agent starts on the request by itself.
+- **It shows what is due** in the status line, for example `whetstone: agent connected, 2 reviews due, "Pace the nightly price backfill" in progress`.
+
+How often your agent reacts to your own work follows the pair mode you set in the app. In `off` it reacts to nothing but requests.
 
 Other agents can run the same command at the start of a session.
 
@@ -266,7 +279,8 @@ A `git pull` brings new paths and research without touching your work. The serve
 - [x] Build, predict, fix, review, tests and design questions, with mutation-checked tests
 - [x] Requests from the app to your agent, and live pairing in the editor's margin
 - [x] System design on a whiteboard, graded against a rubric
-- [ ] **Terminal**: bash, text tools, jq and git, then the AWS CLI and Terraform, graded in a sandbox
+- [x] **Terminal**: bash, text tools, jq and git in a sealed shell, graded by replaying your script
+- [ ] More tool packs: sqlite3, kubectl, Terraform and the AWS CLI on a local fake
 - [ ] **More languages**: TypeScript and Go, chosen from your profile
 - [ ] A hosted, read-only showcase of the catalog and paths
 
@@ -303,7 +317,7 @@ bin/whetstone module create <id> [--from-catalog <problem>] [--title "..."] [--d
 bin/whetstone module list [--json]
 
 bin/whetstone question brief <module> [--topic "..."] [--type T] [--difficulty medium] [--notes "..."]
-bin/whetstone question new <module> <slug> [--title "..."] [--type T]        # T: build, predict, fix, review, tests, design or whiteboard
+bin/whetstone question new <module> <slug> [--title "..."] [--type T] [--tool P]   # T: build, predict, fix, review, tests, design, whiteboard, project or terminal; P: a tool pack
 bin/whetstone question add <folder> --module <module>
 bin/whetstone question check [module | module/question ...]      # also: bin/whetstone validate
 
@@ -312,6 +326,7 @@ bin/whetstone progress [--json]
 bin/whetstone today [--json]                             # reviews due, the open question, each path's next step; silent when nothing is due
 bin/whetstone draft <module/question>
 bin/whetstone test <module/question> [--all]
+bin/whetstone shell <module/question>                    # a terminal question's shell: the grading image, no network, only its folder
 bin/whetstone watch [--key K] [--for SECONDS]           # stream app activity for a pairing agent
 bin/whetstone note <module/question> "..." [--line N]    # show a remark over the learner's editor
 bin/whetstone grade <module/question> < grade.json       # record a system design grade against its rubric

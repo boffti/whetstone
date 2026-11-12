@@ -1,0 +1,10 @@
+title: Two commits gone before standup
+type: terminal
+tools: [git]
+lesson: after-run
+difficulty: medium
+minutes: 30
+tags: [git, version-control, delivery]
+requires: []
+framing: work
+summary: A reset dropped two finished commits from main and work has piled on top since; find them in the reflog, then put them back without losing anything.

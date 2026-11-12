@@ -1,0 +1,28 @@
+# Asked after the last stage, with the AI closed: what does the learner's own code return?
+# Each order is promised at 12:00 UTC and costs 2400 cents; order(m) arrives m minutes late.
+setup: |
+  from datetime import datetime, timedelta, timezone
+
+  from refunds.flow import load_flow, run
+  from refunds.ledger import Ledger
+
+  LATE = load_flow("flows/late_order.json")
+  WRONG = load_flow("flows/wrong_order.json")
+
+
+  def order(minutes_late):
+      promised = datetime(2026, 10, 28, 12, 0, tzinfo=timezone.utc)
+      delivered = promised + timedelta(minutes=minutes_late)
+      return {"id": "o-1", "total_cents": 2400, "promised_at": promised.isoformat(), "delivered_at": delivered.isoformat()}
+
+
+  def runs(*flows, late):
+      ledger = Ledger()
+      return [run(flow, order(late), ledger) for flow in flows]
+questions:
+  - ask: "An order of 2400 cents arrives 45 minutes late. What does run return for the late-delivery flow?"
+    expr: "runs(LATE, late=45)[-1]"
+  - ask: "Another arrives 90 minutes late. The late-delivery flow runs, then the wrong-order flow. What does the wrong-order run return?"
+    expr: "runs(LATE, WRONG, late=90)[-1]"
+  - ask: "Then the wrong-order flow runs again on that same order. What does it return this time?"
+    expr: "runs(LATE, WRONG, WRONG, late=90)[-1]"

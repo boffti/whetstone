@@ -5,3 +5,7 @@
 /scripts/         @boffti
 /examples/        @boffti
 /whetstone/       @boffti
+/bin/             @boffti
+# Hooks and mods run on the machine of everyone who opens the repo in Claude Code.
+/.claude/         @boffti
+/mods/            @boffti

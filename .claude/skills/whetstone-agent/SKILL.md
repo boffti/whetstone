@@ -12,6 +12,7 @@ In the app, the learner presses **Prepare**, **Prepare review variant** or **Pre
 1. Run `bin/whetstone today`: reviews due, the question in progress and each path's next step. It prints nothing when nothing is due. Offer a variant for each due review before new work.
 2. Run `bin/whetstone requests` to see work that is already queued.
 3. Run `bin/whetstone watch` as a **background** process whose output wakes you. In Claude Code, use the Monitor tool. Without a background monitor, run `bin/whetstone watch --for 120` whenever the learner says "check".
+   - If the status line says `whetstone: agent connected`, the Whetstone mod already runs the watch and hands you its events as prompts. Do not start a second watch.
    - While the watch runs, the app shows **Agent connected** in its top bar.
    - The watch first replays queued requests as `requested` events, then streams new events as they happen.
 4. Tell the learner in one line: "Watching Whetstone. Press Prepare in the app, or keep practicing."
@@ -33,6 +34,7 @@ Each event has `id`, `kind`, `target`, `framing` and `ask`. `ask` is the job in 
    | `fill-path` | a path id | Older requests only: build the first question of each unbuilt module, filing and reporting each one before the next |
    | `review` | a question key | `whetstone-review`, then put the main points in the app with `bin/whetstone note` |
    | `design` | a module id | `whetstone-author`: a system design question (`--type whiteboard`) for the module |
+   | `round` | a module id | `whetstone-author`: an AI-allowed round (`--type project`) for the module |
    | `grade` | a question key | `whetstone-review`, "Grading a system design": record it with `bin/whetstone grade`, then mark the request done with the key |
    | `profile` | (none) | `whetstone-profile`. It needs the learner's consent, so ask in the chat first. |
 

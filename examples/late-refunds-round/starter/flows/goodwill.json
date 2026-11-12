@@ -1,0 +1,7 @@
+{
+  "start": "goodwill_10",
+  "nodes": {
+    "goodwill_10": {"type": "refund", "percent": 10, "next": "goodwill_done"},
+    "goodwill_done": {"type": "end"}
+  }
+}

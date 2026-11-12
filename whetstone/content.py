@@ -12,11 +12,18 @@ import yaml
 REQUIRED_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter.py", "solution.py"]
 DIFFICULTIES = ("easy", "medium", "hard")
 # What the learner does in a question. See AUTHORING.md and docs/PEDAGOGY.md.
-QUESTION_TYPES = ("build", "predict", "fix", "review", "tests", "design", "whiteboard")
+QUESTION_TYPES = ("build", "predict", "fix", "review", "tests", "design", "whiteboard", "project", "terminal")
 # A whiteboard question is a system design interview: the learner writes a design in Markdown,
 # with Mermaid diagrams, instead of code. Whetstone checks that every section is filled in; the
 # learner's own agent grades it against rubric.yaml (`whetstone grade`).
 WHITEBOARD_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter.md", "solution.md", "rubric.yaml"]
+# A project question is an AI-allowed round: a small repo (starter/) the learner solves in a folder
+# of their own, with the AI tool they use at work. solution/ holds only the files the reference
+# changes; tests end in _1, _2, ... by stage; ownership.yaml asks about their code with the AI off.
+PROJECT_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter", "solution", "ownership.yaml"]
+# A terminal question is solo practice at the command line, in a folder like a round's: the answer
+# is solution.sh, which the tests replay on fresh scenarios that scenario.py builds.
+TERMINAL_FILES = ["challenge.yaml", "lesson.md", "problem.md", "hints.md", "starter", "solution", "scenario.py"]
 # When the lesson opens: before the problem, or after the learner's first test run (problem first).
 LESSON_MODES = ("first", "after-run")
 
@@ -43,6 +50,7 @@ class Challenge:
     variant_of: str | None = None
     grounded_in: list[str] = field(default_factory=list)  # source links of the interview reports it is based on
     framing: str | None = None  # what it was prepared for: work, company:<name> or domain:<name>
+    tools: list[str] = field(default_factory=list)  # a terminal question's tool packs (content/tools.yaml)
 
     @property
     def number(self) -> int:
@@ -61,6 +69,15 @@ class Challenge:
         return self.kind == "whiteboard"
 
     @property
+    def is_project(self) -> bool:
+        """Worked in a folder of the learner's own: an AI-allowed round, or a terminal question."""
+        return self.kind in ("project", "terminal")
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.kind == "terminal"
+
+    @property
     def starter_file(self) -> str:
         return "starter.md" if self.is_whiteboard else "starter.py"
 
@@ -71,11 +88,13 @@ class Challenge:
     @property
     def editor_file(self) -> str:
         """The file name the learner sees in the editor."""
-        return "design.md" if self.is_whiteboard else "solution.py"
+        return "design.md" if self.is_whiteboard else "TASK.md" if self.is_project else "solution.py"
 
     @property
     def required_files(self) -> list[str]:
-        return WHITEBOARD_FILES if self.is_whiteboard else REQUIRED_FILES
+        if self.is_terminal:
+            return TERMINAL_FILES
+        return WHITEBOARD_FILES if self.is_whiteboard else PROJECT_FILES if self.is_project else REQUIRED_FILES
 
     def rubric(self) -> list[dict]:
         """A whiteboard question's rubric points: id, section, point, must, look_for."""
@@ -96,8 +115,40 @@ class Challenge:
         return split_hints(self.read("hints.md"))
 
     def mutants(self) -> list[Path]:
-        """Wrong versions of the solution, one per misconception. Hidden from the learner."""
+        """Wrong versions of the solution, one per misconception. Hidden from the learner. A
+        project's mutants are folders laid over starter/ and solution/."""
+        if self.is_project:
+            return sorted(p for p in (self.path / "mutants").glob("*") if p.is_dir())
         return sorted((self.path / "mutants").glob("*.py"))
+
+    # ---------- project questions ----------
+    @property
+    def stages(self) -> int:
+        return max((stage_of(f.name) for f in (self.path / "tests").glob("test_*.py")), default=1)
+
+    def problem_text(self, stage: int) -> str:
+        """problem.md without the "## Stage N" sections after `stage`: a stage opens when the one before passes."""
+        out, current = [], 0
+        for line in self.read("problem.md").split("\n"):
+            if m := re.match(r"##\s+Stage\s+(\d+)\b", line):
+                current = int(m.group(1))
+            if current <= stage:
+                out.append(line)
+        return "\n".join(out).rstrip() + "\n"
+
+    def tree(self, *overlays: Path) -> dict[str, Path]:
+        """A project's files: starter/, with each overlay folder (solution/, a mutant) laid on top."""
+        files: dict[str, Path] = {}
+        for root in (self.path / "starter", *overlays):
+            files |= {p.relative_to(root).as_posix(): p for p in sorted(root.rglob("*")) if p.is_file() and "__pycache__" not in p.parts}
+        return files
+
+    def ownership(self) -> dict:
+        """ownership.yaml: setup (imports) and questions (ask, expr) about the learner's own code."""
+        if not (self.path / "ownership.yaml").exists():
+            return {}
+        data = yaml.safe_load(self.read("ownership.yaml")) or {}
+        return data if isinstance(data, dict) else {}
 
 
 @dataclass
@@ -162,6 +213,12 @@ def save_path(paths_dir: Path, lp: LearningPath) -> Path:
     return dest
 
 
+def stage_of(name: str) -> int:
+    """The stage a project's test file belongs to: test_hidden_2.py is stage 2; no number is stage 1."""
+    m = re.search(r"_(\d+)\.\w+$", name)
+    return int(m.group(1)) if m else 1
+
+
 def split_hints(text: str) -> list[str]:
     return [part.strip() for part in re.split(r"^\s*---\s*$", text, flags=re.M) if part.strip()]
 
@@ -192,6 +249,7 @@ def load_challenge(path: Path, track_id: str) -> Challenge:
         variant_of=meta.get("variant_of") or None,
         grounded_in=[str(u) for u in (meta.get("grounded_in") or [])],
         framing=str(meta["framing"]) if meta.get("framing") else None,
+        tools=[str(t) for t in (meta.get("tools") or [])],
     )
 
 

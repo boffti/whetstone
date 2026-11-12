@@ -72,8 +72,18 @@ def test_agent_workflow_path_module_question(tmp_path, monkeypatch, capsys):
     assert "question 2 of the module" in out, "a variant re-tests an earlier slot; it does not advance the recipe"
 
     code, out = run("progress", "--json")
-    assert json.loads(out)["types"] == {"build": 2, "predict": 0, "fix": 0, "review": 0, "tests": 0, "design": 0, "whiteboard": 0}
-    assert "By type: build 2, predict 0, fix 0, review 0, tests 0, design 0, whiteboard 0." in run("progress")[1]
+    assert json.loads(out)["types"] == {
+        "build": 2,
+        "predict": 0,
+        "fix": 0,
+        "review": 0,
+        "tests": 0,
+        "design": 0,
+        "whiteboard": 0,
+        "project": 0,
+        "terminal": 0,
+    }
+    assert "By type: build 2, predict 0, fix 0, review 0, tests 0, design 0, whiteboard 0, project 0, terminal 0." in run("progress")[1]
 
     code, out = run("path", "show", "staff", "--json")
     modules = {m["module"]: m for m in json.loads(out)["modules"]}
@@ -545,3 +555,59 @@ def test_brief_frames_the_question_for_a_company_or_a_domain(tmp_path, monkeypat
 
     assert main(["question", "brief", "job-scheduler"]) == 0
     assert "own work" in capsys.readouterr().out, "no choice reads as the learner's own work"
+
+
+def test_question_new_scaffolds_a_terminal_question(tmp_path, monkeypatch, capsys):
+    """A terminal question's scaffold passes `question add` as it is; --tool picks its packs."""
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    (content / "catalog.yaml").write_text(yaml.safe_dump(CATALOG))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+
+    assert main(["question", "new", "m", "nope", "--type", "terminal", "--tool", "kubectl"]) == 1
+    assert "no tool pack named kubectl" in capsys.readouterr().err
+    assert main(["question", "new", "m", "orders", "--type", "terminal", "--tool", "shell", "--tool", "git"]) == 0
+    stage = mine / ".staging/orders"
+    assert "tools: [shell, git]" in (stage / "challenge.yaml").read_text()
+    assert main(["question", "add", str(stage), "--module", "m"]) == 0, capsys.readouterr().out
+    assert "mutants: the tests catch 2 of 2" in capsys.readouterr().out
+    assert main(["question", "brief", "m", "--type", "terminal"]) == 0
+    assert "terminal question" in capsys.readouterr().out
+    assert main(["shell", "m/01-orders"]) == 0
+    assert (mine / "workspaces/m/01-orders/sandbox/orders.csv").exists()
+
+
+def test_a_terminal_question_needs_its_tool_packs(tmp_path, monkeypatch):
+    """A question whose packs are not installed fails with the fix, before any test runs."""
+    from whetstone import packs
+    from whetstone.config import Settings
+    from whetstone.content import load_challenge
+    from whetstone.runner import run_project
+
+    monkeypatch.setattr(packs.shutil, "which", lambda name: None)
+    example = load_challenge(packs.ROOT / "examples/git-lost-commits", "examples")
+    settings = Settings(tmp_path / "content", tmp_path / "my", "redis://localhost:1/0", None, "", 30)
+    report = run_project(example, example.tree(example.path / "solution"), "run", settings, 1)
+    assert report.status == "error" and "needs git: add it to WHETSTONE_TOOLS" in report.summary
+
+
+def test_question_new_scaffolds_an_ai_allowed_round(tmp_path, monkeypatch, capsys):
+    """A project question is a small repo in stages: the scaffold passes `question add` as it is."""
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    (content / "catalog.yaml").write_text(yaml.safe_dump(CATALOG))
+    monkeypatch.setenv("WHETSTONE_CONTENT", str(content))
+    monkeypatch.setenv("WHETSTONE_HOME", str(mine))
+
+    assert main(["question", "new", "m", "round", "--type", "project"]) == 0
+    stage = mine / ".staging/round"
+    assert {"starter/stock.py", "solution/stock.py", "ownership.yaml", "tests/test_hidden_2.py", "mutants/01-naive-ai/stock.py"} <= {
+        p.relative_to(stage).as_posix() for p in stage.rglob("*") if p.is_file()
+    }
+    assert main(["question", "add", str(stage), "--module", "m"]) == 0, capsys.readouterr().out
+    assert "mutants: the tests catch 2 of 2" in capsys.readouterr().out
+    assert main(["draft", "m/01-round"]) == 0
+    assert "stage 1 of 2. Folder: not started yet" in capsys.readouterr().out
+    assert main(["question", "brief", "m", "--type", "project"]) == 0
+    assert "AI-allowed round" in capsys.readouterr().out

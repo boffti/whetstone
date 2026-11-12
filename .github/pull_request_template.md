@@ -8,6 +8,7 @@
 - [ ] Module(s) in `content/catalog.yaml`
 - [ ] Interview research merged into `content/catalog.yaml`
 - [ ] App, CLI, or docs
+- [ ] Agent tooling: skills or hooks in `.claude/`, or the mod in `mods/`
 
 ## Checklist
 
@@ -16,4 +17,6 @@
 - [ ] `uv run ruff check . && uv run ruff format --check .` passes.
 - [ ] `uv run python -m pytest` passes.
 - [ ] `uv run python scripts/check_content.py` passes.
+- [ ] `CHANGELOG.md` has a line under Unreleased, if a learner or a contributor would notice the change.
+- [ ] A change to `mods/whetstone/` passes `claude plugin validate mods/whetstone` and `claude plugin test mods/whetstone`.
 - [ ] UI changes were checked at desktop width and in a narrow pane (under 1100px).

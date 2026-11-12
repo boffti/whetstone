@@ -1,0 +1,7 @@
+{
+  "start": "wrong_order_refund_100",
+  "nodes": {
+    "wrong_order_refund_100": {"type": "refund", "percent": 100, "next": "wrong_order_done"},
+    "wrong_order_done": {"type": "end"}
+  }
+}

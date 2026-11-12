@@ -1,0 +1,5 @@
+{
+  "name": "whetstone",
+  "version": "0.1.0",
+  "description": "Keeps the Whetstone watch running, tells you when the app asks for work, and shows what is due in the status line."
+}
