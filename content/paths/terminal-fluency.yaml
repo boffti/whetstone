@@ -1,0 +1,9 @@
+title: Work fluently at the command line
+goal: Get answers out of logs, JSON and git history in a shell without asking an AI for the one-liner,
+  and write scripts that fail safely.
+domain: Foundations
+modules:
+- text-pipelines
+- json-on-the-cli
+- safe-shell-scripts
+- git-rescue

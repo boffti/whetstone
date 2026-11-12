@@ -1,5 +1,7 @@
 # Whetstone: instructions for AI agents
 
+> **Working inside `my/workspaces/`?** Then you are the learner's assistant in an AI-allowed round, not their tutor. Follow the `AGENTS.md` in that folder and ignore this file.
+
 Whetstone is a self-hosted practice dojo. The learner works in the web app at http://localhost:8000: a lesson, an editor, and pytest grading. You are their AI agent (Claude Code, Codex, Cursor, or another). You run on the learner's own subscription, and Whetstone has no AI of its own. You do the thinking and writing; the `bin/whetstone` CLI creates things and checks them.
 
 ## How content is organised
@@ -40,15 +42,16 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone module create <id> [--from-catalog <problem>]` | Creates an empty module. `question add` also creates a module when it needs one. |
 | `bin/whetstone module list` | Lists all modules, with progress. |
 | `bin/whetstone question brief <module> [--topic "..."] [--type whiteboard] [--for F]` | Gives instructions for the module's next question: what to read, what exists, real reports, and the suggested question type. `--type whiteboard` gives a system design brief. `--for` frames it: `work`, `company:<Name>` (interview prep, with that company's reports) or `domain:<Domain>`; requests from the app carry it as `framing`. |
-| `bin/whetstone question new <module> <slug> [--type whiteboard]` | Creates the question's files to fill in, in `my/.staging/<slug>/`. `--type whiteboard` scaffolds a system design question. |
+| `bin/whetstone question new <module> <slug> [--type whiteboard]` | Creates the question's files to fill in, in `my/.staging/<slug>/`. `--type whiteboard` scaffolds a system design question; `--type project` an AI-allowed round; `--type terminal --tool git` a terminal question. |
 | `bin/whetstone question add <folder> --module <id>` | Checks the format, that the reference solution passes and that the starter fails, then files the question as the module's next one. |
 | `bin/whetstone question check [module or module/question]` | Checks questions again. Run it to catch flaky tests. |
-| `bin/whetstone draft <module/question>` | Shows the learner's current code. |
+| `bin/whetstone draft <module/question>` | Shows the learner's current code. For an AI-allowed round: their folder, and the round run by run. |
 | `bin/whetstone test <module/question> [--all]` | Runs the tests on the learner's code. These runs are not recorded. |
+| `bin/whetstone shell <module/question>` | For the learner: opens bash in a terminal question's folder, in the grading image with no network and only that folder mounted. Its history is saved for the review. |
 | `bin/whetstone watch [--key K] [--for SECONDS]` | Streams what the learner does in the app (opened, paused typing, ran, hint, solution, idle) as JSON lines, with the pair mode they chose. Run it in the background to pair live. |
 | `bin/whetstone note <module/question> "..." [--line N]` | Shows a short remark to the learner over their editor, with a marker at line N. |
 | `bin/whetstone grade <module/question> < grade.json` | Records your grade of a system design (a `whiteboard` question) against its rubric: covered, partial or missing per point, with a quote and a note. |
-| `bin/whetstone requests [--json]` | Lists the work the learner queued in the app: build a module, a review variant, a whole path, a review, a profile refresh. |
+| `bin/whetstone requests [--json]` | Lists the work the learner queued in the app: build a module, a review variant, an AI-allowed round, a whole path, a review, a profile refresh. |
 | `bin/whetstone request claim\|done\|fail <id> [--result ...]` | Claims a request, then marks it done (with the question key) or failed (with the reason). The app shows each step. |
 
 `catalog`, `progress`, `path show`, `path list`, `module list` and `today` also take `--json`.

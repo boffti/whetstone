@@ -14,17 +14,19 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import dashboard as dash
+from . import rounds
 from .catalog import FRAMING, build_notes, catalog_links, find_problem, framing_ask, load_catalog, path_rows
 from .config import Settings, load_settings
 from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, save_profile_header, slugify
 from .generator import GenerationError, ensure_track, generate_challenge
-from .runner import check_whiteboard, drawing_mermaid, run_tests
+from .runner import check_ownership, check_whiteboard, drawing_mermaid, run_project, run_tests
 from .store import PAIR_MODES, REQUEST_KINDS, Store, progress_rows
 
 STATIC = Path(__file__).parent / "static"
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 RECENT = timedelta(minutes=10)  # a request that finished this recently is still shown as news
 STALE = timedelta(minutes=15)  # a claim untouched for this long is an agent that stopped
+FRAMED_KINDS = ("build", "variant", "design", "round")  # requests that build a question, so they carry a framing
 
 
 def allowed_hosts() -> set[str]:
@@ -103,6 +105,10 @@ class NoteDismiss(BaseModel):
 
 class SolutionBody(BaseModel):
     give_up: bool = False
+
+
+class OwnershipBody(BaseModel):
+    answers: list[str] = Field(max_length=10)
 
 
 NO_GENERATOR = "Ask your AI agent in this folder to build it (see AGENTS.md), or set ANTHROPIC_API_KEY in .env and restart to build here."
@@ -244,7 +250,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store.record_event(c.key, "opened", {"title": c.title, "type": c.kind})
         solved = c.key in store.solved_keys()
         reveal = solved or "solution" in store.reveals(c.key)
-        return {
+        starter = "" if c.is_project else c.read(c.starter_file)
+        out = {
             "track": track,
             "id": cid,
             "title": c.title,
@@ -257,16 +264,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "lesson_html": lesson_html(c, store),
             "problem_html": render_md(c.read("problem.md")),
             "hint_count": len(c.hints()),
-            "visible_tests": visible_test_names(c),
+            "visible_tests": [] if c.is_project else visible_test_names(c),
             "hints": [render_md(h) for h in c.hints()[: _hints_opened(store, c.key)]],
             "hint_ready": store.hint_ready(c.key),
             "solution_open": reveal,
             "file": c.editor_file,
             "language": "markdown" if c.is_whiteboard else "python",
-            "starter": c.read(c.starter_file),
-            "code": draft if draft is not None else c.read(c.starter_file),
+            "starter": starter,
+            "code": draft if draft is not None and not c.is_project else starter,
             "review": review_view(store.latest_review(c.key), reveal) if c.is_whiteboard else None,
-            "files": [{"name": n, "content": c.read(n)} for n in c.support]
+            "files": []
+            if c.is_project
+            else [{"name": n, "content": c.read(n)} for n in c.support]
             + [{"name": f"tests/{f.name}", "content": f.read_text(encoding="utf-8")} for f in c.visible_test_files()],
             "solved": solved,
             "runs": store.run_count(c.key),
@@ -274,6 +283,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "framing": c.framing,
             "variant_of": c.variant_of,
         }
+        if c.is_project:  # a round or a terminal question: the learner works in a folder, a stage at a time
+            stage = rounds.open_stage(c, store.reveals(c.key))
+            ws = rounds.workspace(settings, c)
+            out |= {
+                "tools": c.tools,
+                "shell": f"bin/whetstone shell {c.key}" if c.is_terminal else None,
+                "problem_html": render_md(c.problem_text(stage)),
+                "stage": stage,
+                "stages": c.stages,
+                "workspace": rounds.shown_path(ws) if ws.exists() else None,
+                "ownership": [str(q.get("ask", "")) for q in c.ownership().get("questions") or []] if solved else [],
+            }
+        return out
 
     @app.get("/api/challenges/{track}/{cid}/review")
     def review(track: str, cid: str):
@@ -303,6 +325,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if "solution" not in store.reveals(c.key):
             store.record_event(c.key, "solution", {"gave_up": body.give_up})
         store.record_reveal(c.key, "solution")
+        if c.is_project:  # the files the reference changes, one after another
+            changed = c.tree(c.path / "solution")
+            names = sorted(n for n in changed if changed[n].is_relative_to(c.path / "solution"))
+            return {"code": "\n\n".join(f"# ----- {n} -----\n{changed[n].read_text(encoding='utf-8')}" for n in names)}
         code = c.read(c.solution_file)
         if c.is_whiteboard:
             return {"code": code, "html": render_md(code)}
@@ -368,7 +394,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def add_request(body: RequestBody, request: Request):
         require_json(request)
         target = check_target(body.kind, body.target)
-        framing = body.framing if body.kind in ("build", "variant", "design") else None
+        framing = body.framing if body.kind in FRAMED_KINDS else None
         r = store.add_request(body.kind, target, framing)
         store.record_event(
             None, "requested", {"id": r["id"], "kind": r["kind"], "target": r["target"], "framing": r["framing"], "ask": request_ask(r)}
@@ -413,6 +439,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/challenges/{track}/{cid}/reset")
     def reset(track: str, cid: str):
         c = get_challenge(track, cid)
+        if c.is_project:
+            raise HTTPException(409, "To start over, delete your round's folder, then press Start the round.")
         store.delete_draft(c.key)
         store.record_event(c.key, "reset")
         return {"code": c.read(c.starter_file)}
@@ -420,6 +448,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/challenges/{track}/{cid}/run")
     def run(track: str, cid: str, body: RunBody):
         c = get_challenge(track, cid)
+        if c.is_project:
+            return run_round(c, body.mode)
         store.save_draft(c.key, body.code)
         # A design is solved only by the agent's rubric review (`whetstone grade`), never by the section check.
         mode = "run" if c.is_whiteboard else body.mode
@@ -447,6 +477,73 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if c.kind == "predict" and mode == "submit":
             out["lesson_html"] = lesson_html(c, store)  # the first Submit opens the misconceptions
         return out
+
+    def run_round(c, mode: str) -> dict:
+        """A run of an AI-allowed round: the tests of the stages open so far, on the learner's folder.
+        Passing a stage on Submit opens the next; passing the last one solves the question."""
+        stage = rounds.open_stage(c, store.reveals(c.key))
+        try:
+            files = rounds.collect(settings, c)
+        except rounds.RoundError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        report = run_project(c, files, mode, settings, stage)
+        stage_done = mode == "submit" and report.status == "passed" and stage < c.stages
+        # A passed stage is not a solve: it is stored as "stage", so only the last stage marks the question solved.
+        status = "stage" if stage_done else report.status
+        first_solve = store.record_run(c.key, mode, status, report.passed, report.total, report.duration, rounds.snapshot(files))
+        solve = store.solve(c.key, f"hint-{len(c.hints()) - 1}") if first_solve else None
+        out = {**report.to_dict(), "first_solve": first_solve, "solve": solve[1] if solve else None, "prediction": None}
+        if stage_done:
+            store.record_reveal(c.key, f"stage-{stage + 1}")
+            rounds.sync(settings, c, stage + 1)
+            out["summary"] = (
+                f"Stage {stage} of {c.stages} passed. Stage {stage + 1} is open: read it in Problem, or in TASK.md in your folder."
+            )
+            out |= {"stage": stage + 1, "problem_html": render_md(c.problem_text(stage + 1))}
+        if first_solve:
+            out["ownership"] = [str(q.get("ask", "")) for q in c.ownership().get("questions") or []]
+        store.record_event(
+            c.key,
+            "ran",
+            {"mode": mode, "status": status, "passed": report.passed, "total": report.total, "stage": stage, "solved": bool(first_solve)},
+        )
+        return out
+
+    @app.post("/api/challenges/{track}/{cid}/workspace")
+    def start_round(track: str, cid: str, request: Request):
+        """Create the folder the learner works in: with the AI tool they use at work for a round,
+        alone in a shell for a terminal question."""
+        require_json(request)
+        c = get_challenge(track, cid)
+        if not c.is_project:
+            raise HTTPException(400, "Only an AI-allowed round or a terminal question has a folder to work in.")
+        try:
+            created = rounds.start(settings, c, rounds.open_stage(c, store.reveals(c.key)))
+        except rounds.RoundError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        store.record_reveal(c.key, "round")
+        path = rounds.shown_path(rounds.workspace(settings, c))
+        if created:
+            store.record_event(c.key, "round", {"path": path})
+        return {"path": path, "created": created}
+
+    @app.post("/api/challenges/{track}/{cid}/ownership")
+    def ownership(track: str, cid: str, body: OwnershipBody, request: Request):
+        """After an AI-allowed round, with the AI off: say what your own code returns, then see."""
+        require_json(request)
+        c = get_challenge(track, cid)
+        if not c.is_project or c.key not in store.solved_keys():
+            raise HTTPException(409, "The ownership check opens after you pass the last stage.")
+        try:
+            files = rounds.collect(settings, c)
+        except rounds.RoundError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        answers = [a.strip()[:500] for a in body.answers]
+        results = check_ownership(c, files, answers, settings)
+        right = sum(r["right"] for r in results)
+        store.record_prediction(c.key, "ownership", right, len(results))
+        store.record_event(c.key, "ownership", {"right": right, "of": len(results)})
+        return {"results": results, "right": right}
 
     @app.post("/api/challenges/{track}/{cid}/explanation")
     def explain(track: str, cid: str, body: ExplainBody, request: Request):
@@ -662,7 +759,7 @@ def review_view(review: dict | None, reveal: bool) -> dict | None:
 
 def request_ask(r: dict) -> str:
     """The plain-words job, as the learner would say it to their agent."""
-    return framed(r) + framing_ask(r.get("framing")) if r["kind"] in ("build", "variant", "design") else framed(r)
+    return framed(r) + framing_ask(r.get("framing")) if r["kind"] in FRAMED_KINDS else framed(r)
 
 
 def framed(r: dict) -> str:
@@ -672,6 +769,7 @@ def framed(r: dict) -> str:
         "fill-path": f"Fill in my {r['target']} Whetstone path.",  # older requests; the app now queues one build per module
         "review": f"Review my solution to {r['target']}.",
         "design": f"Build a Whetstone system design question (whiteboard) for the {r['target']} module.",
+        "round": f"Build a Whetstone AI-allowed round (a project question) for the {r['target']} module.",
         "grade": f"Grade my system design for {r['target']} against its rubric.",
         "profile": "Set up or refresh my Whetstone profile.",
     }[r["kind"]]

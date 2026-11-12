@@ -49932,6 +49932,20 @@ problems:
   companies: []
   rounds: []
   reports: []
+- id: git-rescue
+  title: Recover lost work with git
+  summary: Find commits a reset or a rebase dropped, put them back without merge commits, undo a bad rebase,
+    and bisect the commit that broke the build.
+  format: terminal
+  track: null
+  tags:
+  - git
+  - reflog
+  - history
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
 - id: invoicing
   title: Invoices, taxes and rounding
   summary: Build an invoice calculator with line items, discounts, tax rates and shipping, using exact
@@ -49943,6 +49957,20 @@ problems:
   - tax
   - rounding
   - credit-notes
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
+- id: json-on-the-cli
+  title: JSON on the command line
+  summary: 'Query and reshape API responses with jq: select and group records, handle missing fields and
+    nulls, merge pages, and turn JSON into CSV.'
+  format: terminal
+  track: null
+  tags:
+  - jq
+  - json
+  - apis
   report_count: 0
   companies: []
   rounds: []
@@ -50054,6 +50082,20 @@ problems:
   companies: []
   rounds: []
   reports: []
+- id: safe-shell-scripts
+  title: Shell scripts that fail safely
+  summary: Write bash that stops on the first error, quotes every variable, survives spaces and empty
+    input, cleans up with traps, and never deletes the wrong folder.
+  format: terminal
+  track: null
+  tags:
+  - bash
+  - scripting
+  - safety
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
 - id: security-master
   title: Security master and symbology
   summary: Build an instrument reference store that maps tickers, CUSIPs, ISINs and vendor IDs as of any
@@ -50098,6 +50140,20 @@ problems:
   - optimistic-concurrency
   - compaction
   - lakehouse
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
+- id: text-pipelines
+  title: Text pipelines on the command line
+  summary: 'Pull answers out of logs and CSVs with grep, awk, sort and uniq: top errors, totals per key,
+    rotated and gzipped files, and the lines that break one-liners.'
+  format: terminal
+  track: null
+  tags:
+  - logs
+  - awk
+  - unix-tools
   report_count: 0
   companies: []
   rounds: []

@@ -1,0 +1,10 @@
+title: Which endpoints keep failing
+type: terminal
+tools: [shell]
+lesson: after-run
+difficulty: medium
+minutes: 30
+tags: [observability, on-call, logs]
+requires: []
+framing: work
+summary: The 5xx alert fired; from one server's nginx logs, print the three paths that fail most, then count across the rotated and gzipped days too.

@@ -4,13 +4,34 @@
 # WHETSTONE_PYTHON (set for agents the app starts) picks that Python directly.
 set -e
 cd "$(dirname "$0")/.."
-if [ -n "$WHETSTONE_PYTHON" ]; then
-  exec "$WHETSTONE_PYTHON" -m whetstone "$@"
+cli() {
+  if [ -n "$WHETSTONE_PYTHON" ]; then
+    "$WHETSTONE_PYTHON" -m whetstone "$@"
+  elif command -v docker >/dev/null 2>&1 && docker compose ps --status running --services 2>/dev/null | grep -qx app; then
+    docker compose exec -T app python -m whetstone "$@"
+  elif command -v uv >/dev/null 2>&1; then
+    uv run --quiet python -m whetstone "$@"
+  else
+    python3 -m whetstone "$@"
+  fi
+}
+# shell <question>: bash in the question's folder, in the image that grades it, with no network
+# and nothing else mounted, so a stray rm -rf or reset --hard can only touch that folder.
+if [ "$1" = shell ] && [ -n "$2" ]; then
+  folder=$(cli shell "$2")
+  case "$folder" in /*) ;; *) folder="$PWD/$folder" ;; esac
+  image=$(docker compose config --images app 2>/dev/null | grep -v "^redis" | head -n 1 || true)
+  if [ -n "$image" ] && docker image inspect "$image" >/dev/null 2>&1; then
+    exec docker run --rm -it --init --network none --memory 1g --pids-limit 256 \
+      -v "$folder:/work" -w /work/sandbox \
+      -e HISTFILE=/work/.history -e PROMPT_COMMAND="history -a" -e PS1="whetstone \w \$ " \
+      -e GIT_AUTHOR_NAME=you -e GIT_AUTHOR_EMAIL=you@whetstone.local \
+      -e GIT_COMMITTER_NAME=you -e GIT_COMMITTER_EMAIL=you@whetstone.local \
+      -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0="*" \
+      --entrypoint bash "$image"
+  fi
+  echo "No Whetstone image found (docker compose up -d builds it). Opening your own shell instead:" >&2
+  echo "its tools may differ from the ones that grade you." >&2
+  cd "$folder/sandbox" && HISTFILE="$PWD/../.history" exec "${SHELL:-sh}"
 fi
-if command -v docker >/dev/null 2>&1 && docker compose ps --status running --services 2>/dev/null | grep -qx app; then
-  exec docker compose exec -T app python -m whetstone "$@"
-fi
-if command -v uv >/dev/null 2>&1; then
-  exec uv run --quiet python -m whetstone "$@"
-fi
-exec python3 -m whetstone "$@"
+cli "$@"

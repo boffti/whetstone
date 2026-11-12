@@ -73,6 +73,8 @@ summary: One sentence about what the learner does.
 | `tests` | writes the tests for working code (`subject.py`) | one weak happy-path test | their tests must pass on `subject.py`, and on Submit each hidden mutant must make one of them fail |
 | `design` | writes a short design note, then code for the option they chose | the API, plus an empty design note | a check that the note is filled in, plus tests of the guarantee the note promises |
 | `whiteboard` | answers a system design interview prompt in Markdown, with Mermaid diagrams | `starter.md`: the section headings, each with a comment | a check that every section is filled in, then the learner's agent grades it against `rubric.yaml` |
+| `project` | solves a small codebase in a folder of their own, with the AI tool they use at work, one stage at a time (an AI-allowed round) | `starter/`: the repo | each stage's visible and hidden tests on their folder, then questions about their own code with the AI closed |
+| `terminal` | explores a scenario in a real shell, alone, then writes the commands in `solution.sh`, one stage at a time | `starter/solution.sh`: an empty script | tests that replay the script on fresh scenarios from `scenario.py`, hidden variants included |
 
 `bin/whetstone question new <module> <slug> --type <type>` scaffolds a toy question of that type which already passes `question add`. Replace every file and keep its shape: `predict` and `review` have `subject.py` plus an `ANSWERS` dict or a `FINDINGS` list; `tests` has `subject.py`, one weak test in `starter.py` and no `tests/` folder.
 
@@ -162,9 +164,67 @@ A system design interview, answered on a scratchpad the learner's agent can watc
 - **Diagrams.** The learner draws on the **Whiteboard** tab (Excalidraw): boxes, arrows, labels and frames, no syntax to learn. Whetstone turns the drawing into a Mermaid flowchart for the agent (`bin/whetstone draft` prints it), and lists what does not fit one, such as loose text or an arrow attached to nothing. The Preview tab shows the drawing the same way, so the learner sees what the agent reads. A ` ```mermaid ` block in the text still works. Write the reference design's diagrams in `solution.md` as Mermaid: flowchart for components, sequenceDiagram for a request path.
 - See `examples/short-links-whiteboard/`.
 
+### project
+An AI-allowed round, like the interview rounds where the candidate works with an AI assistant: a small codebase, a folder of the learner's own, and their usual AI tool. The learner presses **Start the round**, opens the folder in their AI tool, and runs the tests from the app. The files differ from the other types:
+
+```
+<NN-slug>/
+  challenge.yaml     # type: project, lesson: after-run, minutes: 60
+  lesson.md          # how strong candidates work with an AI here, and the round's ideas
+  problem.md         # an intro, then "## Stage 1", "## Stage 2", ... (each opens when the one before passes)
+  hints.md           # exactly 4 hints; each rung may have a line per stage
+  starter/           # the repo the learner gets: code, data, a README.md with the team's conventions
+  solution/          # only the files the reference changes, laid over starter/
+  tests/             # test_visible_1.py, test_hidden_1.py, test_visible_2.py, ... plus helpers and data
+  mutants/           # folders laid over starter/ and solution/, one per misconception
+  ownership.yaml     # questions about the learner's own code, asked with the AI closed
+```
+
+- **Stages.** A test file's stage is the number before `.py` (`test_hidden_2.py` is stage 2); other files in `tests/` are shared. Run tests runs the visible tests of the stages open so far, and Submit adds the hidden ones. Passing a stage on Submit opens the next: its section of `problem.md` appears in the app and in the folder's `TASK.md`. Passing the last stage solves the question. Three stages work well: a bug report (symptoms, never the cause), a feature, then scale or failure that breaks the naive version.
+- **The folder.** Starting the round copies `starter/` to `my/workspaces/<module>/<question>/`, with `TASK.md`, the visible tests, and an `AGENTS.md` (and a `CLAUDE.md` that points to it) telling the learner's AI it is an assistant in a practice round: do what the candidate asks, and stay in the folder. Whetstone never edits the learner's files after that; it rewrites only `TASK.md` and `tests/`.
+- **Not solvable in one prompt.** Pasting `TASK.md` into an AI should not pass every stage. Put what decides a stage where a careful candidate looks and a one-shot prompt does not: the team's conventions in `starter/README.md`, an existing helper with a subtle contract, a data file whose shape breaks the naive approach. Novelty beats realism here: a familiar textbook problem is one the AI has seen.
+- **Check it with a fresh AI.** Before filing, copy `starter/`, the visible tests and the full `problem.md` into an empty folder outside Whetstone, and ask a fresh agent (a subagent, or a new session; a smaller model is closer to what interviews offer) to solve it from `TASK.md` alone. Run the hidden tests on what it wrote. When they catch it, lay it over `solution/` as `mutants/01-naive-ai/`, with a `Misconception:` docstring naming what it missed. When they do not, move what decides a stage into the conventions or the data, and try once more. A careful AI may still pass every stage, as it can in a real round; that is fine, because the review and the ownership check grade what tests cannot. In `examples/late-refunds-round/` the first fresh AI extended the ledger the conventions say is finance's, and the hidden tests caught it; a second one, after the convention was written down plainly, passed.
+- **`ownership.yaml`** asks 2 to 4 questions about the learner's own final code, with the AI closed. The learner types a value; Whetstone runs their code to check it.
+  ```yaml
+  setup: |                       # runs once, in their folder: imports and small helpers
+    from refunds.flow import load_flow, run
+  questions:
+    - ask: "An order of 2400 cents arrives 45 minutes late. What does run return?"
+      expr: "run(LATE, order(45), Ledger())"   # one line, evaluated on their code
+  ```
+  Pick calls whose answer depends on the round's hard parts, so that code the learner did not read is code they cannot predict.
+- **The review.** When the learner asks for one, their agent reads `bin/whetstone draft <key>`: the round run by run, with what changed between runs, and the files now. See the `whetstone-review` skill.
+- **Its variant is solo.** A spaced review of a project question is a `build` or `fix` question on the same idea, solved without the AI (docs/PEDAGOGY.md, rule 13).
+- See `examples/late-refunds-round/`.
+
+### terminal
+Solo practice at the command line: text pipelines, jq, git rescues, safe scripts, and any other CLI with a tool pack. The learner presses **Start**, opens a shell with `bin/whetstone shell <key>` (bash in the grading image, with no network and only their folder mounted), explores `sandbox/`, and writes the commands that work in `solution.sh`. Every answer is a script, so the tests can replay it on scenarios the learner never saw. The folder works like a round's, without the AI:
+
+```
+<NN-slug>/
+  challenge.yaml     # type: terminal, tools: [git], lesson: after-run
+  lesson.md          # the tools' ideas, and the shortcuts that break
+  problem.md         # the situation, then "## Stage 1", "## Stage 2", ... as in a project
+  hints.md           # exactly 4 hints; each rung may have a line per stage
+  scenario.py        # build(path, variant) -> dict: writes the files or repo, returns what the tests check
+  starter/solution.sh   # #!/usr/bin/env bash, set -euo pipefail, then only a comment
+  solution/solution.sh  # the reference
+  tests/             # test_visible_1.py, test_hidden_1.py, ... as in a project
+  mutants/           # mutants/<NN-name>/solution.sh, one wrong script per misconception
+```
+
+- **`scenario.py`.** `build(path, variant)` writes what the script works on into `path` and returns the facts the tests compare against (the lost commit, the expected lines), computed from what it wrote, never copied by hand. Starting the question builds the `"visible"` variant into the learner's `sandbox/`. Name the hidden variants for the misconception each exposes. `scenario.py` and the tests never reach the learner's folder, so hidden data can live there. Tests and scenarios import the helpers in `whetstone/terminal/` as `tools`: `sh.run(cwd)` runs the script with a fixed environment (`LC_ALL=C`, `TZ=UTC`, a fixed git identity and dates, an empty `HOME`); `git.init`, `git.commit` (a minute apart, so hashes are the same on every run), `git.subjects`, `git.branches` and `git.is_clean` build and read repos.
+- **Stages accumulate.** Stage 2's tests run the whole script, stage 1's commands included, and stage 1's tests still run. So a later stage must not undo what an earlier one checks; say so in `problem.md` when it matters ("leave `rescue` where stage 1 put it").
+- **Defeat the shortcut.** Each misconception gets a hidden variant where the shortcut gives the wrong answer: `ORIG_HEAD` after a merge, `uniq -c` on unsorted input, counts of 10 or more sorted as text, a filename with a space, a commit message the learner never saw. A script that hardcodes a hash, a line number or a value from `sandbox/` must fail.
+- **Portable.** Tests run on Linux in the app and wherever the author validates, often macOS. Use POSIX options: `gzip -cdf` (not `zcat`), `sort -k1,1nr`, no `grep -P`, no `sed -i`.
+- **Mutants** are folders with a wrong `solution.sh` whose second line is `# Misconception: ...`.
+- **Tool packs.** `tools:` names packs from `content/tools.yaml` (`shell`, `git`, `jq`, and opt-in ones like `sqlite3`). `question add` refuses a question whose packs are not installed. To add a CLI: an entry there, a helper in `whetstone/terminal/` if tests need one, an example question, and catalog modules with `format: terminal` (their briefs then ask for terminal questions).
+- **The review.** `bin/whetstone draft <key>` shows `solution.sh` run by run and the shell's `.history`: how the learner explored before writing the script.
+- See `examples/git-lost-commits/` and `examples/error-hotspots/`.
+
 ## mutants/
 
-Every `build`, `fix`, `design`, `tests` and `predict` question has 2 to 5 mutants. A `whiteboard` question has a rubric instead. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. For `predict` it is a wrong copy of `subject.py` instead, and the gate passes when the reference `ANSWERS` come out wrong on it. Its docstring's first line names it:
+Every `build`, `fix`, `design`, `tests`, `predict`, `project` and `terminal` question has 2 to 5 mutants (a project's and a terminal question's are folders; see above). A `whiteboard` question has a rubric instead. A mutant is a complete copy of the reference with **one** realistic bug that encodes a misconception from the lesson. For `predict` it is a wrong copy of `subject.py` instead, and the gate passes when the reference `ANSWERS` come out wrong on it. Its docstring's first line names it:
 
 ```python
 """Misconception: a dict in the class body belongs to each object."""
@@ -192,7 +252,7 @@ After the core recipe, write variants (`variant_of`), and **one question that us
 
 ## lesson.md
 
-Write in Simplified Technical English most of the time: short sentences, active voice, one idea per sentence, common words. Use these sections, in this order:
+Use these sections, in this order:
 
 1. `## The idea`: the concept in plain words, with the correct technical names in **bold** the first time.
 2. `## Subgoals`: the 3 to 6 named steps of a correct solution, as a numbered list without code. For example: derive the key, reserve it atomically, execute, persist the result, replay on a duplicate. Hints reuse these names. In the first question of a module, add one short worked example under the list. The example solves a *different* problem with the same subgoals, so it doesn't give away the answer. From the third question on, list the subgoal names only.

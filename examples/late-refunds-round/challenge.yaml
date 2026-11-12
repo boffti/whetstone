@@ -1,0 +1,12 @@
+title: Refunds for the wrong orders
+type: project
+lesson: after-run
+difficulty: medium
+minutes: 60
+tags: [refunds, workflows, food-delivery]
+requires: []
+grounded_in:
+  - https://prachub.com/interview-questions/build-a-live-api-connected-dag-workflow-for-late-order-refund-requests
+  - https://leetcode.com/discuss/post/7401147/usa-doordash-onsite-ai-codecraft-by-anon-bods/
+framing: work
+summary: In a small refund-flow codebase, with your own AI, fix a lateness bug, make refunds safe to repeat, then make flows of any shape safe to run.

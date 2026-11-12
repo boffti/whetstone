@@ -55,6 +55,25 @@ A `whiteboard` question is a design written in Markdown. You grade it against th
 6. If the app sent the request, finish it: `bin/whetstone request done <id> --result <key>`.
 7. In the chat, add at most 3 sentences: the strongest decision, and the one gap to work on first.
 
+## Reviewing an AI-allowed round
+
+A `project` question is solved in the learner's own folder, with their own AI tool. The tests already graded the code, so review **how they worked**, separately from whether it passed.
+
+1. `bin/whetstone draft <key>` prints the round run by run (each run, its result, and which files changed by how many lines), then their files now. A big change in one step is code that arrived all at once.
+2. Ask before you read their AI tool's own log: "May I read your session log for this round? It shows what you asked your AI." With a yes, find it: Claude Code keeps it in `~/.claude/projects/`, in the folder named after the round's path with each `/` and `.` turned into `-`; Codex in `~/.codex/sessions/`, in the session whose working directory is the round's folder. Read only that session.
+3. Score each signal 1 to 4, with evidence (a quote, a run, a diff):
+   - **Orient:** read the code and README.md before prompting; found the right place to change.
+   - **Direct:** prompts name the function, the symptom and the constraint; the key decisions stayed theirs.
+   - **Verify:** ran the tests after accepting changes; caught a wrong or overreaching answer and pushed back.
+   - **Own:** kept only what they understood. The ownership check after the last stage, in the draft's run-by-run list, is evidence.
+   - **Scope:** small, checkable steps; no changes to files the task did not need.
+4. Name the pattern of AI use you saw, as in docs/PEDAGOGY.md, rule 13: asked conceptual questions, or generated then questioned (both keep skills), against handing over all the code, drifting into it, or leaving debugging to the AI. About the work, never the person.
+5. Give at most 3 comments in the usual shape (principle, evidence, next step), then pin the main one in the app with `bin/whetstone note <key> "..."`. If the app sent the request, finish it with `bin/whetstone request done <id> --result <key>`.
+
+## Reviewing a terminal question
+
+`bin/whetstone draft <key>` shows `solution.sh` run by run and the shell's `.history`: what they typed while exploring. Review the script like code (quoting, failure handling, what it assumes about the input), and the history for how they worked: did they look at the data before writing a pipeline, read `--help` or `man`, and check intermediate output? A script that passed the visible tests but hardcodes something from `sandbox/` is the first thing to point out.
+
 ## After the review
 
 - Ask the learner to fix the issues themselves, then offer to review the revision.

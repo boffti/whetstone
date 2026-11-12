@@ -384,7 +384,145 @@ _DESIGN = {
     + "        send(message_id)\n",
 }
 
-SCAFFOLDS = {"build": TEMPLATE, "predict": _PREDICT, "fix": _FIX, "review": _REVIEW, "tests": _TESTS, "design": _DESIGN}
+_STOCK_DOC = '"""Stock for a small shop. Quantities are whole units."""\n\n\n'
+_RESERVE = (
+    "def reserve(stock: dict[str, int], item: str, n: int) -> bool:\n"
+    '    """Take n units of item if there are enough. Return whether it worked."""\n'
+    "    if stock.get(item, 0) {op} n:\n"
+    "        stock[item] -= n\n"
+    "        return True\n"
+    "    return False\n"
+)
+_PROJECT = {
+    **_COMMON,
+    "challenge.yaml": (
+        "title: {title}  # name the scenario, not the technique\n"
+        "type: project  # an AI-allowed round: the learner solves starter/ in a folder of their own, with their AI\n"
+        "lesson: after-run\ndifficulty: medium\nminutes: 60\ntags: []\nrequires: []\n"
+        "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
+        "grounded_in: []  # Source links of the interview reports this question is based on (the brief lists them)\n"
+        "framing: work  # what it was prepared for: work, company:<Name> or domain:<Domain>\n"
+        "summary: One sentence about the codebase and what the learner changes in it.\n"
+    ),
+    "problem.md": (
+        "A short intro to the codebase: what it is, who uses it, the numbers that matter.\n\n"
+        "## Stage 1\n\nThe first job: often a bug report from users, with symptoms and never the cause.\n\n"
+        "## Stage 2\n\nThe next job. It opens only after stage 1 passes on Submit.\n"
+    ),
+    "starter/stock.py": _STOCK_DOC + _RESERVE.replace("{op}", ">"),
+    "solution/stock.py": _STOCK_DOC
+    + _RESERVE.replace("{op}", ">=")
+    + "\n\ndef reserve_all(stock: dict[str, int], order: dict[str, int]) -> bool:\n"
+    '    """Take every line of the order, or none of them."""\n'
+    "    if any(stock.get(item, 0) < n for item, n in order.items()):\n"
+    "        return False\n"
+    "    for item, n in order.items():\n"
+    "        stock[item] -= n\n"
+    "    return True\n",
+    "tests/test_visible_1.py": 'from stock import reserve\n\n\ndef test_takes_the_last_units():\n    stock = {"tea": 2}\n    assert reserve(stock, "tea", 2)\n    assert stock == {"tea": 0}\n',
+    "tests/test_hidden_1.py": (
+        'from stock import reserve\n\n\ndef test_refuses_more_than_there_is():\n    stock = {"tea": 1}\n'
+        '    assert not reserve(stock, "tea", 2), "an order for more than the stock went through"\n    assert stock == {"tea": 1}\n'
+    ),
+    "tests/test_visible_2.py": (
+        'from stock import reserve_all\n\n\ndef test_takes_every_line():\n    stock = {"tea": 2, "jam": 1}\n'
+        '    assert reserve_all(stock, {"tea": 1, "jam": 1})\n    assert stock == {"tea": 1, "jam": 0}\n'
+    ),
+    "tests/test_hidden_2.py": (
+        'from stock import reserve_all\n\n\ndef test_takes_nothing_when_one_line_is_short():\n    stock = {"tea": 2, "jam": 0}\n'
+        '    assert not reserve_all(stock, {"tea": 1, "jam": 1})\n    assert stock == {"tea": 2, "jam": 0}, "a short order still took some stock"\n'
+    ),
+    "mutants/01-naive-ai/stock.py": '"""Misconception: an order can take its lines one by one and stop at the first short one."""\n\n\n'
+    + _RESERVE.replace("{op}", ">=")
+    + "\n\ndef reserve_all(stock: dict[str, int], order: dict[str, int]) -> bool:\n"
+    "    return all(reserve(stock, item, n) for item, n in order.items())\n",
+    "mutants/02-last-units/stock.py": '"""Misconception: an order for exactly what is left should fail."""\n\n\n'
+    + _RESERVE.replace("{op}", ">")
+    + "\n\ndef reserve_all(stock: dict[str, int], order: dict[str, int]) -> bool:\n"
+    "    if any(stock.get(item, 0) < n for item, n in order.items()):\n"
+    "        return False\n"
+    "    for item, n in order.items():\n"
+    "        stock[item] -= n\n"
+    "    return True\n",
+    "ownership.yaml": (
+        "# Asked after the last stage, with the AI off: what does the learner's own code return?\n"
+        "setup: from stock import reserve, reserve_all\n"
+        "questions:\n"
+        "  - ask: \"What does reserve({'tea': 2}, 'tea', 2) return?\"\n"
+        "    expr: \"reserve({'tea': 2}, 'tea', 2)\"\n"
+        "  - ask: \"What does reserve_all({'tea': 1, 'jam': 0}, {'tea': 1, 'jam': 1}) return?\"\n"
+        "    expr: \"reserve_all({'tea': 1, 'jam': 0}, {'tea': 1, 'jam': 1})\"\n"
+    ),
+}
+
+_TERMINAL = {
+    **_COMMON,
+    "challenge.yaml": (
+        "title: {title}  # name the situation, not the command\n"
+        "type: terminal  # solo practice in a shell: the learner writes solution.sh, the tests replay it\n"
+        "tools: [shell]  # tool packs from content/tools.yaml: shell, git, jq, ...\n"
+        "lesson: after-run\ndifficulty: medium\nminutes: 20\ntags: []\nrequires: []\n"
+        "# variant_of: module/NN-slug  # set when this re-tests an earlier question on a new surface\n"
+        "grounded_in: []  # Source links of the interview reports this question is based on (the brief lists them)\n"
+        "framing: work  # what it was prepared for: work, company:<Name> or domain:<Domain>\n"
+        "summary: One sentence about the situation and what the script must do.\n"
+    ),
+    "problem.md": (
+        "Who needs this and why, with the numbers that matter. What is in sandbox/.\n\n"
+        "## Stage 1\n\nWhat solution.sh must print or change. Add a ## Stage 2 for the next job; it opens after stage 1 passes.\n"
+    ),
+    "scenario.py": (
+        '"""Builds what solution.sh works on. Each test calls build() on a fresh folder; the learner\'s\n'
+        'sandbox/ is the "visible" variant. Hidden data lives here, never in starter/."""\n\n'
+        "from pathlib import Path\n\n"
+        "ORDERS = {\n"
+        '    "visible": "city,total\\nLagos,12\\nOsaka,7\\nLagos,3\\n",\n'
+        '    "hidden": "city,total\\nLima,5\\nOsaka,7\\nLima,1\\nOsaka,2\\nOsaka,9\\n",\n'
+        "}\n\n\n"
+        "def build(path: Path, variant: str) -> None:\n"
+        "    path.mkdir(parents=True, exist_ok=True)\n"
+        '    (path / "orders.csv").write_text(ORDERS[variant], encoding="utf-8")\n'
+    ),
+    "starter/solution.sh": "#!/usr/bin/env bash\nset -euo pipefail\n\n# Print each city and its number of orders, most orders first.\n",
+    "solution/solution.sh": (
+        "#!/usr/bin/env bash\nset -euo pipefail\n\n"
+        "tail -n +2 orders.csv | cut -d, -f1 | sort | uniq -c | sort -k1,1nr -k2,2 | awk '{print $2, $1}'\n"
+    ),
+    "tests/test_visible_1.py": (
+        "from scenario import build\nfrom tools import sh\n\n\n"
+        "def test_counts_orders_per_city(tmp_path):\n"
+        '    build(tmp_path, "visible")\n'
+        "    out = sh.run(tmp_path)\n"
+        "    assert out.returncode == 0, out.stderr\n"
+        '    assert out.stdout.splitlines() == ["Lagos 2", "Osaka 1"]\n'
+    ),
+    "tests/test_hidden_1.py": (
+        "from scenario import build\nfrom tools import sh\n\n\n"
+        "def test_counts_every_order_of_a_city(tmp_path):\n"
+        '    build(tmp_path, "hidden")\n'
+        "    out = sh.run(tmp_path)\n"
+        '    assert out.stdout.splitlines() == ["Osaka 3", "Lima 2"], "a city\'s orders are not all counted, or the order is wrong"\n'
+    ),
+    "mutants/01-header-is-a-city/solution.sh": (
+        "#!/usr/bin/env bash\n# Misconception: the header line is data like the rest.\nset -euo pipefail\n\n"
+        "cut -d, -f1 orders.csv | sort | uniq -c | sort -k1,1nr -k2,2 | awk '{print $2, $1}'\n"
+    ),
+    "mutants/02-uniq-without-sort/solution.sh": (
+        "#!/usr/bin/env bash\n# Misconception: uniq -c counts every line that is the same, wherever it is.\nset -euo pipefail\n\n"
+        "tail -n +2 orders.csv | cut -d, -f1 | uniq -c | sort -k1,1nr -k2,2 | awk '{print $2, $1}'\n"
+    ),
+}
+
+SCAFFOLDS = {
+    "build": TEMPLATE,
+    "predict": _PREDICT,
+    "fix": _FIX,
+    "review": _REVIEW,
+    "tests": _TESTS,
+    "design": _DESIGN,
+    "project": _PROJECT,
+    "terminal": _TERMINAL,
+}
 
 
 def scaffold(kind: str) -> dict[str, str]:
@@ -649,7 +787,16 @@ def cmd_question_new(args) -> int:
     if stage.exists():
         return fail(f"{stage} already exists. Fill it in, or pick another slug.")
     title = args.title or slug.replace("-", " ").capitalize()
-    for rel, body in scaffold(args.type or "build").items():
+    files = dict(scaffold(args.type or "build"))
+    if args.tool:
+        from . import packs
+
+        if args.type != "terminal":
+            return fail("--tool is for terminal questions: add --type terminal.")
+        if gaps := [g for g in packs.missing(args.tool) if g.startswith("no tool pack")]:
+            return fail(gaps[0])
+        files["challenge.yaml"] = files["challenge.yaml"].replace("tools: [shell]", f"tools: [{', '.join(args.tool)}]")
+    for rel, body in files.items():
         dest = stage / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(body.replace("{title}", title), encoding="utf-8")  # not .format: the code templates hold braces
@@ -883,14 +1030,16 @@ def cmd_draft(args) -> int:
     if c is None:
         return 1
     code, last, opened = store.get_draft(c.key), store.last_run(c.key), store.reveals(c.key)
-    starter = c.read(c.starter_file)
-    if code == starter:
-        code = None
     print(f"# {c.key}: {c.title}")
     print(f"Last run: {last['mode']} {last['status']} {last['passed']}/{last['total']} at {last['created_at']}" if last else "No runs yet.")
     print(
         f"Hints opened: {sum(w.startswith('hint') for w in opened)} of {len(c.hints())}. Solution viewed: {'yes' if 'solution' in opened else 'no'}."
     )
+    if c.is_project:
+        return _draft_round(settings, store, c, opened)
+    starter = c.read(c.starter_file)
+    if code == starter:
+        code = None
     if c.is_whiteboard:
         review = store.latest_review(c.key)
         print(f"Rubric: {_rel(c.path / 'rubric.yaml')}. Last review: {review['created_at'] if review else 'none yet'}.")
@@ -905,6 +1054,49 @@ def cmd_draft(args) -> int:
         print(f"```mermaid\n{mermaid}\n```" if mermaid else "(nothing drawn yet)")
         for n in notes:
             print(f"- Also on the board: {n}")
+    return 0
+
+
+def _draft_round(settings, store, c, opened: list[str]) -> int:
+    """An AI-allowed round or a terminal question: where the learner's folder is, the work run by
+    run, and their files (for a terminal question, solution.sh and the shell's .history)."""
+    from . import rounds
+
+    ws = rounds.workspace(settings, c)
+    what = "Terminal question (solo)" if c.is_terminal else "AI-allowed round"
+    print(
+        f"{what}: stage {rounds.open_stage(c, opened)} of {c.stages}. Folder: {rounds.shown_path(ws) if ws.exists() else 'not started yet'}."
+    )
+    starter = {}
+    for rel, path in c.tree().items():
+        try:
+            starter[rel] = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+    print(
+        "\n## The work, run by run (a big change in one step is code that arrived all at once)\n"
+        if c.is_terminal
+        else "\n## The round, run by run (a big change in one step is code that arrived all at once)\n"
+    )
+    for line in rounds.timeline(starter, store.run_rows(c.key), store.reveal_times(c.key), store.ownership_checks(c.key)) or [
+        "Not started yet."
+    ]:
+        print(f"- {line}")
+    if c.is_terminal:
+        print("\n.history below is what they typed in `bin/whetstone shell`: how they explored before writing the script.")
+    else:
+        print(
+            "\nTheir AI tool's own log shows what they asked it and what it wrote. Ask them before you read it: Claude Code keeps "
+            "it in ~/.claude/projects/, in a folder named after the round's folder path with each / and . turned into -."
+        )
+    if ws.exists():
+        print("\n## The learner's files now\n")
+        for rel, path in rounds.collect(settings, c).items():
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                text = f"<{path.stat().st_size} bytes, not text>"
+            print(f"### {rel}\n```\n{text.rstrip()}\n```\n")
     return 0
 
 
@@ -945,6 +1137,33 @@ def cmd_grade(args) -> int:
     return 0
 
 
+def cmd_shell(args) -> int:
+    """Get a terminal question's folder ready and print its path. bin/whetstone shell then opens a
+    sealed shell there: the grading image, no network, only that folder."""
+    from . import rounds
+    from .config import ROOT
+
+    settings = load_settings()
+    store, _ = _state(settings)
+    c = _question_or_none(settings, args.key)
+    if c is None:
+        return 1
+    if not c.is_terminal:
+        return fail(
+            f"{c.key} is a {c.kind} question. shell opens terminal questions; for an AI-allowed round, open its folder in your AI tool."
+        )
+    try:
+        created = rounds.start(settings, c, rounds.open_stage(c, store.reveals(c.key)))
+    except rounds.RoundError as exc:
+        return fail(str(exc))
+    store.record_reveal(c.key, "round")
+    ws = rounds.workspace(settings, c)
+    if created:
+        store.record_event(c.key, "round", {"path": rounds.shown_path(ws)})
+    print(ws.relative_to(ROOT).as_posix() if ws.resolve().is_relative_to(ROOT) else ws)
+    return 0
+
+
 def cmd_test(args) -> int:
     from .runner import run_tests
 
@@ -953,6 +1172,16 @@ def cmd_test(args) -> int:
     c = _question_or_none(settings, args.key)
     if c is None:
         return 1
+    if c.is_project:
+        from . import rounds
+        from .runner import run_project
+
+        try:
+            files = rounds.collect(settings, c)
+        except rounds.RoundError as exc:
+            return fail(str(exc))
+        report = run_project(c, files, "submit" if args.all else "run", settings, rounds.open_stage(c, store.reveals(c.key)))
+        return _print_report(report)
     code = store.get_draft(c.key)
     code = code if code is not None else c.read(c.starter_file)
     # ponytail: not recorded as a run, so the learner's progress only reflects their own runs
@@ -962,6 +1191,10 @@ def cmd_test(args) -> int:
         report = check_whiteboard(code, store.get_drawing(c.key))
     else:
         report = run_tests(c, code, "submit" if args.all else "run", settings)
+    return _print_report(report)
+
+
+def _print_report(report) -> int:
     print(f"{report.status.upper()}: {report.summary}")
     for t in report.tests:
         if t.outcome != "passed":
@@ -1083,6 +1316,17 @@ def cmd_doctor(args) -> int:
     )
 
     check(*_clock_check(os.environ.get("TZ", ""), in_container=Path("/.dockerenv").exists()))
+
+    from . import packs
+
+    have = [name for name, spec in packs.packs().items() if packs.installed(spec)]
+    need = sorted({t for c in questions if c.is_terminal for t in c.tools} - set(have))
+    check(
+        not need,
+        f"Tool packs for terminal questions: {', '.join(have) or 'none installed'}"
+        + (f"; your questions also need {', '.join(need)}" if need else ""),
+        "Add them to WHETSTONE_TOOLS in .env, then rebuild with docker compose up -d --build.",
+    )
 
     if (ROOT / ".git").exists() and user.resolve().is_relative_to(ROOT):
         rel = user.resolve().relative_to(ROOT).as_posix()
@@ -1329,6 +1573,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--type", choices=QUESTION_TYPES, help="the question type to scaffold (default build); whiteboard: Markdown and a rubric"
     )
+    p.add_argument("--tool", action="append", help="for --type terminal: a tool pack from content/tools.yaml (repeatable)")
     p = cmd(questions, "add", cmd_question_add, "check a written question and file it as the module's next question")
     p.add_argument("dir")
     p.add_argument("--module", required=True)
@@ -1354,6 +1599,8 @@ def main(argv: list[str] | None = None) -> int:
     p = cmd(sub, "test", cmd_test, "run the tests on the learner's current code (not recorded)")
     p.add_argument("key")
     p.add_argument("--all", action="store_true", help="include hidden tests")
+    p = cmd(sub, "shell", cmd_shell, "open a sealed shell in a terminal question's folder (prints the folder when run directly)")
+    p.add_argument("key")
 
     p = cmd(sub, "watch", cmd_watch, "stream the learner's activity in the app as JSON lines, for a pairing agent")
     p.add_argument("--key", help="only this question (module/question)")

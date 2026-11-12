@@ -321,7 +321,7 @@ function scheduleSave() {
 }
 
 async function saveDraft() {
-  if (!state.challenge) return;
+  if (!state.challenge || isRound()) return;  // a round's code lives in the learner's own folder
   const { track, id } = state.challenge;
   try {
     await api(`/api/challenges/${track}/${id}/draft`, { method: "PUT", body: { code: getCode() } });
@@ -411,7 +411,7 @@ async function openChallenge(trackId, cid) {
 
   $("#challenge-title").textContent = c.title;
   const meta = [el("span", { class: "diff", "data-d": c.difficulty, text: capital(c.difficulty) }), el("span", { text: `About ${c.minutes} min` })];
-  if (TYPE_LABEL[c.type]) meta.unshift(el("span", { class: "qtype" }, icon(TYPE_ICON[c.type]), TYPE_LABEL[c.type]));
+  if (TYPE_LABEL[c.type]) meta.unshift(el("span", { class: "qtype", title: c.type === "project" ? "You may use your AI on this one. The Round tab says how." : null }, icon(TYPE_ICON[c.type]), TYPE_LABEL[c.type]));
   if (c.framing) {
     const [fk, fname] = framingParts(c.framing);
     meta.push(el("span", { class: "framing", title: "What this question was prepared for" },
@@ -438,14 +438,17 @@ async function openChallenge(trackId, cid) {
   $("#solution-doc").hidden = true;
   selectTab(c.runs > 0 || state.lessonLocked ? "problem" : "lesson");
 
-  setFiles(c.code, c.files);
+  if (isRound()) { renderFileTabs([]); renderRound(c); } else setFiles(c.code, c.files);
   $("#save-state").textContent = c.code !== c.starter ? "Draft restored" : "";
   clearResults();
   $("#results").replaceChildren(el("p", { class: "results-empty", text: isBoard()
     ? "Check your sections to see what is still empty. When the design is done, ask your agent for a review: it grades the design against a rubric, point by point."
-    : c.solved
-      ? "You solved this one. Run it again any time, or try a cleaner solution."
-      : "Run the tests to see results here. Visible tests check the basics. Submit also runs hidden tests for edge cases." }));
+    : isRound() && !c.solved
+      ? "Run tests checks your folder against the visible tests of the stages open so far. Submit adds the hidden ones; passing it opens the next stage."
+      : c.solved
+        ? "You solved this one. Run it again any time, or try a cleaner solution."
+        : "Run the tests to see results here. Visible tests check the basics. Submit also runs hidden tests for edge cases." }));
+  if (isRound() && c.solved && c.ownership.length) $("#results").append(ownershipBox(c.ownership));
   if (c.review) renderReview(c.review);
   renderRail();
   $(".reader-body").scrollTop = 0;
@@ -460,7 +463,7 @@ async function openChallenge(trackId, cid) {
 // claims it and reports back. Whetstone never starts an agent itself.
 const REQUEST_LABEL = {
   build: "Prepare", variant: "Prepare review variant", "fill-path": "Prepare all missing modules", review: "Ask for a review",
-  profile: "Set up my profile", design: "Prepare", grade: "Ask for review",
+  profile: "Set up my profile", design: "Prepare", grade: "Ask for review", round: "Prepare an AI-allowed round",
 };
 const REVIEWING = new Set(["review", "grade"]);
 const RECENT_MS = 10 * 60 * 1000;
@@ -536,7 +539,7 @@ async function prepareAll(pathId, framing) {
 /* ---------- Prepare for…: your work, a company, or a domain ---------- */
 // The rubric is the skill; the framing is the world it is set in. Pressing Prepare asks which one,
 // and the agent writes the question for it (the brief's Framing section).
-const FRAMED = new Set(["build", "variant", "design"]);
+const FRAMED = new Set(["build", "variant", "design", "round"]);
 
 /** "company:Uber" -> ["company", "Uber"]; nothing -> ["work", ""]. */
 function framingParts(f) {
@@ -572,6 +575,9 @@ async function openPrepare(anchor, target, onPick) {
     el("p", { class: "prep-label", text: "A company you're preparing for" }), companies, otherRow,
     el("p", { class: "prep-label", text: "A domain" }),
     el("div", { class: "prep-chips" }, Object.keys(DOMAINS).map((d) => chip(d, `domain:${d}`, domainTile(d, true)))));
+  // A modal dialog (the module drawer) makes everything outside it inert, so the chooser must live inside it to scroll or take a click.
+  const host = anchor.closest("dialog[open]") || document.body;
+  if (pop.parentElement !== host) host.append(pop);
   const r = anchor.getBoundingClientRect();
   pop.style.left = `${Math.max(8, Math.min(innerWidth - 348, r.left))}px`;
   pop.style.top = `${r.bottom + 6}px`;
@@ -906,8 +912,8 @@ async function resetCode() {
 
 /* ---------- Running tests ---------- */
 const STATUS_TEXT = { new: "not started", attempted: "in progress", assisted: "solved with help", solved: "solved", mastered: "mastered" };
-const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review", tests: "Write the tests", design: "Design", whiteboard: "System design" };
-const TYPE_ICON = { predict: "eye", fix: "wrench", review: "scan-search", tests: "flask-conical", design: "pen-tool", whiteboard: "presentation" };
+const TYPE_LABEL = { predict: "Predict", fix: "Fix the bug", review: "Review", tests: "Write the tests", design: "Design", whiteboard: "System design", project: "AI-allowed round", terminal: "Terminal" };
+const TYPE_ICON = { predict: "eye", fix: "wrench", review: "scan-search", tests: "flask-conical", design: "pen-tool", whiteboard: "presentation", project: "bot", terminal: "terminal" };
 const VERDICT = { passed: "Passed", failed: "Not yet", error: "Could not run", timeout: "Timed out", blocked: "Blocked" };
 
 /* ---------- Predict then explain (docs/PEDAGOGY.md, rule 8) ---------- */
@@ -918,7 +924,7 @@ function setPredict(on) { try { localStorage.setItem(PREDICT_KEY, on ? "on" : "o
 // Ask on the first run of a question, and before each Submit until it is solved.
 function wantsGuess(mode) {
   const c = state.challenge;
-  if (!predictOn() || isBoard()) return false;
+  if (!predictOn() || isBoard() || isRound()) return false;
   return mode === "run" ? c.runs === 0 && c.visible_tests.length > 0 : !c.solved;
 }
 
@@ -1036,8 +1042,16 @@ async function run(mode, guess) {
     const report = await api(`/api/challenges/${track}/${id}/run`, { method: "POST", body: { code: getCode(), mode, prediction: guess || null } });
     state.challenge.runs += 1;
     if (report.first_solve) state.challenge.solved = true;
+    if (report.first_solve && isRound()) renderRound(state.challenge);
+    if (report.stage) {  // a round's next stage opened
+      Object.assign(state.challenge, { stage: report.stage, problem_html: report.problem_html });
+      $("#panel-problem").innerHTML = report.problem_html;
+      colorize($("#panel-problem"));
+      buildPeek();
+      renderRound(state.challenge);
+    }
     renderReport(report, mode);
-    $("#save-state").textContent = "Saved";
+    $("#save-state").textContent = isRound() ? "" : "Saved";
     state.hintReady = true;
     updateHintButton();
     if (state.lessonLocked) { state.lessonLocked = false; renderLesson(); }
@@ -1080,11 +1094,15 @@ function renderReport(r, mode) {
   showResults(r.status, VERDICT[r.status] || r.status, `${r.passed}/${r.total}`);
   const box = $("#results");
   const nodes = [guessLine(r.prediction)].filter(Boolean);
-  if (r.first_solve) nodes.push(el("p", { class: "solved-note", text: r.solve === "assisted"
-    ? "Solved with help. A variant of this question comes back for review in 2 days."
-    : "Solved on your own. A variant comes back for review in 3 days, to make it stick." }));
-  if (r.first_solve) nodes.push(explainBox(r) || "");
-  if (mode === "submit" && !state.challenge.rating) nodes.push(rateBox());
+  if (r.first_solve) nodes.push(el("p", { class: "solved-note", text: isRound()
+    ? state.challenge.type === "terminal"
+      ? `Every stage passed. A new scenario on the same idea comes back for review in ${r.solve === "assisted" ? 2 : 3} days.`
+      : `Every stage passed. A solo version, without the AI, comes back for review in ${r.solve === "assisted" ? 2 : 3} days.`
+    : r.solve === "assisted"
+      ? "Solved with help. A variant of this question comes back for review in 2 days."
+      : "Solved on your own. A variant comes back for review in 3 days, to make it stick." }));
+  if (r.first_solve) nodes.push((r.ownership && r.ownership.length ? ownershipBox(r.ownership) : explainBox(r)) || "");
+  if (mode === "submit" && !state.challenge.rating && (!isRound() || state.challenge.solved)) nodes.push(rateBox());  // a round is rated once, at the end
   nodes.push(el("div", { class: "verdict", "data-status": r.status },
     el("span", { class: "verdict-word", text: VERDICT[r.status] || r.status }),
     el("span", { class: "verdict-sum", text: isBoard() ? r.summary : `${r.summary} (${r.duration.toFixed(1)} s)` })));
@@ -1219,6 +1237,8 @@ const MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.mi
 let mermaidLoad = null;
 
 function isBoard() { return Boolean(state.challenge && state.challenge.type === "whiteboard"); }
+// Worked in a folder of the learner's own: an AI-allowed round, or a terminal question.
+function isRound() { return Boolean(state.challenge && ["project", "terminal"].includes(state.challenge.type)); }
 
 function setupBoard(c) {
   const board = c.type === "whiteboard";
@@ -1230,7 +1250,116 @@ function setupBoard(c) {
   $("#submit-btn").hidden = board;
   $("#review-req").replaceChildren(...(board ? [requestButton("grade", `${c.track}/${c.id}`, "Ask for review")] : []));
   $("#hints-intro").textContent = hintsIntro(c.hint_count, board);
-  if (board) $("#challenge-meta").append(timerButton(c));
+  const round = c.type === "project" || c.type === "terminal";
+  $(".editor-wrap").classList.toggle("rounding", round);
+  $("#reset-btn").hidden = round;
+  if (round) $(".tab-code").textContent = c.type === "terminal" ? "Terminal" : "Round";
+  if (board || round) $("#challenge-meta").append(timerButton(c));
+}
+
+/* ---------- AI-allowed rounds ---------- */
+// A "project" question is solved in a folder of the learner's own, with the AI tool they use at
+// work, the way AI-allowed interview rounds run. The app starts the round, tests the folder and
+// opens the stages; it never sees or runs the AI. See docs/PEDAGOGY.md, rule 13.
+function renderRound(c) {
+  if (c.type === "terminal") return renderTerminal(c);
+  const stage = el("p", { class: "round-stage" }, icon("bot"), ` AI-allowed round. Stage ${c.stage} of ${c.stages}${c.solved ? ", all passed" : ""}.`);
+  const code = (t) => el("code", { text: t });
+  if (!c.workspace) {
+    $("#round").replaceChildren(el("div", { class: "round-card" }, stage,
+      el("h3", { text: "You may use your AI on this one" }),
+      el("p", { text: "Some interviews now let you work with an AI assistant. This round practices that: a small codebase, solved stage by stage with the AI tool you use at work." }),
+      el("ol", {},
+        el("li", { text: "Start the round. Whetstone creates a folder with the code and TASK.md." }),
+        el("li", { text: "Open the folder in a new session of your AI tool. A new session knows only the task, like the assistant in an interview." }),
+        el("li", { text: "Work with it there, then Run tests and Submit here. Each stage opens when the one before passes." }),
+        el("li", { text: "After the last stage, close the AI and say what your code returns. Code you can predict is code you own." })),
+      el("div", {}, el("button", { type: "button", class: "btn btn-primary", onclick: () => startRound(c) }, "Start the round")),
+      el("p", { class: "home-sub", text: "Your Whetstone agent, the one watching, stays where it is and does not help inside the round. Afterwards it reviews how you worked." })));
+    return;
+  }
+  const copy = el("button", { type: "button", class: "btn btn-secondary", onclick: (e) => copyText(c.workspace, e.target) }, "Copy path");
+  $("#round").replaceChildren(el("div", { class: "round-card" }, stage,
+    el("h3", { text: "Your folder" }),
+    el("div", { class: "round-path" }, el("code", { text: c.workspace }), copy),
+    el("ol", {},
+      el("li", {}, "Open it in your AI tool, in a new session. Claude Code or Codex: in a terminal, ", code("cd"), " to the folder and run ", code("claude"), " or ", code("codex"), ". Cursor or VS Code: File, then Open Folder."),
+      el("li", { text: "Read TASK.md and the code before you prompt. Keep the key decisions yours, and check what the AI writes." }),
+      el("li", { text: "Run tests checks the visible tests. Submit adds the hidden ones; passing it opens the next stage." })),
+    el("p", { class: "home-sub" }, "Practicing for a round where the AI cannot edit files? Tell it ", code("chat only"), " and type or paste the code yourself. When you are done, ask your Whetstone agent for a review: it sees how the code grew, run by run.")));
+}
+
+/* ---------- Terminal questions ---------- */
+// Solo practice at the command line: the learner explores sandbox/ in a real shell (the grading
+// image, no network, only that folder), then writes the commands in solution.sh. Run and Submit
+// replay the script on fresh scenarios. See AUTHORING.md, "terminal".
+function renderTerminal(c) {
+  const stage = el("p", { class: "round-stage" }, icon("terminal"), ` Terminal, solo. Stage ${c.stage} of ${c.stages}${c.solved ? ", all passed" : ""}.`);
+  const code = (t) => el("code", { text: t });
+  const tools = c.tools && c.tools.length ? ` Tools: ${c.tools.join(", ")}.` : "";
+  if (!c.workspace) {
+    $("#round").replaceChildren(el("div", { class: "round-card" }, stage,
+      el("h3", { text: "Practice at the command line" }),
+      el("p", { text: `This one is yours alone, with no AI. You work in a real shell on a real scenario, then hand in the commands as a script. The tests replay it on fresh copies, some unlike yours.${tools}` }),
+      el("ol", {},
+        el("li", {}, "Start. Whetstone creates a folder with ", code("sandbox/"), " to explore and an empty ", code("solution.sh"), "."),
+        el("li", {}, "Open a shell there: in a terminal, from your Whetstone folder, run ", code(c.shell), ". It has the same tools as the grading, no network, and only that folder."),
+        el("li", {}, "Try commands in ", code("sandbox/"), "; it is yours to break. Put the ones that work in ", code("solution.sh"), "."),
+        el("li", { text: "Run tests replays the script. Submit adds the hidden copies; passing it opens the next stage." })),
+      el("div", {}, el("button", { type: "button", class: "btn btn-primary", onclick: () => startRound(c) }, "Start")),
+      el("p", { class: "home-sub", text: "If you ask your agent for help, it gives hints, not commands." })));
+    return;
+  }
+  const copy = el("button", { type: "button", class: "btn btn-secondary", onclick: (e) => copyText(c.shell, e.target) }, "Copy command");
+  $("#round").replaceChildren(el("div", { class: "round-card" }, stage,
+    el("h3", { text: "Your shell" }),
+    el("div", { class: "round-path" }, el("code", { text: c.shell }), copy),
+    el("ol", {},
+      el("li", { text: "Run it in a terminal, from your Whetstone folder. You land in sandbox/." }),
+      el("li", {}, "Explore, then write the commands in ", code("../solution.sh"), " with any editor. Broke the sandbox? Delete it and run the command again."),
+      el("li", { text: "Run tests replays solution.sh on fresh copies of the scenario. Submit adds the hidden ones." })),
+    el("p", { class: "home-sub" }, "Folder: ", code(c.workspace), `. Your shell history is saved there, so a review can see how you explored.${tools}`)));
+}
+
+async function startRound(c) {
+  try {
+    const r = await api(`/api/challenges/${c.track}/${c.id}/workspace`, { method: "POST", body: {} });
+    c.workspace = r.path;
+    renderRound(c);
+  } catch (err) {
+    $("#round").append(el("p", { class: "results-empty", text: `Could not start: ${err.message}` }));
+  }
+}
+
+/** After the last stage, with the AI off: say what your own code returns for a few calls, then
+    see. Code you can predict is code you own. */
+function ownershipBox(asks) {
+  if (!asks || !asks.length) return null;
+  const c = state.challenge;
+  const inputs = asks.map((a) => el("input", { type: "text", autocomplete: "off", spellcheck: "false", "aria-label": a, placeholder: "A value, like 1200 or True" }));
+  const items = asks.map((a, i) => el("li", {}, el("span", { text: a }), inputs[i]));
+  const check = async () => {
+    let r;
+    try {
+      r = await api(`/api/challenges/${c.track}/${c.id}/ownership`, { method: "POST", body: { answers: inputs.map((x) => x.value) } });
+    } catch (err) {
+      box.querySelector(".predict-actions").append(el("p", { class: "results-empty", text: `Could not check: ${err.message}` }));
+      return;
+    }
+    r.results.forEach((res, i) => {
+      inputs[i].disabled = true;
+      items[i].append(el("p", { class: "prediction-note", "data-right": String(res.right), text: res.right ? "Right." : `${res.message || "Not this time"}.` }));
+    });
+    box.querySelector(".predict-actions").replaceChildren(el("p", { class: "home-sub", text: `${r.right} of ${r.results.length} right. Your agent sees this when it reviews the round.` }));
+  };
+  const box = el("div", { class: "explain own" },
+    el("p", { class: "predict-q", text: "Last step, with your AI closed: what does your own code return?" }),
+    el("p", { class: "home-sub", text: "Answer by reading your code. Whetstone then runs it to check." }),
+    el("ol", { class: "own-list" }, items),
+    el("div", { class: "predict-actions" },
+      el("button", { type: "button", class: "btn btn-secondary", onclick: check }, "Check my answers"),
+      el("button", { type: "button", class: "btn btn-text", onclick: () => box.remove() }, "Skip")));
+  return box;
 }
 
 // The ladder's rungs, in order (docs/PEDAGOGY.md); a question with fewer hints climbs the first ones.
@@ -1461,6 +1590,11 @@ const ROUNDS = {
   "data-modeling": "Data modeling",
 };
 const CONFIDENCE = { high: "Well sourced", medium: "One source", low: "Thin source" };
+// Not a round type of its own: a report of any round can say the candidate could use an AI assistant.
+// Same rule as ai_allowed() in catalog.py. A design *of* an AI agent does not count.
+const AI_ALLOWED = "ai-allowed";
+const AI_WORDING = /\bAI[- ](assisted|enabled|only)\b|\b(with|using|use) (an |your own |your |the )?AI\b|AI-equipped|\bAI (tools|assistance) (were |was )?allowed/i;
+function aiAllowed(r) { return (r.tags || []).some((t) => /^ai-(assisted|enabled)/.test(t)) || AI_WORDING.test(r.question || ""); }
 
 function initCatalog() {
   const chip = (value, label) => el("button", {
@@ -1471,7 +1605,7 @@ function initCatalog() {
       renderCatalog();
     },
   }, label);
-  $("#f-rounds").replaceChildren(chip("", "All rounds"), ...Object.entries(ROUNDS).map(([v, l]) => chip(v, l)));
+  $("#f-rounds").replaceChildren(chip("", "All rounds"), ...Object.entries(ROUNDS).map(([v, l]) => chip(v, l)), chip(AI_ALLOWED, "AI-allowed"));
   $("#f-search").addEventListener("input", (e) => { state.filters.q = e.target.value.trim().toLowerCase(); renderCatalog(); });
   $("#f-company").addEventListener("change", (e) => { state.filters.company = e.target.value; renderCatalog(); });
   $$("#f-status .chip").forEach((c) => c.addEventListener("click", () => {
@@ -1509,7 +1643,7 @@ async function loadCatalog() {
 
 function reportMatches(r) {
   const f = state.filters;
-  return (!f.company || r.company === f.company) && (!f.round || r.round === f.round);
+  return (!f.company || r.company === f.company) && (!f.round || (f.round === AI_ALLOWED ? aiAllowed(r) : r.round === f.round));
 }
 
 function searchText(p) {
@@ -1530,6 +1664,7 @@ function renderCatalog() {
     ? `Showing ${plural(rows.length, "problem")} and ${plural(n, "report")}, most asked first.${f.status === "for-you" ? " For you means your focus, your paths and the companies you target." : ""}`
     : f.status === "for-you" ? "Nothing here for you yet. Add skills or companies to your focus, or choose All." : "Nothing matches. Clear a filter or try another word.";
   $("#catalog-grid").replaceChildren(...rows.map(({ p, hits }) => el("li", {}, catalogRow(p, hits, max))));
+  $("#catalog-help").hidden = f.round !== AI_ALLOWED;
 }
 
 function statusMatches(p) {
@@ -1653,17 +1788,25 @@ function renderProblemActions(p) {
       el("p", { class: "note", text: `Your agent writes ${own ? "the next" : "a"} question for you on your own AI subscription, and Whetstone checks it before it appears here.` }),
       requestButton("build", p.id, own ? "Prepare the next question" : "Prepare a question")));
   }
+  const withAi = p.reports.filter(aiAllowed);
+  if (withAi.length && p.format !== "design") {
+    const cos = [...new Set(withAi.map((r) => r.company))].filter((c) => c !== "Unknown");
+    nodes.push(el("div", { class: "agent-ask" },
+      el("p", { class: "note", text: `${cos.length ? cos.join(", ") : "Some companies"} ${cos.length === 1 ? "runs" : "run"} this as an AI-allowed round, where you may use an AI assistant. Your agent prepares one: a small codebase you solve stage by stage in a folder of your own, with the AI tool you use at work.` }),
+      requestButton("round", p.id)));
+  }
   $("#problem-actions").replaceChildren(...nodes);
 }
 
 async function copyText(text, btn) {
+  const label = btn.textContent;
   try {
     await navigator.clipboard.writeText(text);
     btn.textContent = "Copied";
   } catch (_) {
     btn.textContent = "Select the text to copy";
   }
-  setTimeout(() => { btn.textContent = "Copy request"; }, 1600);
+  setTimeout(() => { btn.textContent = label; }, 1600);
 }
 
 async function buildProblem(p) {
@@ -2080,22 +2223,50 @@ function renderHome() {
 function todaySections(d, paths) {
   const picks = todayPicks(d, paths);
   const main = el("div", { class: "today-main" });
+  const foot = [picks[1] ? todayAlt(picks[1]) : null, reviewLine(d)];
   main.append(el("section", { class: "today-block", "aria-label": "Today" },
-    picks.length ? todayCard(picks[0]) : null,
-    picks[1] ? todayAlt(picks[1]) : null,
-    reviewLine(d)));
+    picks.length ? todayCard(picks[0], foot) : foot));
   const setup = setupSection(setupSteps(d, paths), d);
   if (setup) main.append(setup);
   main.append(homeSection("Your focus", focusSection(d), el("p", { class: "home-sub section-note", text: "The skills, companies and paths you want to keep sharp. Your agent reads this list too." })));
   main.append(profileLine(d.profile));
-  const side = el("aside", { class: "today-side", "aria-label": "This week" },
-    homeSection("Practice days", calendar(d.active_days)),
+  const followed = new Set(d.profile.paths || []);
+  const yours = paths.filter((x) => followed.has(x.id) || x.mine || pathStats(x).solved).slice(0, 4);
+  const side = el("aside", { class: "today-side", "aria-label": "Your week and your paths" },
+    homeSection("This week", el("div", { class: "week-box" }, weekDays(d),
+      el("p", { class: "home-sub", text: `Your target is ${plural(d.week.target, "practice day")} a week. The last 26 weeks:` }),
+      calendar(d.active_days))),
+    yours.length ? homeSection("Your paths", el("ul", { class: "side-paths" }, yours.map(sidePath)),
+      null, el("a", { class: "btn btn-text btn-small", href: "#/paths" }, "All paths")) : null,
     d.recent.length ? homeSection("Recent", el("ol", { class: "log" }, d.recent.map(logLine))) : null);
   return [main, side];
 }
 
+/** This week, Monday to Sunday, against the weekly target (docs/PEDAGOGY.md, rule 12). */
+function weekDays(d) {
+  const active = new Set(d.active_days), today = new Date();
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7));
+  return el("div", { class: "week-days", role: "img", "aria-label": `${d.week.this_week} of ${d.week.target} practice days this week` },
+    [0, 1, 2, 3, 4, 5, 6].map((i) => {
+      const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i), iso = isoDay(day);
+      return el("span", { class: `wd${active.has(iso) ? " on" : ""}${iso === isoDay(today) ? " today" : ""}${day > today ? " later" : ""}`, title: iso },
+        day.toLocaleDateString(undefined, { weekday: "narrow" }));
+    }));
+}
+
+/** A path you follow, beside Today: its route, and the next stop. */
+function sidePath(p) {
+  const m = p.modules.find((x) => !x.built || x.solved < x.questions);
+  return el("li", { class: "side-path" },
+    el("button", { type: "button", class: "link-like side-path-title", onclick: () => openPath(p.id) }, domainTile(p.domain, true), p.title),
+    routeMap(p, false),
+    el("p", { class: "home-sub" }, ...(!m ? ["Every stop solved."]
+      : m.built ? ["Next: ", el("a", { href: `#/${m.module}/${m.next}`, text: m.title })]
+        : [`Next: ${m.title}, which your agent prepares.`])));
+}
+
 /** The one card: what to do now, where it sits in its module, and the clay button. */
-function todayCard(pk) {
+function todayCard(pk, foot) {
   const [moduleId, qid] = (pk.key || "").split("/");
   const t = state.tracks.find((x) => x.id === moduleId);
   const i = t ? t.challenges.findIndex((c) => c.id === qid) : -1;
@@ -2104,8 +2275,8 @@ function todayCard(pk) {
     el("p", { class: "today-kind" }, icon(PICK_ICON[pk.kind] || "compass"), eyebrow),
     el("h2", { class: "today-title", text: pk.title }),
     el("p", { class: "home-sub", text: pk.why }),
-    t ? moduleStrip(t, i) : null,
-    el("div", { class: "today-action" }, pk.action));
+    el("div", { class: "today-route" }, t ? moduleStrip(t, i) : null, el("div", { class: "today-action" }, pk.action)),
+    el("div", { class: "today-foot" }, foot));
 }
 
 /** The module as a line of stops, one per question; the current one is ringed. */
@@ -2120,7 +2291,7 @@ function todayAlt(pk) {
   const kind = pk.kind === "Next in your path" ? "next in your path" : pk.kind.toLowerCase();
   return el("p", { class: "today-alt home-sub" }, `Or ${kind}: `,
     pk.key ? el("a", { href: `#/${pk.key}`, text: pk.title }) : el("span", { text: pk.title }),
-    pk.kind === "Next in your path" ? ` · ${pk.why}` : "",
+    pk.kind === "Next in your path" ? ` (${pk.why})` : "",
     pk.key ? null : el("span", { class: "today-alt-req" }, pk.action));
 }
 

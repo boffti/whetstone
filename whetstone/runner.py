@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import difflib
+import json
 import os
 import re
 import shutil
@@ -16,8 +17,9 @@ import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from . import packs
 from .config import Settings
-from .content import DIFFICULTIES, LESSON_MODES, QUESTION_TYPES, REQUIRED_FILES, Challenge
+from .content import DIFFICULTIES, LESSON_MODES, QUESTION_TYPES, REQUIRED_FILES, Challenge, stage_of
 
 
 @dataclass
@@ -200,11 +202,20 @@ MUTANT_TIMEOUT = 20
 
 
 def misconception(mutant: Path) -> str:
-    """The first line of a mutant's docstring: the wrong belief it encodes."""
-    try:
-        doc = ast.get_docstring(ast.parse(mutant.read_text(encoding="utf-8"))) or ""
-    except SyntaxError:
-        doc = ""
+    """The first line of a mutant's docstring: the wrong belief it encodes. A project's mutant is a
+    folder; the first of its files whose docstring starts with "Misconception:" says it."""
+    doc = ""
+    for f in sorted(mutant.rglob("*.py")) + sorted(mutant.rglob("*.sh")) if mutant.is_dir() else [mutant]:
+        if f.suffix == ".sh":  # a shell mutant says it in a comment: "# Misconception: ..."
+            said = [line.lstrip("# ") for line in f.read_text(encoding="utf-8").splitlines() if line.startswith("#")]
+            doc = next((line for line in said if line.lower().startswith("misconception:")), "")
+        else:
+            try:
+                doc = ast.get_docstring(ast.parse(f.read_text(encoding="utf-8"))) or ""
+            except SyntaxError:
+                doc = ""
+        if doc.lower().startswith("misconception:"):
+            break
     line = doc.strip().splitlines()[0] if doc.strip() else mutant.stem.replace("-", " ")
     return re.sub(r"^misconception:\s*", "", line, flags=re.I).rstrip(".")
 
@@ -252,6 +263,161 @@ def _grade_learner_tests(challenge: Challenge, code: str, mode: str, settings: S
                 )
             )
     return _report(results, output, duration, include_hidden, challenge, settings)
+
+
+# ---------- "project" questions: an AI-allowed round in the learner's own folder ----------
+TERMINAL_HELPERS = Path(__file__).resolve().parent / "terminal"
+
+
+def terminal_files(challenge: Challenge) -> dict[str, str | Path]:
+    """What a terminal question's tests need beside solution.sh: scenario.py and the helpers, as tools/."""
+    helpers = {f"tools/{p.name}": p for p in sorted(TERMINAL_HELPERS.glob("*.py"))}
+    return {"scenario.py": challenge.path / "scenario.py", **helpers}
+
+
+def build_scenario(challenge: Challenge, dest: Path, variant: str = "visible") -> None:
+    """Build a terminal question's scenario into `dest` (the learner's sandbox), as the tests do."""
+    with tempfile.TemporaryDirectory(prefix="whetstone-") as tmp_name:
+        tmp = Path(tmp_name)
+        for name, source in terminal_files(challenge).items():
+            (tmp / name).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source, tmp / name)
+        code = "import sys, pathlib, scenario; scenario.build(pathlib.Path(sys.argv[1]), sys.argv[2])"
+        env = {k: v for k, v in os.environ.items() if k in CHILD_ENV or k.startswith(CHILD_ENV_PREFIXES)} | {"PYTHONPATH": str(tmp)}
+        done = subprocess.run(
+            [sys.executable, "-c", code, str(dest.resolve()), variant], cwd=tmp, env=env, capture_output=True, text=True, timeout=60
+        )
+        if done.returncode:
+            raise RuntimeError(
+                f"scenario.py could not build the {variant} scenario: {(done.stderr.strip().splitlines() or ['no output'])[-1]}"
+            )
+
+
+def run_project(challenge: Challenge, source: dict[str, str | Path], mode: str, settings: Settings, stage: int) -> RunReport:
+    """Run the tests of the stages open so far (visible ones; on Submit hidden ones too) on a
+    project's files: the learner's workspace, or starter/ with solution/ or a mutant laid on top."""
+    if challenge.is_terminal and (gaps := packs.missing(challenge.tools)):
+        return RunReport(status="error", summary=f"This question {'; '.join(gaps)}.")
+    include_hidden = mode == "submit"
+    timeout = int(challenge.timeout or settings.run_timeout)
+    root = challenge.path / "tests"
+    tests: dict[str, str | Path] = {}
+    for p in sorted(root.rglob("*")):
+        rel = p.relative_to(root)
+        if (
+            p.is_file()
+            and "__pycache__" not in rel.parts
+            and stage_of(p.name) <= stage
+            and (include_hidden or "hidden" not in rel.as_posix())
+        ):
+            tests[f"tests/{rel.as_posix()}"] = p
+    if challenge.is_terminal:
+        tests |= terminal_files(challenge)
+    found, output, duration = _pytest({**source, **tests}, "tests", timeout, settings)
+    if found is None:
+        return _timeout(timeout, duration, output)
+    return _report(found, output, duration, include_hidden, challenge, settings)
+
+
+OWNERSHIP_HEAD = '''import ast
+import json
+import pathlib
+
+ANSWERS = json.loads(pathlib.Path(__file__).with_name("answers.json").read_text())
+
+
+def _same(value, answer):
+    """The answer matches the value as a Python literal, or as the text repr() or str() shows."""
+    if answer is None:  # checking the question itself: the expression only has to run
+        return True
+    try:
+        return value == ast.literal_eval(answer)
+    except (ValueError, SyntaxError):
+        return answer.strip() in (repr(value), str(value))
+
+'''
+
+
+def check_ownership(challenge: Challenge, source: dict[str, str | Path], answers: list[str | None], settings: Settings) -> list[dict]:
+    """The AI-off check after an AI-allowed round: the learner says what their own code returns
+    for a few calls, and their code is run to see. One result per question: ask, right, message."""
+    spec = challenge.ownership()
+    questions = [q for q in spec.get("questions") or [] if isinstance(q, dict)]
+    answers = (list(answers) + [""] * len(questions))[: len(questions)]
+    lines = [OWNERSHIP_HEAD + str(spec.get("setup") or "")]
+    for i, q in enumerate(questions):
+        lines += [
+            "",
+            "",
+            f"def test_q{i}():",
+            f"    value = {q['expr']}",
+            f"    assert _same(value, ANSWERS[{i}]), 'Your code returns ' + repr(value)",
+        ]
+    files = {**source, "test_ownership.py": "\n".join(lines) + "\n", "answers.json": json.dumps(answers)}
+    found, output, _ = _pytest(files, "test_ownership.py", min(int(challenge.timeout or settings.run_timeout), MUTANT_TIMEOUT), settings)
+    by_name = {t.name: t for t in found or []}
+    results = []
+    for i, q in enumerate(questions):
+        t = by_name.get(f"test_q{i}")
+        right = t is not None and t.outcome == "passed"
+        message = (
+            "" if right else _author_message(t.message) if t else "It did not run: " + (output.strip().splitlines() or ["timed out"])[-1]
+        )
+        results.append({"ask": str(q.get("ask", "")), "right": right, "message": message})
+    return results
+
+
+def _validate_project(challenge: Challenge, settings: Settings, strict: bool, problems: list[str], notes: list[str]) -> Validation:
+    """The files exist, every stage has its tests and its section in problem.md, the reference
+    passes every stage, the starter fails stage 1, the tests catch every mutant (one of them
+    should be what a fresh AI wrote from TASK.md alone), and the ownership questions run. A
+    terminal question has no ownership check; its tool packs must be installed here."""
+    for name in challenge.required_files:
+        if not (challenge.path / name).exists():
+            problems.append(f"missing {name}")
+    if challenge.is_terminal:
+        problems.extend(packs.missing(challenge.tools))
+        if not (challenge.path / "starter" / "solution.sh").exists():
+            problems.append("missing starter/solution.sh: the script the learner fills in")
+    if challenge.difficulty not in DIFFICULTIES:
+        problems.append(f"difficulty must be one of {', '.join(DIFFICULTIES)}")
+    if problems:
+        return Validation(challenge.key, False, problems, notes)
+    tests = [f.name for f in (challenge.path / "tests").glob("test_*.py")]
+    for n in range(1, challenge.stages + 1):
+        if not any(stage_of(t) == n and "hidden" not in t for t in tests):
+            problems.append(f"stage {n} has no visible tests: add tests/test_visible_{n}.py")
+        if not any(stage_of(t) == n and "hidden" in t for t in tests):
+            problems.append(f"stage {n} has no hidden tests: add tests/test_hidden_{n}.py")
+        if n > 1 and f"## Stage {n}" not in challenge.read("problem.md"):
+            problems.append(f'problem.md has no "## Stage {n}" section: the learner would never see that stage\'s task')
+    questions = challenge.ownership().get("questions") or []
+    if not challenge.is_terminal and (
+        len(questions) < 2
+        or not all(isinstance(q, dict) and q.get("ask") and q.get("expr") and "\n" not in str(q["expr"]) for q in questions)
+    ):
+        problems.append("ownership.yaml needs 2 or more questions, each with ask and a one-line expr")
+    if len(challenge.hints()) < 2:
+        problems.append("hints.md needs at least 2 hints separated by --- lines")
+    if problems:
+        return Validation(challenge.key, False, problems, notes)
+
+    reference = challenge.tree(challenge.path / "solution")
+    ref = run_project(challenge, reference, "submit", settings, challenge.stages)
+    if ref.status != "passed":
+        problems.append(f"reference (starter/ with solution/ on top) does not pass: {ref.summary}")
+        problems.extend([f"{t.name}: {t.message}" for t in ref.tests if t.outcome in ("failed", "error")][:8] or [ref.output[-1500:]])
+    notes.append(f"reference: {ref.passed}/{ref.total} passed over {challenge.stages} stages in {ref.duration:.1f} s")
+    starter = run_project(challenge, challenge.tree(), "submit", settings, 1)
+    if starter.status == "passed":
+        problems.append("starter/ passes stage 1 already, so the round teaches nothing; leave stage 1's work undone")
+    else:
+        notes.append(f"starter: {starter.passed}/{starter.total} of stage 1 passed (expected: some fail)")
+    for r in check_ownership(challenge, reference, [None] * len(questions), settings) if questions else []:
+        if not r["right"]:
+            problems.append(f"ownership question does not run on the reference: {r['ask']} ({r['message']})")
+    gate, gate_notes = _mutation_gate(challenge, settings, strict)
+    return Validation(challenge.key, not (problems + gate), problems + gate, notes + gate_notes)
 
 
 # ---------- "design" questions: a note on the choice, then code ----------
@@ -580,6 +746,8 @@ def validate_challenge(challenge: Challenge, settings: Settings, strict: bool = 
         problems.append("variant_of must be a question key, like rate-limiter/01-token-bucket")
     if challenge.is_whiteboard:
         return _validate_whiteboard(challenge, problems, notes)
+    if challenge.is_project:
+        return _validate_project(challenge, settings, strict, problems, notes)
     if challenge.kind in ("predict", "review") and not challenge.support:
         problems.append(f"a {challenge.kind} question needs the code to read as a support file (support: [subject.py])")
     for name in REQUIRED_FILES:
@@ -666,9 +834,15 @@ def _mutation_gate(challenge: Challenge, settings: Settings, strict: bool) -> tu
     if len(mutants) < 2:
         what = f"wrong versions of {challenge.support[0]} that change a prediction" if predict else "wrong versions of the solution"
         gap = f"add 2 or more mutants/*.py: {what}, one per misconception, that the tests must catch"
+        if challenge.is_project:
+            gap = "add 2 or more mutants/<name>/ folders, each laid over starter/ and solution/, one per misconception; one should be what a fresh AI wrote from TASK.md alone"
+            if challenge.is_terminal:
+                gap = "add 2 or more mutants/<name>/solution.sh, each a wrong script that starts with '# Misconception: ...', that the tests must catch"
         return ([gap], []) if strict else ([], [gap])
 
     def status(m: Path) -> str:
+        if challenge.is_project:
+            return run_project(challenge, challenge.tree(challenge.path / "solution", m), "submit", settings, challenge.stages).status
         if predict:
             return run_tests(challenge, challenge.read("solution.py"), "submit", settings, {challenge.support[0]: m}).status
         return run_tests(challenge, m.read_text(encoding="utf-8"), "submit", settings).status

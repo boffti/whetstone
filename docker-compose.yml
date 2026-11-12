@@ -1,10 +1,14 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        WHETSTONE_TOOLS: ${WHETSTONE_TOOLS:-}   # extra tool packs from content/tools.yaml, named in .env
     ports:
       - "127.0.0.1:8000:8000"   # localhost only: the app runs the code you submit
     environment:
       REDIS_URL: redis://redis:6379/0
+      WHETSTONE_HOST_ROOT: ${PWD}   # this folder on your machine, so the app can show an AI-allowed round's folder path
     env_file:
       - path: .env
         required: false

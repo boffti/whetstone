@@ -18,6 +18,7 @@ REQUEST_KINDS = {
     "variant": "question",  # build a spaced-review variant of a question
     "review": "question",  # review the learner's solution
     "design": "module",  # build a system design (whiteboard) question for a module
+    "round": "module",  # build an AI-allowed round (a project question) for a module
     "grade": "question",  # grade the learner's system design against its rubric
     "profile": "",  # set up or refresh the profile
 }
@@ -291,6 +292,26 @@ class Store:
                 (key, row["solved_at"], last_hint),
             ).fetchone()
             return row["solved_at"], "assisted" if helped else "clean"
+
+    def run_rows(self, key: str) -> list[dict]:
+        """Every run of a question, oldest first, with the code it ran."""
+        with self._conn() as conn:
+            rows = conn.execute("SELECT mode, status, passed, total, code, created_at FROM runs WHERE challenge = ? ORDER BY id", (key,))
+            return [dict(r) for r in rows]
+
+    def ownership_checks(self, key: str) -> list[dict]:
+        """An AI-allowed round's ownership checks: right of total, and when."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT correct, total, created_at FROM predictions WHERE challenge = ? AND mode = 'ownership' ORDER BY id", (key,)
+            )
+            return [dict(r) for r in rows]
+
+    def reveal_times(self, key: str) -> dict[str, str]:
+        """When each thing was first opened: hints, the solution, an AI-allowed round and its stages."""
+        with self._conn() as conn:
+            rows = conn.execute("SELECT what, MIN(created_at) AS at FROM reveals WHERE challenge = ? GROUP BY what", (key,))
+            return {r["what"]: r["at"] for r in rows}
 
     def reveals(self, key: str) -> list[str]:
         """What was opened, once each, in order: hint-0, hint-1, ..., solution."""

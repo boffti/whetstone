@@ -1,0 +1,10 @@
+{
+  "start": "late_over_20",
+  "nodes": {
+    "late_over_20": {"type": "check", "field": "minutes_late", "over": 20, "yes": "late_refund_25", "no": "late_done"},
+    "late_refund_25": {"type": "refund", "percent": 25, "next": "late_over_60"},
+    "late_over_60": {"type": "check", "field": "minutes_late", "over": 60, "yes": "very_late_refund_25", "no": "late_done"},
+    "very_late_refund_25": {"type": "refund", "percent": 25, "next": "late_done"},
+    "late_done": {"type": "end"}
+  }
+}

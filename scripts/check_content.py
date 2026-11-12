@@ -38,8 +38,8 @@ def check_catalog(catalog: dict) -> list[str]:
             out.append(f"{where}: needs a title of 60 characters or fewer")
         if not p.get("summary"):
             out.append(f"{where}: needs a summary of what the learner builds")
-        if p.get("format", "hands-on") not in ("hands-on", "design"):
-            out.append(f"{where}: format must be hands-on or design")
+        if p.get("format", "hands-on") not in ("hands-on", "design", "terminal"):
+            out.append(f"{where}: format must be hands-on, design or terminal")
         if p.get("track"):
             out.append(f"{where}: shared modules must not link a learner's track (set track: null)")
         reports = p.get("reports", [])

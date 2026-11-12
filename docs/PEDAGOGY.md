@@ -94,6 +94,17 @@ Adults keep up self-directed practice when they feel autonomy, competence and re
   - No points for volume, and no leaderboards. Learners can hide the game layer.
 - Sources: [Sailer & Homner 2020](https://doi.org/10.1007/s10648-019-09498-w), [Silverman & Barasch 2023](https://doi.org/10.1093/jcr/ucac029), [Kluger & DeNisi 1996](https://doi.org/10.1037/0033-2909.119.2.254)
 
+### 13. Work with AI as its own skill, and keep the solo skill too
+More interviews now allow an AI assistant in some rounds. In an AI-allowed round the job is still the engineering: finding the right place in unfamiliar code, asking for scoped help, checking the output, and owning every line kept. Interview rubrics score how the task was done separately from whether it was done. How people use AI decides what they learn: in a randomized trial, developers who asked conceptual questions, or generated code and then questioned it, kept their skills; those who handed over all the code, or left debugging to the AI, scored lowest. People also misjudge how much AI helps them, so self-reports are a poor measure.
+- Strength: moderate for how the AI is used (one randomized trial, exploratory patterns); weak for interview practice (company guides and vendor rubrics).
+- In Whetstone:
+  - A `project` question is an AI-allowed round: a small codebase in a folder of the learner's own, worked with the AI tool they use at work, in stages.
+  - Questions are written so one prompt cannot pass every stage. What decides a stage sits where a careful reader looks (the team's conventions, a helper's contract), and a fresh AI's answer must fail the hidden tests.
+  - The app keeps a snapshot of the folder at every run, so the review sees how the code grew. The review grades the process separately from the tests: reading first, scoped prompts, checking output, owning the result. It names the pattern of AI use it sees.
+  - After the last stage, with the AI closed, the learner predicts what their own code returns (rule 8).
+  - The spaced variant of a round comes back solo, without the AI, so rule 2 still holds.
+- Sources: [Shen & Tamkin 2026](https://arxiv.org/abs/2601.20245), [Karat 2026](https://karat.com/wp-content/uploads/2026/02/Human-AI-technical-interview-rubrics.pdf), [Anthropic 2026](https://www.anthropic.com/research/AI-resistant-technical-evaluations), [METR 2025](https://metr.org/blog/2025-07-10-early-2025-ai-experienced-os-dev-study/)
+
 ## Question types
 
 | Type | What the learner does | How pytest grades it | Use it |
@@ -104,6 +115,8 @@ Adults keep up self-directed practice when they feel autonomy, competence and re
 | `review` | Reviews plausible AI-written code, returns (line, category) findings | Compares findings with the seeded defects | Judging generated code |
 | `tests` | Writes the missing tests for a given implementation | Their tests must pass the reference and catch the provided mutants | Specs with subtle edges |
 | `design` | Writes DESIGN.md (two options, the trade-off, the choice, the accepted failure mode), then implements it | Hidden tests check the chosen guarantee | System-level trade-offs |
+| `project` | Solves a small codebase in stages, with the AI tool they use at work, then predicts what their own code returns with the AI closed | Each stage's hidden tests on their folder; the review grades the process | AI-allowed rounds (rule 13) |
+| `terminal` | Explores a scenario in a real shell, alone, then writes the commands in `solution.sh` | The script is replayed on fresh scenarios, hidden variants included | Command-line work that AI now writes (rule 2) |
 
 ## A five-question module (example: idempotent payments)
 
