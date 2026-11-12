@@ -150,7 +150,7 @@ In the desktop app, set `CLAUDE_CODE_PLUGIN_DIRS` to the full path of `mods/whet
 
 - **It keeps the watch running.** You do not need to say "watch Whetstone", and it starts the watch again after the app restarts. The app shows **Agent connected** while it runs.
 - **It tells you when the app asks for work.** You get a short notice when you press Prepare, and another when the question is ready. Your agent starts on the request by itself.
-- **It shows what is due** in the status line, for example `Whetstone: 2 reviews due, "Pace the nightly price backfill" in progress, agent connected`.
+- **It shows what is due** in the status line, for example `whetstone: agent connected, 2 reviews due, "Pace the nightly price backfill" in progress`.
 
 How often your agent reacts to your own work follows the pair mode you set in the app. In `off` it reacts to nothing but requests.
 

@@ -38,8 +38,8 @@ test('the watch stays up, a request wakes the agent, and the status line says wh
   await clock.settle() // the watch loop runs on after session.start returns
 
   expect(watches).toBe(1)
-  expect(status).toContain('Whetstone: 1 review due, "Pace the nightly price backfill" in progress, agent connected')
-  expect(status.at(-1)).toBe('Whetstone: 1 review due, "Pace the nightly price backfill" in progress, watch stopped')
+  expect(status).toContain('agent connected, 1 review due, "Pace the nightly price backfill" in progress')
+  expect(status.at(-1)).toBe('watch stopped, 1 review due, "Pace the nightly price backfill" in progress')
   expect(toasts).toEqual(['Whetstone: build requested for rate-limiter'])
   // The queued request and the idle event wake the agent. A claimed request, an `opened` in quiet mode and anything in off mode do not.
   expect(prompts.length).toBe(2)

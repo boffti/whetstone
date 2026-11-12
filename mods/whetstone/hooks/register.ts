@@ -24,7 +24,7 @@ const seen = { due: '', isConnected: false, announced: new Set<number>() }
 
 export function summary(today: Today): string {
   const reviews = today.reviews?.length ?? 0
-  const parts = [reviews === 1 ? '1 review due' : `${reviews} reviews due`]
+  const parts = reviews === 0 ? [] : [reviews === 1 ? '1 review due' : `${reviews} reviews due`]
 
   if (today.in_progress?.title) parts.push(`"${today.in_progress.title}" in progress`)
 
@@ -32,7 +32,8 @@ export function summary(today: Today): string {
 }
 
 function show($: Api): void {
-  $.ui.status(`Whetstone: ${[seen.due, seen.isConnected ? 'agent connected' : 'watch stopped'].filter(Boolean).join(', ')}`)
+  // The engine labels the line with the mod's name, and a narrow terminal cuts its end: the connection comes first.
+  $.ui.status([seen.isConnected ? 'agent connected' : 'watch stopped', seen.due].filter(Boolean).join(', '))
 }
 
 async function refresh($: Api): Promise<void> {
