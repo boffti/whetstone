@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Your agent
+- A quieter agent. `whetstone watch` now prints only the events your pair mode lets the agent act on. In quiet mode that is a request, the third failed run in a row, a first solve, the last hint, the solution and ten idle minutes. The agent skills also tell it to write nothing in the chat when an event needs nothing. `watch --all` prints everything.
 - The repo now ships two Claude Code hooks. One runs `today` and a quiet `doctor` when a session starts. The other, the tutor guard, stops the agent before it writes to your progress database or to a solo terminal question's folder.
 - `mods/whetstone/` is an optional Claude Code mod. It keeps `whetstone watch` running, tells you when the app asks for work and when it is ready, and shows what is due in the status line.
 - A module's first question is now easy and has one idea. Problems split their rules into Core and Edge cases and name the first test to pass. `question add` warns above 7 rules or 30 words in a rule. AUTHORING.md has a Language section, about 80% of the way to Simplified Technical English, for everything the learner reads.

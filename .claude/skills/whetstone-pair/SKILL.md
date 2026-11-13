@@ -29,6 +29,13 @@ You watch what the learner does in the app and speak at the right moments, like 
 
    Every line carries `pair`, the mode the learner chose in the app: `off`, `quiet`, `coach` or `interviewer`.
 
+   The watch prints only the events that mode lets you act on, so most of the learner's activity never reaches you:
+   - `off`: `requested` and `mode` only.
+   - `quiet`: also `idle`, `solution`, the last `hint`, a `ran` that is a first solve, and every third failed `ran` in a row. A `ran` after three or more failures carries `stuck` with the count.
+   - `coach` and `interviewer`: every event in the table. A question opened twice in a row is printed once.
+
+   `bin/whetstone watch --all` prints everything, for debugging.
+
 3. To see the code, run `bin/whetstone draft <question>`. To see test results without recording a run, run `bin/whetstone test <question>`. Read the question's `problem.md`, `hints.md` and `solution.py` once, so your remarks match the tests and the reference.
 
 ## A system design question
@@ -53,7 +60,7 @@ When the question's type is `whiteboard`, the learner is writing a design, not c
 - **One idea per note, under 40 words, phrased as a question or an observation.** Good: "What happens on line 14 if two threads both see `n not in cache`?" Bad: "You need a lock around lines 14-18; use `with self._lock:`".
 - **Never paste code that fixes their problem. Never name the exact bug early.** Climb the help ladder from the tutor skill: their hypothesis, then the concept, the region, the next app hint, an analogous example, and the reference only on a plain request.
 - **No praise, and nothing about the person.** After a solve: name the principle they used, plus one thing to compare with the reference.
-- You can also reply in the chat. Use notes for remarks about their code, and chat for longer discussion.
+- **The chat is not a log.** Speak through notes in the app. When an event needs nothing from you, end your turn with no message: no "I'm watching", no "nothing to act on", no line that repeats what the learner just did. Do not announce a note in the chat. Use the chat only when the learner writes to you there, or for a discussion too long for a note.
 
 ## Stop
 
