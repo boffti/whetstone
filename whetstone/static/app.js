@@ -831,6 +831,51 @@ function renderLesson() {
     panel.innerHTML = state.challenge.lesson_html;
     colorize(panel);
   }
+  buildRef();
+}
+
+/* ---------- The lesson's syntax, pinned over the editor ---------- */
+// The lesson's "In Python" section stays open above the code while you type, at any width, so
+// you do not leave the editor to look up a method. It follows the lesson: no lesson yet, no syntax.
+const REF_KEY = "whetstone-ref";
+
+function buildRef() {
+  const nodes = [];
+  if (!state.lessonLocked && !isBoard() && !isRound()) {
+    let inside = false;
+    for (const node of $("#panel-lesson").children) {
+      if (node.tagName === "H2") inside = node.textContent.trim() === "In Python";
+      else if (inside) nodes.push(node.cloneNode(true));
+    }
+  }
+  $("#ref-body").replaceChildren(...nodes);
+  // A copy made while the lesson is still being coloured is marked done but is still plain.
+  $$("#ref-body [data-colored]").forEach((code) => code.removeAttribute("data-colored"));
+  colorize($("#ref-body"));
+  $("#ref-dock").hidden = !nodes.length;
+  let pinned = false;
+  try { pinned = localStorage.getItem(REF_KEY) === "on"; } catch (_) { /* per-viewer only */ }
+  setRef(nodes.length > 0 && pinned);
+}
+
+function setRef(open) {
+  $("#ref-dock").classList.toggle("open", open);
+  $("#ref-body").hidden = !open;
+  $("#ref-toggle").setAttribute("aria-expanded", String(open));
+  $("#ref-toggle").textContent = open ? "Hide syntax" : "Syntax";
+}
+
+function initRef() {
+  const dock = $("#ref-dock");
+  $("#ref-toggle").addEventListener("click", () => {
+    const open = !dock.classList.contains("open");
+    try { localStorage.setItem(REF_KEY, open ? "on" : "off"); } catch (_) { /* per-viewer only */ }
+    setRef(open);
+  });
+  // The editor starts below the open panel, however tall its content is.
+  new ResizeObserver(() => {
+    $(".editor-wrap").style.setProperty("--ref-h", dock.classList.contains("open") && !dock.hidden ? `${dock.offsetHeight}px` : "0px");
+  }).observe(dock);
 }
 
 // Hints are a ladder: each rung unlocks after a test run since the last one (docs/PEDAGOGY.md, rule 5).
@@ -2751,6 +2796,7 @@ async function boot() {
   $$(".kbd").forEach((k) => { k.textContent = (mac ? "⌘" : "Ctrl ") + (k.dataset.keys === "submit" ? "⇧" : "") + "↵"; });
   initCatalog();
   initPeek();
+  initRef();
   initStopTips();
   for (const [view, name] of [["practice", "target"], ["paths", "route"], ["design", "drafting-compass"], ["catalog", "library-big"]]) $(`#nav-${view}`).prepend(icon(name, "icon nav-icon"));
   PANE.addEventListener("change", onLayoutChange);
