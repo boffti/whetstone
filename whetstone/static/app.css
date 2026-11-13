@@ -335,9 +335,22 @@ code, pre { font-family: var(--font-code); }
 .file-tab[aria-selected="true"] { color: var(--ink); background: var(--stone-raised); box-shadow: inset 0 -2px 0 var(--ink); }
 .file-tab .ro { font-family: var(--font-ui); color: var(--grit); margin-left: 0.4rem; }
 .editor-wrap { position: relative; min-height: 0; background: var(--code-bg); }
-.editor { position: absolute; inset: 0; }
+.editor { position: absolute; inset: 0; top: var(--ref-h, 0px); }
+/* The lesson's syntax, pinned over the editor. Closed, it is one chip in the corner. */
+.ref-dock { position: absolute; top: 0.35rem; right: 1.5rem; z-index: 6; }
+.ref-dock.open {
+  top: 0; left: 0; right: 0; max-height: 50%; overflow: auto; padding: 0.5rem 1rem 0.7rem;
+  background: var(--stone-raised); border-bottom: 1px solid var(--rule);
+}
+.ref-toggle { font-size: 0.75rem; padding: 0.12rem 0.55rem; white-space: nowrap; }
+.ref-dock.open .ref-toggle { float: right; margin: 0 0 0.4rem 0.8rem; }
+.ref-body.prose { font-size: 0.875rem; line-height: 1.55; max-width: none; }
+.ref-body.prose pre { font-size: 0.78rem; padding: 0.6rem 0.8rem; }
+.ref-body > :first-child { margin-top: 0; }
+.ref-body > :last-child { margin-bottom: 0; }
+.editor-wrap.previewing .ref-dock, .editor-wrap.drawing .ref-dock, .editor-wrap.rounding .ref-dock { display: none; }
 .fallback-editor {
-  position: absolute; inset: 0; width: 100%; height: 100%;
+  position: absolute; inset: 0; top: var(--ref-h, 0px); width: 100%; height: calc(100% - var(--ref-h, 0px));
   resize: none; border: none; padding: 0.8rem 1rem;
   font-family: var(--font-code); font-size: 0.85rem; line-height: 1.55;
   background: var(--code-bg); color: var(--ink); tab-size: 4;

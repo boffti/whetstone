@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=44">
+  <link rel="stylesheet" href="/static/app.css?v=45">
   <!-- React for the design whiteboard (Excalidraw), loaded only when a whiteboard opens. -->
   <script type="importmap">
   { "imports": {
@@ -207,6 +207,10 @@
       <div class="peek-row" id="peek-row" role="group" aria-label="Problem sections"></div>
       <div class="peek-pop prose" id="peek-pop" popover="manual" role="dialog" aria-label="Problem section"></div>
       <div class="editor-wrap">
+        <aside class="ref-dock" id="ref-dock" aria-label="Syntax from the lesson" hidden>
+          <button class="chip ref-toggle" id="ref-toggle" type="button" aria-expanded="false" aria-controls="ref-body">Syntax</button>
+          <div class="ref-body prose" id="ref-body" hidden></div>
+        </aside>
         <div id="editor" class="editor"></div>
         <textarea id="fallback-editor" class="fallback-editor" spellcheck="false" wrap="off" hidden aria-label="Code editor"></textarea>
         <div class="preview prose" id="preview" aria-label="Preview of your design"></div>
@@ -271,6 +275,6 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js" onerror="window.MONACO_FAILED = true"></script>
   <script src="/static/marks.js?v=2"></script>
-  <script src="/static/app.js?v=55"></script>
+  <script src="/static/app.js?v=56"></script>
 </body>
 </html>
