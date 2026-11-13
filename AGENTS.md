@@ -48,7 +48,7 @@ If `my/profile.md` does not exist, or has no YAML header, set it up before anyth
 | `bin/whetstone draft <module/question>` | Shows the learner's current code. For an AI-allowed round: their folder, and the round run by run. |
 | `bin/whetstone test <module/question> [--all]` | Runs the tests on the learner's code. These runs are not recorded. |
 | `bin/whetstone shell <module/question>` | For the learner: opens bash in a terminal question's folder, in the grading image with no network and only that folder mounted. Its history is saved for the review. |
-| `bin/whetstone watch [--key K] [--for SECONDS]` | Streams what the learner does in the app (opened, paused typing, ran, hint, solution, idle) as JSON lines, with the pair mode they chose. Run it in the background to pair live. |
+| `bin/whetstone watch [--key K] [--for SECONDS] [--all]` | Streams what the learner does in the app (opened, paused typing, ran, hint, solution, idle) as JSON lines, with the pair mode they chose. It prints only the events that mode lets you act on; `--all` prints every event. Run it in the background to pair live. |
 | `bin/whetstone note <module/question> "..." [--line N]` | Shows a short remark to the learner over their editor, with a marker at line N. |
 | `bin/whetstone grade <module/question> < grade.json` | Records your grade of a system design (a `whiteboard` question) against its rubric: covered, partial or missing per point, with a quote and a note. |
 | `bin/whetstone requests [--json]` | Lists the work the learner queued in the app: build a module, a review variant, an AI-allowed round, a whole path, a review, a profile refresh. |

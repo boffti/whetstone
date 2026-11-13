@@ -51,6 +51,17 @@ Work strictly one at a time: claim, build, `question add`, then `request done`, 
 
 Events about the learner's own work, such as `opened`, `paused`, `ran`, `hint`, `solution` and `idle`, are live-pair events. Follow the `whetstone-pair` skill for those, and respect the `pair` mode they carry. In `off` mode, handle requests but stay silent about their work.
 
+The watch prints only the events the pair mode lets you act on. In `quiet` mode that is a request, the third failed run in a row (`stuck`), a first solve, the last hint, the solution and `idle`.
+
+## Stay silent in the chat
+
+The chat is not a log. The learner is working in the app and reads your notes there.
+
+- When an event needs nothing from you, end your turn with no message. Do not write "I'm watching", "nothing to act on", or a line that repeats what the learner just did.
+- When you leave a note in the app, do not also announce it in the chat.
+- If the watch stops, start it again without a message.
+- Write in the chat only to answer something the learner asked there, to report a request you finished or could not do, or to say something the app cannot show.
+
 ## Rules
 
 - Never edit the learner's code, drafts or `my/whetstone.db` directly. Use the CLI.

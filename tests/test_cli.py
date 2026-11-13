@@ -246,6 +246,23 @@ def test_doctor_warns_when_the_container_clock_is_utc():
     assert _clock_check("", in_container=False)[0] is True, "outside Docker the system clock is already local"
 
 
+def test_the_watch_prints_only_what_the_pair_mode_lets_the_agent_act_on():
+    from whetstone.__main__ import reaches_agent
+
+    failed, solved = {"status": "failed", "solved": False}, {"status": "passed", "solved": True}
+    # quiet: a request, the third failed run in a row, a first solve, the last hint, the solution and idle
+    said = [e for e in ("requested", "opened", "paused", "reset", "idle", "solution", "rated") if reaches_agent("quiet", e, {})]
+    assert said == ["requested", "idle", "solution"]
+    assert [reaches_agent("quiet", "ran", failed, fails) for fails in (1, 2, 3, 4, 6)] == [False, False, True, False, True]
+    assert reaches_agent("quiet", "ran", solved) and not reaches_agent("quiet", "ran", {"status": "passed", "solved": False})
+    assert [reaches_agent("quiet", "hint", {"rung": r, "of": 4}) for r in (1, 4)] == [False, True]
+    # off: requests and a change of mode, nothing about the work
+    assert [reaches_agent("off", e, solved, 3) for e in ("requested", "mode", "ran", "idle", "opened")] == [True, True, False, False, False]
+    # coach hears the work, but never the echo of the agent's own request commands
+    assert reaches_agent("coach", "opened", {}) and reaches_agent("interviewer", "paused", {})
+    assert not reaches_agent("coach", "request-done", {}) and not reaches_agent("quiet", "request-claimed", {})
+
+
 def test_watch_streams_moments_and_note_reaches_the_app(tmp_path, monkeypatch, capsys):
     import threading
     import time
@@ -266,7 +283,7 @@ def test_watch_streams_moments_and_note_reaches_the_app(tmp_path, monkeypatch, c
         store.record_event("m/01-q", "ran", {"mode": "run", "status": "failed", "passed": 1, "total": 3, "failing": ["test_x"]})
 
     threading.Thread(target=learner).start()
-    assert main(["watch", "--for", "3", "--pause", "1"]) == 0
+    assert main(["watch", "--for", "3", "--pause", "1", "--all"]) == 0
     events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert [e["event"] for e in events] == ["watching", "paused", "ran"], "typing collapses into one paused event before the run"
     assert events[1]["lines"] == 9 and events[2]["failing"] == ["test_x"] and (events[2]["mode"], events[2]["pair"]) == ("run", "quiet")

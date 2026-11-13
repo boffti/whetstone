@@ -1360,6 +1360,32 @@ def cmd_doctor(args) -> int:
 # ---------- Live pair ----------
 
 
+# Each line the watch prints starts a turn for the agent that reads it, and an agent that is woken
+# says something. So the watch prints only what the learner's pair mode lets the agent act on
+# (.claude/skills/whetstone-pair/SKILL.md, "When to speak"). --all prints everything.
+WATCH_ALWAYS = frozenset({"watching", "requested", "mode"})
+WATCH_WORK = frozenset(
+    {"opened", "paused", "ran", "hint", "solution", "reset", "idle", "explained", "ownership", "rated", "round", "reviewed"}
+)
+STUCK_RUNS = 3
+
+
+def reaches_agent(mode: str, event: str, data: dict, fails: int = 0) -> bool:
+    """True when an agent in this pair mode can act on the event. `fails` is how many of the
+    question's runs in a row have failed, this one included."""
+    if event in WATCH_ALWAYS:
+        return True
+    if mode in ("coach", "interviewer"):
+        return event in WATCH_WORK
+    if mode == "quiet":
+        if event == "ran":
+            return bool(data.get("solved")) or (fails > 0 and fails % STUCK_RUNS == 0)
+        if event == "hint":
+            return data.get("rung") == data.get("of")  # the last hint: the ladder is used up
+        return event in ("idle", "solution")
+    return False  # off: requests only
+
+
 def cmd_watch(args) -> int:
     """Stream what the learner does in the app, one JSON object per line, for an agent to react
     to (see the whetstone-pair skill). Typing is merged into one "paused" event after a pause,
@@ -1376,9 +1402,14 @@ def cmd_watch(args) -> int:
     current, quiet_since, idle_sent = None, time.monotonic(), False
     stop_at = time.monotonic() + args.seconds if args.seconds else None
 
+    fails: dict[str, int] = {}  # question -> failed runs in a row
+
     def emit(event: str, question: str | None, **data) -> None:
+        mode = store.setting("pair_mode", "quiet")
+        if not args.all and not reaches_agent(mode, event, data, fails.get(question, 0)):
+            return
         line = {"at": datetime.now().isoformat(timespec="seconds"), "event": event, "question": question}
-        line |= {"pair": store.setting("pair_mode", "quiet"), **data}
+        line |= {"pair": mode, **data}
         print(json.dumps(line), flush=True)
 
     def flush(question: str) -> None:
@@ -1419,10 +1450,18 @@ def cmd_watch(args) -> int:
                     entry = editing.setdefault(e["challenge"], {"since": now, "lines": 0})
                     entry |= {"last": now} | {k: e["data"][k] for k in ("lines", "shapes") if k in e["data"]}
                     continue
+                reopened = e["kind"] == "opened" and e["challenge"] == current  # a reload, or the tab came back
                 if e["challenge"]:
                     flush(e["challenge"])
                     current = e["challenge"]
-                emit(e["kind"], e["challenge"], **e["data"])
+                if reopened and not args.all:
+                    continue
+                data = e["data"]
+                if e["kind"] == "ran":
+                    fails[current] = 0 if data.get("status") == "passed" else fails.get(current, 0) + 1
+                    if fails[current] >= STUCK_RUNS:
+                        data = data | {"stuck": fails[current]}
+                emit(e["kind"], e["challenge"], **data)
             for question in [q for q, e in editing.items() if now - e["last"] >= args.pause]:
                 flush(question)
             if current and not idle_sent and not editing and now - quiet_since >= args.idle:
@@ -1607,6 +1646,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--pause", type=int, default=20, help="seconds without typing before a 'paused' event (default 20)")
     p.add_argument("--idle", type=int, default=600, help="seconds of no activity before an 'idle' event (default 600)")
     p.add_argument("--for", dest="seconds", type=int, default=0, help="stop after this many seconds (default: run until stopped)")
+    p.add_argument("--all", action="store_true", help="print every event; by default only those the learner's pair mode lets you act on")
     p = cmd(sub, "requests", cmd_requests, "work the learner queued for you in the app (build a module, a variant, a path)")
     p.add_argument("--all", action="store_true", help="include finished requests")
     p.add_argument("--json", action="store_true")

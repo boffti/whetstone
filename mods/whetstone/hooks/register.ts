@@ -6,7 +6,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 type Api = EngineInterface
 type Today = { reviews?: unknown[]; in_progress?: { title?: string } | null }
-type WatchEvent = { event?: string; pair?: string; id?: number; kind?: string; target?: string; status?: string; ask?: string; result?: string }
+type WatchEvent = { event?: string; pair?: string; id?: number; kind?: string; target?: string; status?: string; ask?: string; result?: string; solved?: boolean; stuck?: number; rung?: number; of?: number }
 
 const CLI = 'bin/whetstone'
 const EVERY = ['opened', 'paused', 'ran', 'hint', 'solution', 'idle']
@@ -14,9 +14,20 @@ const EVERY = ['opened', 'paused', 'ran', 'hint', 'solution', 'idle']
 // (.claude/skills/whetstone-pair/SKILL.md). A request from the app always does.
 const WAKES: Record<string, readonly string[]> = {
   off: [],
-  quiet: ['ran', 'hint', 'solution', 'idle'],
+  quiet: ['solution', 'idle'],
   coach: EVERY,
   interviewer: EVERY,
+}
+
+// The same rule as the CLI's own filter (reaches_agent in whetstone/__main__.py). In quiet mode a run
+// wakes the agent only on a first solve or on every third failure in a row, and a hint only when it is the last.
+function wakes(event: WatchEvent): boolean {
+  const mode = event.pair ?? 'quiet'
+
+  if (mode === 'quiet' && event.event === 'ran') return event.solved === true || (event.stuck !== undefined && event.stuck % 3 === 0)
+  if (mode === 'quiet' && event.event === 'hint') return event.rung !== undefined && event.rung === event.of
+
+  return (WAKES[mode] ?? []).includes(event.event ?? '')
 }
 
 // ponytail: module variables, so a reload starts them over and can announce a still-queued request once more.
@@ -64,9 +75,9 @@ function handle($: Api, line: string): void {
   } else if (event.event === 'request-done' || event.event === 'request-failed') {
     $.ui.toast(`Whetstone: ${event.kind} ${event.event === 'request-done' ? 'ready' : 'failed'}${event.result ? `, ${event.result}` : ''}`)
     void refresh($).catch(() => undefined)
-  } else if (event.event && (WAKES[event.pair ?? 'quiet'] ?? []).includes(event.event)) {
+  } else if (wakes(event)) {
     void $.prompt.submit({
-      text: `Whetstone event (pair mode ${event.pair ?? 'quiet'}): ${line}\nFollow the whetstone-pair skill. If the mode says to stay quiet here, reply with nothing more than "noted".`,
+      text: `Whetstone event (pair mode ${event.pair ?? 'quiet'}): ${line}\nFollow the whetstone-pair skill. If nothing is needed, end your turn with no message.`,
     })
   }
 }
@@ -79,7 +90,7 @@ async function keep($: Api, waitMs: number): Promise<void> {
   try {
     let rest = ''
 
-    for await (const piece of $.process.spawn({ argv: [CLI, 'watch'] })) {
+    for await (const piece of $.process.spawn({ argv: [CLI, 'watch', '--all'] })) {
       if (piece.stream !== 'stdout') continue
       const lines = (rest + piece.text).split('\n')
 

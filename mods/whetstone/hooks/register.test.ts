@@ -8,6 +8,8 @@ const WATCH = [
   { event: 'opened', pair: 'quiet', question: 'rate-limiter/00-pace-the-backfill' },
   { event: 'idle', pair: 'quiet', question: 'rate-limiter/00-pace-the-backfill' },
   { event: 'ran', pair: 'off', question: 'rate-limiter/00-pace-the-backfill' },
+  { event: 'ran', pair: 'quiet', status: 'failed', solved: false, question: 'rate-limiter/00-pace-the-backfill' },
+  { event: 'ran', pair: 'quiet', status: 'failed', solved: false, stuck: 3, question: 'rate-limiter/00-pace-the-backfill' },
 ]
 
 test('the watch stays up, a request wakes the agent, and the status line says what is due', async ($, on) => {
@@ -41,8 +43,10 @@ test('the watch stays up, a request wakes the agent, and the status line says wh
   expect(status).toContain('agent connected, 1 review due, "Pace the nightly price backfill" in progress')
   expect(status.at(-1)).toBe('watch stopped, 1 review due, "Pace the nightly price backfill" in progress')
   expect(toasts).toEqual(['Whetstone: build requested for rate-limiter'])
-  // The queued request and the idle event wake the agent. A claimed request, an `opened` in quiet mode and anything in off mode do not.
-  expect(prompts.length).toBe(2)
+  // The queued request, the idle event and the third failed run in a row wake the agent. A claimed request,
+  // an `opened` or one failed run in quiet mode, and anything in off mode do not.
+  expect(prompts.length).toBe(3)
+  expect(prompts[2]).toContain('"stuck":3')
   expect(prompts[0]).toContain('Whetstone request 7')
   expect(prompts[1]).toContain('"event":"idle"')
   // The watch ended, so the mod starts it again 5 s later.
