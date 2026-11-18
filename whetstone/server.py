@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -16,9 +17,9 @@ from pydantic import BaseModel, Field
 from . import dashboard as dash
 from . import rounds
 from .catalog import FRAMING, build_notes, catalog_links, find_problem, framing_ask, load_catalog, path_rows
-from .config import Settings, load_settings
+from .config import EXAMPLE, Settings, load_settings
 from .content import ContentError, find_challenge, load_all_paths, load_profile, load_tracks, render_md, save_profile_header, slugify
-from .generator import GenerationError, ensure_track, generate_challenge
+from .generator import GenerationError, ensure_track, generate_challenge, install_challenge
 from .runner import check_ownership, check_whiteboard, drawing_mermaid, run_project, run_tests
 from .store import PAIR_MODES, REQUEST_KINDS, Store, progress_rows
 
@@ -677,6 +678,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return {"ok": False, "error": str(exc), "log": lines}
         track, cid = key.split("/", 1)
         return {"ok": True, "track": track, "id": cid, "log": lines}
+
+    @app.post("/api/example")
+    def try_example(request: Request):
+        """File the shipped example as a first question, so a new learner can solve something before
+        an agent has built anything. It goes through the same checks as any other question."""
+        require_json(request)
+        if load_tracks(settings.tracks_dir):
+            raise HTTPException(409, "You already have questions.")
+        if not EXAMPLE.is_dir():
+            raise HTTPException(404, "The example question is not in this install.")
+        module = "concurrency-caching"
+        problem = find_problem(settings, module) or {}
+        stage = settings.staging_dir / EXAMPLE.name
+        shutil.rmtree(stage, ignore_errors=True)
+        shutil.copytree(EXAMPLE, stage)
+        key, problems, _ = install_challenge(settings, stage, module, problem.get("title"), problem.get("summary"))
+        if not key:
+            raise HTTPException(500, "; ".join(problems))
+        return {"key": key}
 
     return app
 

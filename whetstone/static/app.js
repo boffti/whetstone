@@ -495,7 +495,8 @@ function renderRequest(wrap) {
     nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", (e) => (FRAMED.has(kind)
       ? openPrepare(e.currentTarget, target, (f) => sendRequest(kind, target, f)) : sendRequest(kind, target)))];
   } else if (r.status === "queued") {
-    nodes = [el("span", { class: "req-state", text: `${state.agent.connected ? "Queued for your agent" : "Waiting for your agent"}${framedFor(r)}` }),
+    nodes = [el("span", { class: "req-state", title: state.agent.connected ? null : "No agent is watching. Start your agent in this folder and say: watch Whetstone",
+      text: `${state.agent.connected ? "Queued for your agent" : "Waiting for your agent"}${framedFor(r)}` }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "claimed" && r.stale && !state.agent.connected) {
     nodes = [el("span", { class: "req-state failed", text: "Your agent stopped. Cancel or retry." }),
@@ -2653,9 +2654,23 @@ function setupSteps(d, paths) {
   return [
     { done: Boolean(d.profile.name || d.profile.role || d.profile.goal), title: "Set up your profile", short: "set up your profile", sub: "Your agent writes it from what it knows about you and your GitHub, plus a few questions.", action: requestButton("profile", "") },
     { done: (d.profile.focus || []).length > 0 || (d.profile.paths || []).length > 0 || paths.some((p) => p.mine), title: "Choose what to keep sharp", short: "choose what to keep sharp", sub: "Add skills to your focus below, or follow a path.", action: el("a", { class: "btn btn-secondary", href: "#/paths" }, "Browse paths") },
-    { done: d.questions.length > 0, title: "Get your first question", short: "get your first question", sub: "Your agent writes it and Whetstone checks it.", action: firstModule ? requestButton("build", firstModule) : null },
+    { done: d.questions.length > 0, title: "Get your first question", short: "get your first question", sub: "Your agent writes it and Whetstone checks it. Or try a finished one now, with no agent.", action: el("span", {}, firstModule ? requestButton("build", firstModule) : null, d.questions.length ? null : el("button", { type: "button", class: "btn btn-secondary", onclick: tryExample }, "Try an example")) },
     { done: d.questions.some((r) => SOLVED.has(r.status)), title: "Solve it", short: "solve your first question", sub: "Run the tests as you go, then Submit." },
   ];
+}
+
+async function tryExample(event) {
+  const btn = event.currentTarget;
+  btn.disabled = true;
+  btn.textContent = "Checking the example...";
+  try {
+    const { key } = await api("/api/example", { method: "POST", body: {} });
+    location.hash = `#/${key}`;
+    location.reload();  // the new module is not in this page's list yet
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = `Try an example (${err.message})`;
+  }
 }
 
 const SETUP_KEY = "whetstone.setup";

@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-const TODAY = JSON.stringify({ reviews: [{ key: 'ledger/01-cash-book-week' }], in_progress: { title: 'Pace the nightly price backfill' }, paths: [] })
+const TODAY = JSON.stringify({ reviews: [{ key: 'rate-limiter/01-token-bucket' }], in_progress: { title: 'Stop paying twice for a slow lookup' }, paths: [] })
 const WATCH = [
   { event: 'watching', pair: 'quiet' },
   { event: 'requested', pair: 'quiet', id: 7, kind: 'build', target: 'rate-limiter', status: 'queued', ask: 'Build the next question for rate-limiter.' },
@@ -40,8 +40,8 @@ test('the watch stays up, a request wakes the agent, and the status line says wh
   await clock.settle() // the watch loop runs on after session.start returns
 
   expect(watches).toBe(1)
-  expect(status).toContain('agent connected, 1 review due, "Pace the nightly price backfill" in progress')
-  expect(status.at(-1)).toBe('watch stopped, 1 review due, "Pace the nightly price backfill" in progress')
+  expect(status).toContain('agent connected, 1 review due, "Stop paying twice for a slow lookup" in progress')
+  expect(status.at(-1)).toBe('watch stopped, 1 review due, "Stop paying twice for a slow lookup" in progress')
   expect(toasts).toEqual(['Whetstone: build requested for rate-limiter'])
   // The queued request, the idle event and the third failed run in a row wake the agent. A claimed request,
   // an `opened` or one failed run in quiet mode, and anything in off mode do not.

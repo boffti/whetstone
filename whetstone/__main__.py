@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -26,6 +27,10 @@ from .content import (
     save_path,
     slugify,
 )
+
+# Where the learner opens the app. WHETSTONE_PORT in .env moves it off 8000.
+PORT = int(os.environ.get("WHETSTONE_PORT") or 8000)
+APP_URL = f"http://localhost:{PORT}"
 
 
 def _framing(value: str) -> str:
@@ -828,7 +833,7 @@ def cmd_question_add(args) -> int:
         return 1
     print(f"Added {key}.")
     print(f"Run `{CLI} question check {key}` twice more to catch flaky timing.")
-    print(f"The learner can open it at http://localhost:8000/#/{key}")
+    print(f"The learner can open it at {APP_URL}/#/{key}")
     return 0
 
 
@@ -1285,7 +1290,7 @@ def cmd_doctor(args) -> int:
     check(
         bool(questions) or None,
         f"Your questions: {len(questions)} in {plural(len(tracks), 'module')}",
-        'Ask your agent: "Build the first Whetstone question for <module>."',
+        'Ask your agent: "Build the first Whetstone question for <module>." Or press Try an example on the app\'s first page.',
     )
     old = [c.key for c in questions if (c.path / "hints.md").exists() and len(c.hints()) != 4]
     if old:
@@ -1305,13 +1310,14 @@ def cmd_doctor(args) -> int:
     )
 
     try:
-        with urllib.request.urlopen("http://127.0.0.1:8000/api/config", timeout=1) as resp:  # noqa: S310 - fixed local URL
+        inside = 8000 if Path("/.dockerenv").exists() else PORT  # in the container the app is always on 8000
+        with urllib.request.urlopen(f"http://127.0.0.1:{inside}/api/config", timeout=1) as resp:  # noqa: S310 - fixed local URL
             app_up = resp.status == 200
     except OSError:
         app_up = False
     check(
         app_up or None,
-        f"Web app at http://localhost:8000: {'running' if app_up else 'not running'}",
+        f"Web app at {APP_URL}: {'running' if app_up else 'not running'}",
         "Start it with docker compose up -d, or bin/whetstone serve.",
     )
 
@@ -1557,7 +1563,7 @@ def main(argv: list[str] | None = None) -> int:
     cmd(sub, "doctor", cmd_doctor, "check the setup and say how to fix each problem")
     p = cmd(sub, "serve", cmd_serve, "start the web app")
     p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--port", type=int, default=PORT)
 
     # Learning paths
     paths = sub.add_parser("path", help="learning paths: ordered modules toward a goal").add_subparsers(dest="action", required=True)
