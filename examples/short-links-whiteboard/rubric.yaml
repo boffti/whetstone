@@ -17,8 +17,8 @@ points:
     look_for: >-
       Peak redirects per second worked out from the daily number (about 10,000 to 15,000 per second here), a cache
       size from active links times record size (a few GB, fits in RAM), a stated hit rate and the database load that
-      follows, and an edge or multi-region layer near visitors. Partial if a cache is drawn but nothing ties its size
-      or the server count to the numbers.
+      follows, a server count inside the budget, and an edge or multi-region layer near visitors. Partial if a cache is
+      drawn but nothing ties its size or the server count to the numbers.
 
   - id: redirect-status  # lesson misconception: a 301 and a 302 are the same to the business
     section: API

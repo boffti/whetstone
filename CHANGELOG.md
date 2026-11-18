@@ -11,6 +11,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - A module's first question is now easy and has one idea. Problems split their rules into Core and Edge cases and name the first test to pass. `question add` warns above 7 rules or 30 words in a rule. AUTHORING.md has a Language section, about 80% of the way to Simplified Technical English, for everything the learner reads.
 
 ### Practice
+- A lesson can have a **Walkthrough**: a few steps that open one at a time, each showing the state after one change. A step can end with a question that the next step answers.
+- System design questions now state three targets under Scale: the peak load, a latency limit and a budget. The rubric checks the design against them.
 - **Syntax** over the editor: the lesson's "In Python" section opens above your code and stays there while you type, at any width and from one question to the next. It appears once the lesson is open.
 - Terminal questions (`type: terminal`): text pipelines, jq and git rescues, practiced alone in a real shell. `bin/whetstone shell <question>` opens bash in the question's folder, in the image that grades it, with no network and only that folder mounted, so a stray `rm -rf` or `reset --hard` can't touch anything else. You explore `sandbox/`, then write the commands in `solution.sh`; Run and Submit replay it on fresh scenarios, including hidden ones unlike yours. Your shell history is kept for the review.
 - Tool packs in `content/tools.yaml`: `shell`, `git` and `jq` come in the image; others (such as `sqlite3`) install when `WHETSTONE_TOOLS` in `.env` names them. Adding a CLI is a registry entry, an example and catalog modules, with no app code. `doctor` lists the installed packs.

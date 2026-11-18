@@ -19,6 +19,7 @@ Design the short link service.
 - Visitors are worldwide, mostly in North America and Europe.
 - A redirect must feel instant: under 100 ms for the visitor, at p99.
 - Redirects keep working when one part of the system fails. Link creation may pause for a few minutes.
+- The budget is 10 redirect servers in total, and one cache node in each region.
 - A destination change or a switch-off takes effect within 1 minute. Clicks appear in the report within 5 minutes.
 
 ## Out of scope

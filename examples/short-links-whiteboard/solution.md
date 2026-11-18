@@ -18,7 +18,7 @@ Not doing: sign-in, report UI, QR images, outside sign-up, real bot detection.
 - Link row ≈ 500 B with index. 100 M × 500 B = 50 GB: one database.
 - Hot set: ~6 M campaign links × 300 B ≈ 2 GB, so one Redis node per region holds it.
 - At a 99% hit rate the database sees 1% × 15,000 = 150 reads/s.
-- At 5,000 cached redirects/s per server, peak needs 3; each region runs 4, so either region carries it alone.
+- At 5,000 cached redirects/s per server, peak needs 3; each region runs 4, so either region carries it alone, inside the budget of 10.
 - Clicks: 50 M × 200 B = 10 GB/day, ~1 TB for 90 days in object storage.
 - Code space: 62^7 ≈ 3.5 × 10^12; 100 M links a year uses 0.003% of it.
 

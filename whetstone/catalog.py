@@ -233,7 +233,10 @@ def make_brief(
         )
     lines += ["", "## Question type"]
     if whiteboard:
-        lines.append("whiteboard: follow the whiteboard section of AUTHORING.md. Copy the quality of examples/short-links-whiteboard/.")
+        lines.append(
+            "whiteboard: follow the whiteboard section of AUTHORING.md. Copy the quality of examples/short-links-whiteboard/. "
+            "State the peak load, a latency limit and a budget in `## Scale`."
+        )
     elif kind:
         why = "a command-line module, so every question is one" if command_line else "requested"
         lines.append(f"{kind}: {why}. Follow the {kind} section of AUTHORING.md.")

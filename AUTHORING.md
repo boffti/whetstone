@@ -149,6 +149,7 @@ A system design interview, answered on a scratchpad the learner's agent can watc
 ```
 
 - **Sections.** The design has these `##` sections, in order: Requirements, Estimates, API, Data model, High-level design, Deep dives, Trade-offs, Failure modes. `bin/whetstone question new <module> <slug> --type whiteboard` writes the starter. **Check sections** (the app's run button) passes when every section has at least 12 words and there is a diagram: two labelled shapes joined by an arrow on the whiteboard, or a ` ```mermaid ` block. It never solves the question.
+- **Targets.** `## Scale` in `problem.md` states three numbers the design must meet: the peak load, a latency limit, and a budget (a monthly cost, or a count of machines). The reference design's Estimates show the arithmetic that meets all three, and a must-have rubric point checks the design against them. Without a budget, more machines is always a correct answer.
 - **The rubric** is the hidden test suite:
   ```yaml
   points:
@@ -275,6 +276,8 @@ Use these sections, in this order:
 6. `## Tie-in to your work`: one or two sentences that connect the concept to the learner's systems (see `profile.md`).
 
 Add an `## Analogy` section after "The idea" only if the learner's profile asks for analogies.
+
+Add a `## Walkthrough` section after "Subgoals" when the idea is a state that changes: a dict after each line, a message after each hop. It has 3 to 6 steps, each a `### ` heading with one short code block or diagram and one or two sentences. Each step changes one thing. The app opens the steps one at a time, so end a step with a question when the next step answers it. Like the worked example, it traces a *different* problem from the task.
 
 Length: 250 to 500 words. `question add` warns above 500.
 
