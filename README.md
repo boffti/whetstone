@@ -82,7 +82,7 @@ docker compose up -d --build        # then open http://localhost:8000
 claude                              # or codex, or open the folder in Cursor
 ```
 
-Open `http://localhost:8000` in a browser pane next to your agent, such as the built-in browser in Claude's desktop app, or in any browser tab. To solve something at once, press **Try an example** on the first page: it files a finished question with no agent. Then tell your agent: *"Set up my Whetstone profile."* If something doesn't work, run `bin/whetstone doctor`: it checks your setup and says how to fix each problem.
+Open `http://localhost:8000` in a browser pane next to your agent, such as the built-in browser in Claude's desktop app, or in any browser tab. To solve something at once, press **Try an example** on the first page: it files a finished question with no agent. Then tell your agent: *"Set up my Whetstone profile."* If port 8000 is taken, set `WHETSTONE_PORT` in `.env`. If something doesn't work, run `bin/whetstone doctor`: it checks your setup and says how to fix each problem.
 
 The exercises are Python 3.12 today. Building a question takes your agent a few minutes. To update Whetstone, run `git pull && docker compose up -d --build`.
 
@@ -150,7 +150,7 @@ In the desktop app, set `CLAUDE_CODE_PLUGIN_DIRS` to the full path of `mods/whet
 
 - **It keeps the watch running.** You do not need to say "watch Whetstone", and it starts the watch again after the app restarts. The app shows **Agent connected** while it runs.
 - **It tells you when the app asks for work.** You get a short notice when you press Prepare, and another when the question is ready. Your agent starts on the request by itself.
-- **It shows what is due** in the status line, for example `whetstone: agent connected, 2 reviews due, "Pace the nightly price backfill" in progress`.
+- **It shows what is due** in the status line, for example `whetstone: agent connected, 2 reviews due, "Stop paying twice for a slow lookup" in progress`.
 
 How often your agent reacts to your own work follows the pair mode you set in the app. In `off` it reacts to nothing but requests.
 

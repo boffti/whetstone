@@ -495,7 +495,8 @@ function renderRequest(wrap) {
     nodes = [button(wrap.dataset.label, kind === "grade" ? "btn-primary" : "btn-secondary", (e) => (FRAMED.has(kind)
       ? openPrepare(e.currentTarget, target, (f) => sendRequest(kind, target, f)) : sendRequest(kind, target)))];
   } else if (r.status === "queued") {
-    nodes = [el("span", { class: "req-state", text: `${state.agent.connected ? "Queued for your agent" : "Waiting for your agent"}${framedFor(r)}` }),
+    nodes = [el("span", { class: "req-state", title: state.agent.connected ? null : "No agent is watching. Start your agent in this folder and say: watch Whetstone",
+      text: `${state.agent.connected ? "Queued for your agent" : "Waiting for your agent"}${framedFor(r)}` }),
       button("Cancel", "btn-text", () => cancelRequest(r.id))];
   } else if (r.status === "claimed" && r.stale && !state.agent.connected) {
     nodes = [el("span", { class: "req-state failed", text: "Your agent stopped. Cancel or retry." }),
