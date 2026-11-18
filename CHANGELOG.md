@@ -11,6 +11,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - A module's first question is now easy and has one idea. Problems split their rules into Core and Edge cases and name the first test to pass. `question add` warns above 7 rules or 30 words in a rule. AUTHORING.md has a Language section, about 80% of the way to Simplified Technical English, for everything the learner reads.
 
 ### Practice
+- **Try an example** on the first page files a finished question before your agent has built anything, so a new install has something to solve at once.
 - A lesson can have a **Walkthrough**: a few steps that open one at a time, each showing the state after one change. A step can end with a question that the next step answers.
 - System design questions now state three targets under Scale: the peak load, a latency limit and a budget. The rubric checks the design against them.
 - **Syntax** over the editor: the lesson's "In Python" section opens above your code and stays there while you type, at any width and from one question to the next. It appears once the lesson is open.

@@ -1285,7 +1285,7 @@ def cmd_doctor(args) -> int:
     check(
         bool(questions) or None,
         f"Your questions: {len(questions)} in {plural(len(tracks), 'module')}",
-        'Ask your agent: "Build the first Whetstone question for <module>."',
+        'Ask your agent: "Build the first Whetstone question for <module>." Or press Try an example on the app\'s first page.',
     )
     old = [c.key for c in questions if (c.path / "hints.md").exists() and len(c.hints()) != 4]
     if old:

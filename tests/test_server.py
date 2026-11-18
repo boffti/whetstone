@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from whetstone.config import Settings
+from whetstone.config import EXAMPLE, Settings
 from whetstone.content import LearningPath, save_path
 from whetstone.server import LOCAL_HOSTS, create_app, is_local_request, request_ask
 from whetstone.store import Store
@@ -467,3 +467,25 @@ def test_an_ai_allowed_round_opens_stage_by_stage(tmp_path, monkeypatch, capsys)
     out = capsys.readouterr().out
     assert "stage 3 of 3" in out and "stage 2 opened" in out and "changed refunds/clock.py" in out
     assert "ownership check, AI closed: 2 of 3 right" in out and "### refunds/flow.py" in out
+
+
+def test_a_new_learner_can_file_the_shipped_example_once(tmp_path):
+    """Before an agent has built anything, the first page offers a finished question to solve."""
+    from fastapi.testclient import TestClient
+
+    content, mine = tmp_path / "content", tmp_path / "my"
+    content.mkdir()
+    mine.mkdir()
+    (content / "catalog.yaml").write_text(
+        yaml.safe_dump({"problems": [{"id": "concurrency-caching", "title": "Concurrency and caching", "summary": "s", "reports": []}]})
+    )
+    settings = Settings(content, mine, "redis://localhost:1/0", None, "", 30)
+    client = TestClient(create_app(settings), base_url="http://localhost")
+
+    r = client.post("/api/example", json={})
+    assert r.status_code == 200, r.text
+    assert r.json()["key"] == "concurrency-caching/01-memoize"
+    track, cid = r.json()["key"].split("/")
+    assert client.get(f"/api/challenges/{track}/{cid}").json()["title"]
+    assert (EXAMPLE / "challenge.yaml").exists(), "the shipped example is copied, not moved"
+    assert client.post("/api/example", json={}).status_code == 409, "only as a first question"

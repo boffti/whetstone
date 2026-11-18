@@ -37,7 +37,7 @@ Skills need three kinds of care, and Whetstone gives all three:
 
 **Built around you.** Your agent already knows you from the work you've done together: what you build, your stack and experience, where you're headed, and what it now writes for you. It drafts your profile from that, and from your GitHub activity if you agree, so there's nothing to fill in. You only check the draft. Every question is then written for you: a scenario from your world, at the step you're ready for, explained the way you learn.
 
-**Real problems from real interviews.** The question bank is grounded in 2,771 interview reports from 397 companies, organised into 271 modules and 78 systems to build. The problems are practical: ledgers that must balance, retries that must not charge twice, rate limiters, caches and schedulers. There are no throwaway puzzles. That makes Whetstone good interview preparation too: filter by the companies you're aiming for, practice system design on a whiteboard, and ask your agent for a mock interview.
+**Real problems from real interviews.** The question bank is grounded in 2,835 interview reports from 407 companies, organised into 275 modules and 79 systems to build. The problems are practical: ledgers that must balance, retries that must not charge twice, rate limiters, caches and schedulers. There are no throwaway puzzles. That makes Whetstone good interview preparation too: filter by the companies you're aiming for, practice system design on a whiteboard, and ask your agent for a mock interview.
 
 **Your AI as reviewer and interviewer.** The same agent that writes your questions also reviews your solutions like a staff engineer, nudges you one step at a time when you're stuck without giving the answer away, pairs with you in the editor's margin, and runs mock interviews.
 
@@ -82,7 +82,7 @@ docker compose up -d --build        # then open http://localhost:8000
 claude                              # or codex, or open the folder in Cursor
 ```
 
-Open `http://localhost:8000` in a browser pane next to your agent, such as the built-in browser in Claude's desktop app, or in any browser tab. Then tell your agent: *"Set up my Whetstone profile."* If something doesn't work, run `bin/whetstone doctor`: it checks your setup and says how to fix each problem.
+Open `http://localhost:8000` in a browser pane next to your agent, such as the built-in browser in Claude's desktop app, or in any browser tab. To solve something at once, press **Try an example** on the first page: it files a finished question with no agent. Then tell your agent: *"Set up my Whetstone profile."* If something doesn't work, run `bin/whetstone doctor`: it checks your setup and says how to fix each problem.
 
 The exercises are Python 3.12 today. Building a question takes your agent a few minutes. To update Whetstone, run `git pull && docker compose up -d --build`.
 
@@ -199,7 +199,7 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 
 <table>
 <tr>
-<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/paths-dark.png"><img src="docs/screenshots/paths.png" alt="Paths: 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module."></picture><br><b>Paths.</b> 78 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module.</td>
+<td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/paths-dark.png"><img src="docs/screenshots/paths.png" alt="Paths: 79 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module."></picture><br><b>Paths.</b> 79 systems to build. Filter by what suits you, what is ready now, a domain or a company. Pick a stop to see every path that uses that module.</td>
 <td width="50%" valign="top"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/path-detail-dark.png"><img src="docs/screenshots/path-detail.png" alt="One path: The modules in order, with the companies it is modelled on and your focus marked. Prepare all queues them in order, so you start the first while your agent prepares the rest."></picture><br><b>One path.</b> The modules in order, with the companies it is modelled on and your focus marked. Prepare all queues them in order, so you start the first while your agent prepares the rest.</td>
 </tr>
 <tr>
@@ -228,7 +228,7 @@ These are at side-pane width (820 px), the size the app is designed for. It also
 <table>
 <tr>
 <td width="50%" valign="top"><img src="docs/brand/icons/for-you.svg" width="44" height="44" align="left" alt=""><b>Built around you</b><br>Your agent already knows your work, stack, experience and goals, and writes every question for you.</td>
-<td width="50%" valign="top"><img src="docs/brand/icons/systems.svg" width="44" height="44" align="left" alt=""><b>Real problems from real interviews</b><br>2,771 interview reports from 397 companies, organised into 271 modules and 78 systems to build.</td>
+<td width="50%" valign="top"><img src="docs/brand/icons/systems.svg" width="44" height="44" align="left" alt=""><b>Real problems from real interviews</b><br>2,835 interview reports from 407 companies, organised into 275 modules and 79 systems to build.</td>
 </tr>
 <tr>
 <td width="50%" valign="top"><img src="docs/brand/icons/spaced.svg" width="44" height="44" align="left" alt=""><b>Learn, relearn, keep sharp</b><br>New ideas step by step, faded ones brought back, and every solved idea returning after 3 days, 3 weeks, 3 months, 6 months and a year.</td>
