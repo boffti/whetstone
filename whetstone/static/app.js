@@ -17,6 +17,7 @@ const state = {
   noteAfter: 0,
   noteDecos: [],
   lessonLocked: false,
+  step: 0,  // how far the lesson's walkthrough is open
   activeFile: "solution.py",
   mainFile: "solution.py",  // the learner's file: solution.py, or design.md for a system design
   editor: null,
@@ -403,6 +404,7 @@ async function openChallenge(trackId, cid) {
   state.hintsShown = c.hints.length;
   state.guessing = null;
   state.hintReady = c.hint_ready;
+  state.step = 0;
   // Problem first: some lessons open only after the first test run (docs/PEDAGOGY.md, rule 1).
   state.lessonLocked = c.lesson_mode === "after-run" && c.runs === 0 && !c.solved;
   state.mainFile = c.file;
@@ -830,8 +832,33 @@ function renderLesson() {
   } else {
     panel.innerHTML = state.challenge.lesson_html;
     colorize(panel);
+    buildSteps(panel);
   }
   buildRef();
+}
+
+// A lesson's "## Walkthrough" holds "### " steps. They open one at a time, so a step can end
+// with a question that the next step answers. Without this the section reads top to bottom.
+function buildSteps(panel) {
+  const head = [...panel.children].find((n) => n.tagName === "H2" && n.textContent.trim() === "Walkthrough");
+  const steps = [];
+  for (let n = head && head.nextElementSibling; n && n.tagName !== "H2";) {
+    const next = n.nextElementSibling;
+    if (n.tagName === "H3") { steps.push(el("section", { class: "step" })); n.before(steps.at(-1)); }
+    if (steps.length) steps.at(-1).append(n);
+    n = next;
+  }
+  if (steps.length < 2) return;
+  const more = el("button", { class: "chip step-next", type: "button" });
+  const show = (to) => {
+    state.step = Math.min(to, steps.length - 1);
+    steps.forEach((s, i) => { s.hidden = i > state.step; });
+    more.textContent = `Next step (${state.step + 2} of ${steps.length})`;
+    more.hidden = state.step === steps.length - 1;
+  };
+  more.addEventListener("click", () => { show(state.step + 1); steps[state.step].scrollIntoView({ block: "nearest" }); });
+  steps.at(-1).after(more);
+  show(state.step);
 }
 
 /* ---------- The lesson's syntax, pinned over the editor ---------- */
