@@ -51147,3 +51147,77 @@ problems:
   companies: []
   rounds: []
   reports: []
+- id: sql-queries
+  title: SQL queries
+  summary: Write queries that join, group and rank rows, find overlapping date ranges, pick the latest
+    row per key and repair bad loads, checked against small SQLite tables.
+  format: hands-on
+  track: null
+  tags:
+  - sql
+  - joins
+  - window-functions
+  - sqlite
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
+- id: refactor-under-tests
+  title: Refactor working code under tests
+  summary: Take working but tangled code, add tests that pin its behavior, then split, rename and speed
+    it up in small steps without changing what it returns.
+  format: hands-on
+  track: null
+  tags:
+  - refactoring
+  - characterization-tests
+  - legacy-code
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
+- id: decoding-sampling
+  title: Decoding and sampling
+  summary: Turn model scores into output with NumPy. Build greedy, temperature, top-k and top-p sampling,
+    beam search, one cached decode step and non-maximum suppression.
+  format: hands-on
+  track: null
+  tags:
+  - sampling
+  - beam-search
+  - numpy
+  - inference
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
+- id: llm-structured-extraction
+  title: Structured extraction with a model
+  summary: Pull typed fields out of many documents with a fake model. Validate each answer against a
+    schema, retry bad output, keep the source span and send disagreements to review.
+  format: hands-on
+  track: null
+  tags:
+  - extraction
+  - schema-validation
+  - llm
+  - human-review
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []
+- id: near-duplicate-detection
+  title: Near-duplicate detection
+  summary: Find documents that are almost the same with shingles, MinHash, SimHash and locality-sensitive
+    buckets, without comparing every pair.
+  format: hands-on
+  track: null
+  tags:
+  - minhash
+  - simhash
+  - lsh
+  - deduplication
+  report_count: 0
+  companies: []
+  rounds: []
+  reports: []

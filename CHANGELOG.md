@@ -23,6 +23,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Whetstone keeps a snapshot of the folder at every run. `whetstone draft` shows the round run by run, so your agent's review can grade how you worked (reading first, scoped prompts, checking the output) separately from the tests. With your OK it also reads your AI tool's own session log.
 - `examples/late-refunds-round/` is the quality bar: three stages of a refund-flow codebase, built from DoorDash's AI-allowed round reports. A fresh AI's answer is one of its mutants. docs/PEDAGOGY.md has a new rule 13 on working with AI, and the spaced review of a round comes back solo.
 
+### Catalog and paths
+- Five new modules to ask your agent for: `sql-queries`, `refactor-under-tests`, `decoding-sampling`, `llm-structured-extraction` and `near-duplicate-detection`.
+
 ## [0.1.0] - 2026-10-28
 
 The first public release. Whetstone is a private practice space that runs on your machine. Your own AI agent writes the questions for you; real tests grade them.
